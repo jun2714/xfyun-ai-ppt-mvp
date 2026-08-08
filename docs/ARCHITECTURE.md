@@ -1,7 +1,11 @@
-# SparkDeck 007 architecture baseline
+# SparkDeck 007 architecture
 
-007 的正式架构依据位于 `.ai/specs/007-ai-ppt-platform`。
+Dependencies point inward:
 
-当前零基线仅保留 DMX 模型适配器、模型费用预检、通用任务仓储骨架以及 Fastify/React 工程壳。
+`Interfaces → Application → Domain/Packages ← Infrastructure adapters`
 
-旧版模板、角色到布局映射、ResolvedDeck 以及双渲染链路均不得恢复。
+The Scene Graph is the only render truth. Web preview, commands, quality evaluation and PPTX export consume it. The PPTX adapter performs no layout decisions.
+
+Every presentation artifact carries `schemaVersion`, `revision`, `contentHash` and upstream hashes. Design, composition, assets and quality remain separate observable jobs. Paid model calls have a cost preflight and are never retried automatically.
+
+Production stop lines are enforced by tests: no scenario/role/page-number layout dispatch, layout IDs, first-block-only consumption, or execution of generated code.

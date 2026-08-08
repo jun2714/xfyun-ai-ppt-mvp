@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildApp } from "./app.js";
 
-test("zero baseline exposes only health in production", async () => {
+test("007 baseline exposes health and presentation resources", async () => {
   const previous = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
   const app = buildApp();
   const health = await app.inject({ method: "GET", url: "/api/v1/health" });
-  const removedRoute = await app.inject({ method: "GET", url: "/api/v1/projects" });
+  const presentations = await app.inject({ method: "GET", url: "/api/v1/presentations" });
   assert.equal(health.statusCode, 200);
-  assert.equal(removedRoute.statusCode, 404);
+  assert.equal(presentations.statusCode, 200);
   await app.close();
   if (previous === undefined) delete process.env.NODE_ENV;
   else process.env.NODE_ENV = previous;
