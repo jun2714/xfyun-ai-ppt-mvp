@@ -210,7 +210,13 @@ export class PresentationPlatformService {
         this.invalidateAfterDesign(state); state.design = planned.value; state.tokens = resolveDesignTokens(planned.value.plan);
         this.commitSnapshot(state, capturedHash, "design", true);
         this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: planned.value.plan.contentHash });
-      } catch (error) { this.fail(job, error); }
+      } catch (error) {
+        if (error instanceof AppError && error.context.modelTelemetry) {
+          const telemetry = error.context.modelTelemetry;
+          this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: telemetry.model, purpose: "design", scopeId: id, requestHash: promptHash({ outline: state.outline?.contentHash ?? state.brief.contentHash, prompt: telemetry.prompt.contentHash }), estimatedCostRmb: telemetry.estimatedCostRmb, success: false, parentJob: job.id });
+        }
+        this.fail(job, error);
+      }
     })();
     return job;
   }

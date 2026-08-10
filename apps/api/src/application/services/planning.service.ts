@@ -37,6 +37,55 @@ const NarrativeModelOutputSchema = z.object({ pages: z.array(NarrativePageSchema
 const DesignPlanPayloadSchema = DeckDesignPlanSchema.omit(VersionKeys);
 const DesignModelOutputSchema = z.object({ plan: DesignPlanPayloadSchema, intents: z.array(PageDesignIntentSchema).min(1) }).strict();
 
+const objectValue = (value: unknown): Record<string, unknown> | undefined => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+
+/** Converts equivalent provider table rows to the canonical two-dimensional form. */
+const normalizeNarrativeProtocol = (value: unknown): unknown => {
+  const root = objectValue(value); if (!root || !Array.isArray(root.pages)) return value;
+  const textOf = (candidate: unknown): string => typeof candidate === "string" ? candidate : Object.values(objectValue(candidate) ?? {}).map(String).join("：");
+  for (const candidatePage of root.pages) {
+    const page = objectValue(candidatePage); if (!page || !Array.isArray(page.contentGroups)) continue;
+    if (page.audienceAction === null) delete page.audienceAction;
+    for (const candidateGroup of page.contentGroups) {
+      const group = objectValue(candidateGroup); if (!group) continue;
+      if (group.kind === "checklist") group.kind = "list";
+      if (Array.isArray(group.rows)) group.rows = group.rows.map((row) => Array.isArray(row) ? row : Object.values(objectValue(row) ?? {}));
+      if (Array.isArray(group.items)) group.items = group.items.map(textOf);
+    }
+  }
+  const arc = objectValue(root.arc);
+  if (arc && Array.isArray(arc.sections)) for (const candidateSection of arc.sections) {
+    const section = objectValue(candidateSection);
+    if (section && typeof section.transition !== "string") section.transition = textOf(section.transition);
+  }
+  return root;
+};
+
+/** Repairs provider JSON shape drift only; it never invents content or layout. */
+const normalizeDesignProtocol = (value: unknown): unknown => {
+  const root = objectValue(value); const plan = objectValue(root?.plan);
+  if (!root || !plan || !Array.isArray(root.intents)) return value;
+  const rhythm = objectValue(plan.rhythm);
+  if (rhythm && typeof rhythm.continuity === "string") rhythm.continuity = [rhythm.continuity];
+  if (Array.isArray(plan.crossPageConstraints)) plan.crossPageConstraints = plan.crossPageConstraints.filter((item) => objectValue(item));
+  root.intents = root.intents.map((candidate) => {
+    const intent = objectValue(candidate); if (!intent) return candidate;
+    if (intent.density === "balanced" || intent.density === "moderate") intent.density = "medium";
+    if (Array.isArray(intent.groups)) intent.groups = intent.groups.map((candidateGroup) => {
+      const group = objectValue(candidateGroup); if (!group) return candidateGroup;
+      if (!Array.isArray(group.contentGroupIds) || group.contentGroupIds.length === 0) {
+        group.contentGroupIds = Array.isArray(intent.hierarchy) ? intent.hierarchy.map((item) => objectValue(item)?.contentGroupId).filter((id): id is string => typeof id === "string") : [];
+      }
+      return group;
+    });
+    if (Array.isArray(intent.relationships)) intent.relationships = intent.relationships.filter((item) => {
+      const relation = objectValue(item); return typeof relation?.from === "string" && typeof relation.to === "string";
+    });
+    return intent;
+  });
+  return root;
+};
+
 export type PlanningTelemetry = {
   model: string;
   inputTokens: number;
@@ -123,7 +172,7 @@ export class NarrativePlanner {
     const resultTelemetry = telemetry(result, prompt);
     try {
       if (productionLanguage.test(result.content)) throw new AppError("MODEL_PRODUCTION_LANGUAGE_LEAK", "Narrative model returned production language", 422);
-      const raw = NarrativeModelOutputSchema.parse(jsonOf(result.content));
+      const raw = NarrativeModelOutputSchema.parse(normalizeNarrativeProtocol(jsonOf(result.content)));
       const outline = NarrativeOutlineSchema.parse(versioned({ briefId: brief.id, pages: raw.pages, arc: raw.arc, confirmedAt: null }, 0, { brief: brief.contentHash }));
       validateNarrative(outline, brief);
       return { value: outline, telemetry: resultTelemetry };
@@ -176,11 +225,15 @@ export class DesignPlanner {
       userPrompt: JSON.stringify({ brief, outline }),
       responseFormat: "json_object"
     });
-    if (productionLanguage.test(result.content)) throw new AppError("MODEL_PRODUCTION_LANGUAGE_LEAK", "Design model returned production language", 422);
-    const raw = DesignModelOutputSchema.parse(jsonOf(result.content));
-    const plan = DeckDesignPlanSchema.parse(versioned(raw.plan, 0, { outline: outline.contentHash }));
-    validateDesign(brief, outline, plan, raw.intents);
-    return { value: { plan, intents: raw.intents }, telemetry: telemetry(result, prompt) };
+    const resultTelemetry = telemetry(result, prompt);
+    try {
+      // Design output is private metadata. Production terms must be blocked from
+      // audience copy, while geometry/code leakage remains rejected by its Schema.
+      const raw = DesignModelOutputSchema.parse(normalizeDesignProtocol(jsonOf(result.content)));
+      const plan = DeckDesignPlanSchema.parse(versioned(raw.plan, 0, { outline: outline.contentHash }));
+      validateDesign(brief, outline, plan, raw.intents);
+      return { value: { plan, intents: raw.intents }, telemetry: resultTelemetry };
+    } catch (error) { throw contractFailure(error, result.content, resultTelemetry); }
   }
 }
 

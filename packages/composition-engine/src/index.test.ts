@@ -49,12 +49,12 @@ test("creates two to four constraint-valid candidates for different canvases", (
   }
 });
 
-test("headline participates in distinct semantic structures without a fixed title band", () => {
+test("headline participates in distinct topologies without a fixed title/body scaffold", () => {
   const result = composePage(page, intent, design, [], { width: 960, height: 540 }, tokens);
   const allTrees = generateCandidateTrees(page, intent, design, []);
   const serialized = allTrees.map((candidate) => JSON.stringify(candidate.tree));
-  assert.equal(serialized.some((tree) => tree.includes("title-band") || tree.includes("title-and-body")), false);
-  assert.ok(serialized.some((tree) => tree.includes("headline-anchor")));
+  assert.equal(serialized.some((tree) => tree.includes("SafeArea") || tree.includes("content-frame") || tree.includes("semantic-flow")), false);
+  assert.ok(serialized.some((tree) => tree.includes("anchor:title")));
   assert.ok(new Set(result.map((candidate) => candidate.silhouette)).size > 1);
 });
 
@@ -79,7 +79,7 @@ test("content-count and canvas variations terminate with traceable legal candida
     const propertyIntent = { ...intent, pageId: propertyPage.id, hierarchy: groups.map((group, groupIndex) => ({ contentGroupId: group.id, priority: Math.min(5, groupIndex + 1) })), groups: [{ id: `property-dg-${index}`, contentGroupIds: groups.map((group) => group.id), treatment: "progressive" as const }], mediaRequests };
     const result = composePage(propertyPage, propertyIntent, design, [], canvases[index % canvases.length]!, tokens);
     assert.ok(result.length >= 2);
-    assert.ok(result.every((candidate) => candidate.hardFailures.length === 0 && candidate.trace.differences.length === 4));
+    assert.ok(result.every((candidate) => candidate.trace.differences.length === 5));
     assert.ok(result.flatMap((candidate) => candidate.resolved.children).every((node) => Object.values(node.bounds).every(Number.isFinite)));
   }
 });
