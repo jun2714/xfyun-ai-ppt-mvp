@@ -11,20 +11,26 @@ import { PresentationPlatformService } from "../application/services/presentatio
 import { ReviewVisualQualityUseCase } from "../application/use-cases/review-visual-quality.use-case.js";
 import { DmxVisualReviewAdapter } from "../infrastructure/dmx/dmx-visual-review.adapter.js";
 import { SvgContactSheetAdapter } from "../infrastructure/rendering/svg-contact-sheet.adapter.js";
-import { MemoryPresentationStateRepository } from "../infrastructure/persistence/memory/memory-presentation-state-repository.js";
+import { FilePresentationStateRepository } from "../infrastructure/persistence/file/file-presentation-state-repository.js";
+import { FilePromptCatalogAdapter } from "../infrastructure/prompts/file-prompt-catalog.adapter.js";
+import { OfficeRenderEvidenceAdapter } from "../infrastructure/rendering/office-render-evidence.adapter.js";
+import { SharpAssetValidationAdapter } from "../infrastructure/assets/sharp-asset-validation.adapter.js";
+import { FontkitTextMeasurerAdapter } from "../infrastructure/typography/fontkit-text-measurer.adapter.js";
 
 export function createContainer() {
   const config = loadConfig();
   const http = new JsonHttpClient(config.requestTimeoutMs);
   const auth = new DmxAuth(config.dmxApiKey);
   const costPolicy = new ModelCostPolicy(config);
+  const prompts = new FilePromptCatalogAdapter(config.promptDirectory);
   const generateText=new GenerateTextUseCase(new DmxTextModelAdapter(http, auth, config.dmxApiBaseUrl, config.textModel), costPolicy, config.textMaxOutputTokens);
-  const generateImage=new GenerateImageUseCase(new DmxImageModelAdapter(http, auth, config.dmxApiBaseUrl, config.imageModel), costPolicy);
-  const reviewVisualQuality=new ReviewVisualQualityUseCase(new SvgContactSheetAdapter(),new DmxVisualReviewAdapter(http,auth,config.dmxApiBaseUrl,config.visionModel),costPolicy,1200);
+  const generateImage=new GenerateImageUseCase(new DmxImageModelAdapter(http, auth, config.dmxApiBaseUrl, config.imageModel, config.imageApiStyle), prompts, costPolicy);
+  const reviewVisualQuality=new ReviewVisualQualityUseCase(new SvgContactSheetAdapter(),new DmxVisualReviewAdapter(http,auth,config.dmxApiBaseUrl,config.visionModel),prompts,costPolicy,1200);
+  const renderEvidence = new OfficeRenderEvidenceAdapter(config.officeRenderProgramId);
   return {
     config,
     generateText,
     generateImage,
-    platform:new PresentationPlatformService(new MemoryPresentationStateRepository(),new NarrativePlanner(generateText),new DesignPlanner(generateText),config.dmxApiKey?generateImage:undefined,config.dmxApiKey?reviewVisualQuality:undefined)
+    platform:new PresentationPlatformService(new FilePresentationStateRepository(config.dataDirectory),new NarrativePlanner(generateText,prompts),new DesignPlanner(generateText,prompts),renderEvidence,new SharpAssetValidationAdapter(),new FontkitTextMeasurerAdapter(),config.dmxApiKey?generateImage:undefined,config.dmxApiKey?reviewVisualQuality:undefined)
   };
 }

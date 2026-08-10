@@ -12,7 +12,9 @@
     "typecheck": "pnpm -r typecheck",
     "start": "pnpm --filter @sparkdeck/api start",
     "verify": "pnpm build && pnpm typecheck && pnpm test",
-    "test": "pnpm -r --if-present test"
+    "test": "pnpm -r --if-present test",
+    "acceptance:preflight": "pnpm build && pnpm --filter @sparkdeck/acceptance preflight",
+    "acceptance:run": "pnpm build && pnpm --filter @sparkdeck/acceptance run run"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

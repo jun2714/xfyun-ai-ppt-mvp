@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildApp } from "./app.js";
 
-test("007 baseline exposes health and presentation resources", async () => {
+test("008 baseline exposes health and presentation resources", async () => {
   const previous = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
   const app = buildApp();

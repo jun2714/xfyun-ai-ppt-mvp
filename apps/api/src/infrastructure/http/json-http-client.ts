@@ -1,5 +1,6 @@
 import { AppError } from "../../shared/errors/app-error.js";
 
+/** Executes exactly one provider request; retry belongs to no layer because paid calls must never repeat automatically. */
 export class JsonHttpClient {
   constructor(private readonly timeoutMs: number) {}
 

@@ -10,14 +10,15 @@ const OutputSchema = z.object({ issues: z.array(z.object({
 })) });
 type DmxResponse = { model?: string; choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
 
+/** Sends one multimodal DMX request and validates returned page references. */
 export class DmxVisualReviewAdapter implements VisualReviewPort {
   constructor(private readonly http: JsonHttpClient, private readonly auth: DmxAuth, private readonly baseUrl: string, private readonly model: string) {}
   async review(command: VisualReviewCommand): Promise<VisualReviewResult> {
     const response = await this.http.post<DmxResponse>(`${this.baseUrl}/chat/completions`, this.auth.headers(), {
       model: this.model, stream: false, temperature: 0.1, max_tokens: command.maxOutputTokens, response_format: { type: "json_object" },
-      messages: [{ role: "system", content: "You are a presentation quality reviewer. Return JSON only. Do not redesign pages and never return coordinates." }, {
+      messages: [{ role: "system", content: command.systemPrompt }, {
         role: "user", content: [
-          { type: "text", text: `${command.instructions}\nOnly use these page ids: ${command.pageIds.join(", ")}. Return {\"issues\":[{\"pageId\":\"...\",\"dimension\":\"Content|Design|Coherence\",\"severity\":\"warning|error\",\"message\":\"...\",\"repairIntent\":\"semantic repair instruction without coordinates\"}]}. Return an empty issues array when all selected pages pass.` },
+          { type: "text", text: command.contextJson },
           { type: "image_url", image_url: { url: command.contactSheetDataUri } }
         ]
       }]

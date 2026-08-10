@@ -1,4 +1,4 @@
-import { versioned, type AssetPlan, type QualityReport, type SceneGraph, type SceneNode } from "@sparkdeck/presentation-model";
+import { versioned, type AssetBundlePlan, type NarrativeOutline, type QualityReport, type RenderEvidence, type SceneGraph, type SceneNode } from "@sparkdeck/presentation-model";
 import { contrast } from "@sparkdeck/design-language";
 
 export type TextMeasureInput = { text: string; fontFamily: string; fontSize: number; fontWeight: number; maxWidth: number; lineHeight: number };
@@ -21,17 +21,21 @@ const containsCenter = (container: SceneNode["bounds"], target: SceneNode["bound
   return x >= container.x && x <= container.x + container.width && y >= container.y && y <= container.y + container.height;
 };
 const visibleOverlapAllowed = (left: SceneNode, right: SceneNode) => {
-  if (left.kind === "shape" || right.kind === "shape") return true;
-  if (left.kind === "image" && left.content.mediaRole === "background") return true;
-  if (right.kind === "image" && right.content.mediaRole === "background") return true;
+  if (left.kind === "image" && left.content.mediaRole === "full-bleed-background") return true;
+  if (right.kind === "image" && right.content.mediaRole === "full-bleed-background") return true;
+  if (left.kind === "connector" || right.kind === "connector") return true;
+  if (left.kind === "shape" && right.kind === "shape" && left.style.decorative === true && right.style.decorative === true) return true;
+  const shape = left.kind === "shape" ? left : right.kind === "shape" ? right : undefined;
+  const other = shape === left ? right : left;
+  if (shape?.style.decorative === true && shape.zIndex < other.zIndex && containsCenter(shape.bounds, other.bounds)) return true;
   return false;
 };
 const pageSignature = (page: SceneGraph["pages"][number]) => page.nodes
-  .filter((node) => node.kind !== "shape" && node.content.mediaRole !== "background")
+  .filter((node) => node.kind !== "shape" && node.content.mediaRole !== "full-bleed-background")
   .map((node) => `${node.kind}:${Math.round(node.bounds.x / page.width * 4)}:${Math.round(node.bounds.y / page.height * 4)}:${Math.round(node.bounds.width / page.width * 4)}:${Math.round(node.bounds.height / page.height * 4)}`)
   .sort().join("|");
 
-export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasurer; assetPlan?: AssetPlan } = {}): QualityReport {
+export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasurer; assetPlan?: AssetBundlePlan; outline?: NarrativeOutline; renderEvidence?: RenderEvidence } = {}): QualityReport {
   const measurer = options.measurer ?? new ConservativeTextMeasurer();
   const issues: QualityReport["issues"] = [];
   const signatures: string[] = [];
@@ -46,6 +50,7 @@ export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasu
         issues.push({ code: "NODE_OVERFLOW", dimension: "Export", severity: "error", pageId: page.id, nodeIds: [node.id], message: "Element exceeds the slide canvas", repairIntent: "reflow-inside-safe-area" });
       }
       if (node.kind === "text") {
+        if (/(?:negative\s*prompt|safe\s*area|placeholder|image\s*description|layout\s*id|template\s*id|css|html|svg|pptx)/i.test(String(node.content.text ?? ""))) issues.push({ code: "PRODUCTION_COPY_VISIBLE", dimension: "Content", severity: "error", pageId: page.id, nodeIds: [node.id], message: "Audience-facing text contains production language", repairIntent: "remove-production-copy-at-narrative-source" });
         const fontSize = Number(node.style.fontSize ?? 0);
         const minimum = node.content.semantic === "title" ? 28 : node.content.semantic === "caption" ? 14 : 16;
         if (fontSize < minimum) issues.push({ code: "FONT_TOO_SMALL", dimension: "Design", severity: "error", pageId: page.id, nodeIds: [node.id], message: "Text is below its readable minimum", repairIntent: "shorten-copy-or-enlarge-region" });
@@ -66,6 +71,10 @@ export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasu
         const required = node.sourceIds.some((sourceId) => page.requiredSourceIds.includes(sourceId));
         issues.push({ code: "ASSET_UNRESOLVED", dimension: "Content", severity: required ? "error" : "warning", pageId: page.id, nodeIds: [node.id], message: "Media placement has no resolved asset", ...(required ? { repairIntent: "resolve-required-asset-or-select-no-image-candidate" } : {}) });
       }
+      if (node.kind === "image" && node.content.mediaRole === "full-bleed-background") {
+        const coverage = node.bounds.width * node.bounds.height / (page.width * page.height);
+        if (coverage < 0.9) issues.push({ code: "WRONG_MEDIA_ROLE", dimension: "Design", severity: "error", pageId: page.id, nodeIds: [node.id], message: "A full-bleed background does not cover the slide", repairIntent: "recompose-background-as-full-bleed" });
+      }
     }
     for (let leftIndex = 0; leftIndex < page.nodes.length; leftIndex += 1) {
       for (let rightIndex = leftIndex + 1; rightIndex < page.nodes.length; rightIndex += 1) {
@@ -74,8 +83,9 @@ export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasu
         if (intersects(left.bounds, right.bounds) && !visibleOverlapAllowed(left, right)) issues.push({ code: "NODE_OVERLAP", dimension: "Design", severity: "error", pageId: page.id, nodeIds: [left.id, right.id], message: "Visible editable elements overlap", repairIntent: "choose-non-overlapping-candidate" });
       }
     }
-    const occupied = page.nodes.filter((node) => node.kind !== "shape" && node.content.mediaRole !== "background").reduce((sum, node) => sum + node.bounds.width * node.bounds.height, 0) / (page.width * page.height);
+    const occupied = page.nodes.filter((node) => node.kind !== "shape" && node.content.mediaRole !== "full-bleed-background").reduce((sum, node) => sum + node.bounds.width * node.bounds.height, 0) / (page.width * page.height);
     if (occupied > 0.88) issues.push({ code: "PAGE_TOO_DENSE", dimension: "Design", severity: "warning", pageId: page.id, nodeIds: [], message: "Page has insufficient breathing room", repairIntent: "reduce-density-or-split-content" });
+    if (!page.nodes.some((node) => node.kind === "image" || node.kind === "chart" || node.content.semantic === "metric") && page.nodes.filter((node) => node.kind === "shape").length === 0) issues.push({ code: "VISUAL_ANCHOR_MISSING", dimension: "Design", severity: "warning", pageId: page.id, nodeIds: [], message: "Page has no clear visual anchor", repairIntent: "strengthen-native-or-media-focal-point" });
     signatures.push(pageSignature(page));
   }
   for (let index = 1; index < signatures.length; index += 1) if (signatures[index] === signatures[index - 1]) issues.push({ code: "REPETITIVE_COMPOSITION", dimension: "Coherence", severity: "warning", pageId: scene.pages[index]?.id, nodeIds: [], message: "Adjacent pages have the same composition silhouette", repairIntent: "select-alternative-candidate" });
@@ -83,11 +93,30 @@ export function evaluateScene(scene: SceneGraph, options: { measurer?: TextMeasu
     const referencedAssets = new Set(scene.pages.flatMap((page) => page.nodes.map((node) => node.content.assetId).filter((assetId): assetId is string => typeof assetId === "string")));
     for (const assetId of options.assetPlan.resolvedAssetIds) if (!referencedAssets.has(assetId)) issues.push({ code: "UNUSED_GENERATED_ASSET", dimension: "Content", severity: "error", nodeIds: [], message: `Generated asset is not used: ${assetId}`, repairIntent: "remove-unused-generation" });
   }
+  if (options.outline) {
+    const pageById = new Map(scene.pages.map((page) => [page.id, page]));
+    for (const link of options.outline.arc.pageLinks) for (const predicate of link.predicates) {
+      if (predicate.kind !== "conceal" && predicate.kind !== "introduce") continue;
+      const page = pageById.get(predicate.onPageId);
+      if (!page) continue;
+      const sources = new Set(page.nodes.flatMap((node) => node.sourceIds));
+      const invalid = predicate.kind === "conceal" ? predicate.sourceIds.filter((id) => sources.has(id)) : predicate.sourceIds.filter((id) => !sources.has(id));
+      if (invalid.length) issues.push({ code: predicate.kind === "conceal" ? "ANSWER_LEAKED_BEFORE_REVEAL" : "CROSS_PAGE_STATE_MISMATCH", dimension: "Coherence", severity: "error", pageId: page.id, nodeIds: [], message: "Cross-page visibility does not satisfy its narrative predicate", repairIntent: "recompose-linked-page-group-from-predicates" });
+    }
+  }
+  if (options.renderEvidence) {
+    const evidenceByPage = new Map(options.renderEvidence.pages.map((page) => [page.pageId, page]));
+    for (const page of scene.pages) {
+      const evidence = evidenceByPage.get(page.id);
+      if (!evidence || evidence.differenceScore > 0.08) issues.push({ code: "PPTX_RENDER_DIVERGENCE", dimension: "Export", severity: "error", pageId: page.id, nodeIds: [], message: "Final PPTX rendering is missing or diverges from the Scene render", repairIntent: "align-exporter-with-scene-render-semantics" });
+    }
+  }
   const errorCounts = { Content: 0, Design: 0, Coherence: 0, Export: 0 };
   for (const issue of issues) if (issue.severity === "error") errorCounts[issue.dimension] += 1;
   const scores = { Content: Math.max(0, 100 - errorCounts.Content * 20), Design: Math.max(0, 100 - errorCounts.Design * 12), Coherence: Math.max(0, 100 - errorCounts.Coherence * 20), Export: Math.max(0, 100 - errorCounts.Export * 25) };
-  const visualReviewPageIds = scene.pages.filter((page) => page.riskFlags.length > 0 || issues.some((issue) => issue.pageId === page.id)).map((page) => page.id);
-  return versioned({ presentationId: scene.presentationId, passed: !issues.some((issue) => issue.severity === "error"), scores, issues, visualReviewPageIds, visualReviewStatus: visualReviewPageIds.length ? "pending" as const : "not-required" as const, repairCount: 0 }, 0, { scene: scene.contentHash });
+  // A single deck contact sheet is cheaper than per-page calls and lets vision inspect rhythm and identity continuity.
+  const visualReviewPageIds = scene.pages.map((page) => page.id);
+  return versioned({ presentationId: scene.presentationId, passed: !issues.some((issue) => issue.severity === "error"), scores, issues, visualReviewPageIds, visualReviewStatus: visualReviewPageIds.length ? "pending" as const : "not-required" as const, ...(options.renderEvidence ? { renderEvidenceHash: options.renderEvidence.contentHash } : {}), repairCount: 0 }, 0, { scene: scene.contentHash, ...(options.renderEvidence ? { renderEvidence: options.renderEvidence.contentHash } : {}) });
 }
 
 export function buildVisualReviewBatch(scene: SceneGraph, report: QualityReport) {
@@ -96,8 +125,7 @@ export function buildVisualReviewBatch(scene: SceneGraph, report: QualityReport)
     pageIds: report.visualReviewPageIds,
     dimensions: ["Content", "Design", "Coherence"] as const,
     contactSheetRequired: report.visualReviewPageIds.length > 0,
-    maxPaidCalls: report.visualReviewPageIds.length > 0 ? 1 : 0,
-    instructions: "Review audience-facing copy, hierarchy, crop quality, visual balance, deck rhythm, and focal-message alignment. Return structured issues only; never return coordinates."
+    maxPaidCalls: report.visualReviewPageIds.length > 0 ? 1 : 0
   };
 }
 
@@ -113,6 +141,7 @@ export function applyVisualReview(report: QualityReport, visualIssues: Array<{ p
     issues,
     visualReviewPageIds: report.visualReviewPageIds,
     visualReviewStatus: visualErrors.length ? "failed" as const : "passed" as const,
+    ...(report.renderEvidenceHash ? { renderEvidenceHash: report.renderEvidenceHash } : {}),
     repairCount: report.repairCount
   }, report.revision + 1, report.upstreamHashes);
 }

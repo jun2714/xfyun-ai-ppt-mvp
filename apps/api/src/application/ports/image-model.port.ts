@@ -5,6 +5,7 @@ export interface ImageModelCommand {
   size: string;
 }
 
+/** Sends exactly one structured image command to a provider adapter. */
 export interface ImageModelPort {
   generate(command: ImageModelCommand): Promise<ImageModelResult>;
 }

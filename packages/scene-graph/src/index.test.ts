@@ -29,3 +29,28 @@ test("manual nodes can be added and deleted without page-role templates", () => 
   assert.equal(removed.pages[0]!.nodes.length, 1);
   assert.equal(removed.revision, 2);
 });
+
+test("linked pages are protected and multi-selection alignment is revisioned", () => {
+  const linked = SceneGraphSchema.parse(versioned({ ...scene, pages: scene.pages.map((page) => ({ ...page, pageLinkIds: ["link-a"] })) }));
+  assert.throws(() => applySceneCommand(linked, { type: "delete-page", pageId: "page", nodeId: "__page__", value: "", expectedRevision: 0 }), /LINKED_PAGE_PROTECTED/);
+  const first = applySceneCommand(scene, { type: "add-shape", pageId: "page", nodeId: "__page__", value: "", expectedRevision: 0 });
+  const second = applySceneCommand(first, { type: "add-shape", pageId: "page", nodeId: "__page__", value: "", expectedRevision: 1 });
+  const ids = second.pages[0]!.nodes.slice(-2).map((node) => node.id);
+  const aligned = applySceneCommand(second, { type: "align-nodes", pageId: "page", nodeId: "__page__", value: { nodeIds: ids, axis: "horizontal", mode: "start" }, expectedRevision: 2 });
+  const selected = aligned.pages[0]!.nodes.filter((node) => ids.includes(node.id));
+  assert.equal(selected[0]!.bounds.x, selected[1]!.bounds.x);
+  assert.equal(aligned.revision, 3);
+});
+
+test("editor commands duplicate, style and lock nodes without losing revision history", () => {
+  const duplicated = applySceneCommand(scene, { type: "duplicate-node", pageId: "page", nodeId: "n", value: "", expectedRevision: 0 });
+  assert.equal(duplicated.pages[0]!.nodes.length, 2);
+  const copy = duplicated.pages[0]!.nodes[1]!;
+  assert.notEqual(copy.id, "n");
+  const styled = applySceneCommand(duplicated, { type: "set-style", pageId: "page", nodeId: copy.id, value: { fontSize: 32, color: "#123456", lineHeight: 1.4 }, expectedRevision: 1 });
+  assert.equal(styled.pages[0]!.nodes[1]!.style.fontSize, 32);
+  const locked = applySceneCommand(styled, { type: "set-locked", pageId: "page", nodeId: copy.id, value: true, expectedRevision: 2 });
+  assert.throws(() => applySceneCommand(locked, { type: "delete-node", pageId: "page", nodeId: copy.id, value: "", expectedRevision: 3 }), /NODE_LOCKED/);
+  const unlocked = applySceneCommand(locked, { type: "set-locked", pageId: "page", nodeId: copy.id, value: false, expectedRevision: 3 });
+  assert.equal(unlocked.pages[0]!.nodes[1]!.locked, false);
+});

@@ -1,108 +1,175 @@
 import { randomUUID } from "node:crypto";
 import {
   NarrativeOutlineSchema,
-  NarrativePageSchema,
   PresentationBriefSchema,
+  hashContent,
   versioned,
-  type AssetPlan,
-  type DeckDesignPlan,
-  type NarrativeOutline,
-  type PageDesignIntent,
   type PresentationBrief,
-  type QualityReport,
   type SceneGraph
 } from "@sparkdeck/presentation-model";
-import { resolveDesignTokens, type DesignTokens } from "@sparkdeck/design-language";
-import { composeDeck, type ResolvedCandidate } from "@sparkdeck/composition-engine";
-import { buildAssetPlan, buildImageRequest } from "@sparkdeck/asset-planning";
+import { DEFAULT_CANVAS, resolveDesignTokens } from "@sparkdeck/design-language";
+import { composeDeck, composePage, RelationConstraintCompiler, selectDeckCandidates, type RepairConstraint, type ResolvedCandidate } from "@sparkdeck/composition-engine";
+import { buildAssetBundlePlan, buildImageRequest } from "@sparkdeck/asset-planning";
 import { applySceneCommand, compileSceneGraph, type SceneCommand } from "@sparkdeck/scene-graph";
-import { applyVisualReview, buildVisualReviewBatch, evaluateScene } from "@sparkdeck/quality-engine";
+import { applyVisualReview, buildVisualReviewBatch, evaluateScene, type TextMeasurer } from "@sparkdeck/quality-engine";
 import { exportSceneToPptx } from "@sparkdeck/pptx-export";
 import type { Job } from "../../domain/jobs/job.js";
 import type { GenerateImageUseCase } from "../use-cases/generate-image.use-case.js";
+import type { RenderEvidencePort } from "../ports/render-evidence.port.js";
 import { AppError } from "../../shared/errors/app-error.js";
-import { DesignPlanner, NarrativePlanner, promptHash } from "./planning.service.js";
+import { DesignPlanner, NarrativePlanner, promptHash, validateNarrative } from "./planning.service.js";
 import type { ReviewVisualQualityUseCase } from "../use-cases/review-visual-quality.use-case.js";
-import type { PresentationState, PresentationStateRepositoryPort, StoredAsset } from "../ports/presentation-state-repository.port.js";
+import type { PresentationState, PresentationStateRepositoryPort, StoredAsset, UsageLedgerEntry } from "../ports/presentation-state-repository.port.js";
+import type { AssetValidationPort } from "../ports/asset-validation.port.js";
 
-type Usage = { id: string; provider: string; model: string; purpose: string; scopeId: string; requestHash: string; estimatedCostRmb: number; success: boolean; parentJob: string };
+/** Coordinates versioned 008 use cases while keeping provider and renderer decisions in adapters. */
 export class PresentationPlatformService {
   private readonly jobs = new Map<string, Job>();
   private readonly idempotentJobs = new Map<string, string>();
-  private readonly usage: Usage[] = [];
-  private readonly assetCache = new Map<string, string>();
+  private readonly usage: UsageLedgerEntry[] = [];
+  private readonly assetCache = new Map<string, StoredAsset>();
   private readonly id = (prefix: string) => `${prefix}_${randomUUID()}`;
 
-  constructor(private readonly repository: PresentationStateRepositoryPort, private readonly narrative: NarrativePlanner, private readonly designer: DesignPlanner, private readonly image: GenerateImageUseCase | undefined, private readonly visualReviewer?: ReviewVisualQualityUseCase) {}
+  constructor(
+    private readonly repository: PresentationStateRepositoryPort,
+    private readonly narrative: NarrativePlanner,
+    private readonly designer: DesignPlanner,
+    private readonly renderEvidence: RenderEvidencePort,
+    private readonly assetValidator: AssetValidationPort,
+    private readonly textMeasurer: TextMeasurer,
+    private readonly image?: GenerateImageUseCase,
+    private readonly visualReviewer?: ReviewVisualQualityUseCase
+  ) {
+    // Rehydrate operational records and asset cache so restart never causes duplicate paid work.
+    for (const state of this.repository.list()) {
+      let recoveredInterruptedJob = false;
+      for (const job of state.jobs ?? []) {
+        if (job.status === "queued" || job.status === "running") {
+          Object.assign(job, { status: "failed", stage: "failed", progress: 100, error: { code: "PROCESS_INTERRUPTED", message: "The previous process stopped before this job completed", incurredCost: false, manualRetryAllowed: true } });
+          recoveredInterruptedJob = true;
+        }
+        this.jobs.set(job.id, job);
+      }
+      for (const [key, jobId] of Object.entries(state.idempotency ?? {})) this.idempotentJobs.set(`${state.brief.id}:${key}`, jobId);
+      this.usage.push(...(state.usage ?? []));
+      for (const trace of state.assetTraces) if (trace.assetId && state.assets[trace.assetId]) this.assetCache.set(trace.requestHash, state.assets[trace.assetId]!);
+      if (recoveredInterruptedJob) this.repository.save(state);
+    }
+  }
 
   create(input: Omit<PresentationBrief, "schemaVersion" | "revision" | "contentHash" | "upstreamHashes" | "id">) {
     const id = this.id("pres");
     const brief = PresentationBriefSchema.parse(versioned({ id, ...input }));
-    this.repository.save({ brief, assets: {}, repairCount: 0, history: [], future: [] });
+    this.repository.save({ brief, assets: {}, layoutTraces: {}, assetTraces: [], repairCount: 0, history: [], future: [], jobs: [], idempotency: {}, usage: [] });
     return brief;
   }
 
   list() { return this.repository.list().map((record) => record.brief); }
-  get(id: string) {
-    const value = this.repository.get(id);
-    if (!value) throw new AppError("PRESENTATION_NOT_FOUND", "Presentation not found", 404);
-    return value;
-  }
-  getJob(id: string) {
-    const job = this.jobs.get(id);
-    if (!job) throw new AppError("JOB_NOT_FOUND", "Job not found", 404);
-    return job;
-  }
+  get(id: string) { const value = this.repository.get(id); if (!value) throw new AppError("PRESENTATION_NOT_FOUND", "Presentation not found", 404); return value; }
+  getJob(id: string) { const job = this.jobs.get(id); if (!job) throw new AppError("JOB_NOT_FOUND", "Job not found", 404); return job; }
 
-  private newJob(scopeId: string, type: string, idempotencyKey: string): { job: Job; existing: boolean } {
+  private newJob(state: PresentationState, type: string, idempotencyKey: string): { job: Job; existing: boolean } {
+    const scopeId = state.brief.id;
     const lookup = `${scopeId}:${type}:${idempotencyKey}`;
     const existingId = this.idempotentJobs.get(lookup);
     if (existingId) return { job: this.getJob(existingId), existing: true };
     const job: Job = { id: this.id("job"), scopeId, type, status: "queued", progress: 0, stage: "queued", resultRef: null, error: null };
-    this.jobs.set(job.id, job);
-    this.idempotentJobs.set(lookup, job.id);
+    this.jobs.set(job.id, job); this.idempotentJobs.set(lookup, job.id);
+    state.jobs.push(job); state.idempotency[`${type}:${idempotencyKey}`] = job.id; this.persist(state);
     return { job, existing: false };
   }
-  private update(job: Job, patch: Partial<Job>) { Object.assign(job, patch); this.jobs.set(job.id, job); }
-  private fail(job: Job, error: unknown) {
-    this.update(job, { status: "failed", progress: 100, stage: "failed", error: { code: error instanceof AppError ? error.code : "JOB_FAILED", message: error instanceof Error ? error.message : "Job failed", incurredCost: false, freeRetryAllowed: false } });
+  private update(job: Job, patch: Partial<Job>) {
+    Object.assign(job, patch); this.jobs.set(job.id, job);
+    const persisted = this.repository.get(job.scopeId);
+    const durableJob = persisted?.jobs.find((item) => item.id === job.id);
+    if (persisted && durableJob) { Object.assign(durableJob, patch); this.repository.save(persisted); }
   }
-  private assetView(state: PresentationState) {
-    return Object.fromEntries(Object.entries(state.assets).map(([id, asset]) => [id, { url: asset.url, dataUri: asset.base64 ? `data:image/png;base64,${asset.base64}` : undefined, alt: asset.alt }]));
+  private fail(job: Job, error: unknown) {
+    const appError = error instanceof AppError ? error : undefined;
+    this.update(job, { status: "failed", progress: 100, stage: "failed", error: { code: appError?.code ?? "JOB_FAILED", message: error instanceof Error ? error.message : "Job failed", incurredCost: appError?.context.incurredCost ?? false, manualRetryAllowed: appError?.context.manualRetryAllowed ?? false } });
   }
   private persist(state: PresentationState) { this.repository.save(state); }
-  private compile(state: PresentationState, presentationId: string) {
-    if (!state.outline || !state.design || !state.tokens || !state.candidates || !state.scene) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
-    const revision = state.scene.revision + 1;
-    state.scene = compileSceneGraph({ presentationId, outline: state.outline, intents: state.design.intents, candidateSets: state.candidates, tokens: state.tokens, canvas: state.scene.canvas, revision, ...(state.assetPlan ? { assetPlan: state.assetPlan } : {}), assets: this.assetView(state) });
-    delete state.quality;
-    delete state.visualReview;
+  /** Hashes only user/business state; job progress and append-only usage must not invalidate their own job. */
+  private businessHash(state: PresentationState) {
+    const { jobs: _jobs, idempotency: _idempotency, usage: _usage, ...business } = state;
+    return hashContent(business);
   }
-  private refreshAssetPlan(state: PresentationState, presentationId: string) {
-    if (!state.outline || !state.design || !state.candidates) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
-    const previous = state.assetPlan;
-    const next = buildAssetPlan({ presentationId, outline: state.outline, intents: state.design.intents, candidateSets: state.candidates });
-    if (previous) {
-      for (const placement of next.placements) {
-        const old = previous.placements.find((candidate) => candidate.requestId === placement.requestId && candidate.assetId);
-        if (old?.assetId) { placement.assetId = old.assetId; placement.source = old.source; placement.promptHash = old.promptHash; }
-      }
-      next.resolvedAssetIds = [...new Set(next.placements.map((placement) => placement.assetId).filter((assetId): assetId is string => Boolean(assetId)))];
+  /** Commits work produced from an immutable snapshot and preserves newer operational records. */
+  private commitSnapshot(snapshot: PresentationState, capturedHash: string, stage: string, incurredCost: boolean) {
+    const current = this.get(snapshot.brief.id);
+    if (this.businessHash(current) !== capturedHash) {
+      throw new AppError("REVISION_CONFLICT", `Presentation changed while ${stage} was running`, 409, [], { stage, incurredCost, manualRetryAllowed: true });
     }
-    state.assetPlan = next;
+    snapshot.jobs = current.jobs;
+    snapshot.idempotency = current.idempotency;
+    snapshot.usage = current.usage;
+    this.persist(snapshot);
+    return snapshot;
+  }
+  private recordUsage(state: PresentationState, entry: UsageLedgerEntry) {
+    this.usage.push(entry); state.usage.push(entry);
+    // Cost evidence is committed immediately, even when later validation rejects the paid response.
+    const persisted = this.repository.get(state.brief.id);
+    if (persisted && !persisted.usage.some((item) => item.id === entry.id)) { persisted.usage.push(entry); this.repository.save(persisted); }
+  }
+  private assetView(state: PresentationState) {
+    return Object.fromEntries(Object.entries(state.assets).map(([id, asset]) => [id, { url: asset.base64 ? `/api/v1/presentations/${state.brief.id}/assets/${id}/content` : asset.url, alt: asset.alt }]));
+  }
+
+  /** Injects verified bytes only inside render/export memory so API Scene responses never expose base64. */
+  private renderableScene(state: PresentationState): SceneGraph {
+    if (!state.scene) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
+    const scene = structuredClone(state.scene);
+    for (const page of scene.pages) for (const node of page.nodes) if (node.kind === "image" && typeof node.content.assetId === "string") {
+      const asset = state.assets[node.content.assetId];
+      if (asset?.base64) { node.content.dataUri = `data:image/png;base64,${asset.base64}`; delete node.content.url; }
+    }
+    return scene;
+  }
+
+  /** Invalidates every artifact that depends on narrative content. */
+  private invalidateAfterOutline(state: PresentationState) {
+    delete state.design; delete state.tokens; delete state.canvas; delete state.candidates; delete state.assetBundle; delete state.scene; delete state.quality; delete state.visualReview; delete state.renderEvidence;
+    state.layoutTraces = {}; state.assetTraces = []; state.history = []; state.future = [];
+  }
+  /** Invalidates geometry and evidence while retaining narrative and project-owned assets. */
+  private invalidateAfterDesign(state: PresentationState) {
+    delete state.canvas; delete state.candidates; delete state.assetBundle; delete state.scene; delete state.quality; delete state.visualReview; delete state.renderEvidence;
+    state.layoutTraces = {}; state.assetTraces = []; state.history = []; state.future = [];
+  }
+  /** Any Scene mutation makes previous quality and exported render evidence stale. */
+  private invalidateAfterScene(state: PresentationState) { delete state.quality; delete state.visualReview; delete state.renderEvidence; }
+
+  private compile(state: PresentationState) {
+    if (!state.outline || !state.design || !state.tokens || !state.candidates || !state.canvas) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
+    const revision = (state.scene?.revision ?? -1) + 1;
+    state.scene = compileSceneGraph({ presentationId: state.brief.id, outline: state.outline, intents: state.design.intents, candidateSets: state.candidates, tokens: state.tokens, canvas: state.canvas, revision, ...(state.assetBundle ? { assetPlan: state.assetBundle } : {}), assets: this.assetView(state) });
+    this.invalidateAfterScene(state);
+  }
+
+  /** Rebuilds placements from selected geometry and preserves only identity-compatible resolved assets. */
+  private refreshAssetBundle(state: PresentationState) {
+    if (!state.outline || !state.design || !state.candidates) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
+    const previous = state.assetBundle;
+    const next = buildAssetBundlePlan({ presentationId: state.brief.id, outline: state.outline, design: state.design.plan, intents: state.design.intents, candidateSets: state.candidates });
+    if (previous) for (const placement of next.placements) {
+      const old = previous.placements.find((candidate) => candidate.identityId === placement.identityId && candidate.role === placement.role && candidate.assetId);
+      if (old?.assetId && state.assets[old.assetId]?.identityId === placement.identityId) { placement.assetId = old.assetId; placement.source = old.source; placement.promptHash = old.promptHash; }
+    }
+    next.resolvedAssetIds = [...new Set(next.placements.map((placement) => placement.assetId).filter((assetId): assetId is string => Boolean(assetId)))];
+    state.assetBundle = next;
   }
 
   startOutline(id: string, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "outline.generate", idempotencyKey);
-    if (existing) return job;
+    const state = this.get(id); const { job, existing } = this.newJob(state, "narrative.generate", idempotencyKey); if (existing) return job;
+    const capturedHash = this.businessHash(state);
     void (async () => {
       try {
         this.update(job, { status: "running", stage: "planning", progress: 20 });
         const planned = await this.narrative.plan(state.brief);
-        state.outline = planned.value;
-        this.persist(state);
-        this.usage.push({ id: this.id("usage"), provider: "dmx", model: planned.telemetry.model, purpose: "narrative", scopeId: id, requestHash: promptHash(state.brief), estimatedCostRmb: planned.telemetry.estimatedCostRmb, success: true, parentJob: job.id });
+        this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: planned.telemetry.model, purpose: "narrative", scopeId: id, requestHash: promptHash({ brief: state.brief.contentHash, prompt: planned.telemetry.prompt.contentHash }), estimatedCostRmb: planned.telemetry.estimatedCostRmb, success: true, parentJob: job.id });
+        this.invalidateAfterOutline(state); state.outline = planned.value;
+        this.commitSnapshot(state, capturedHash, "narrative", true);
         this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.outline.contentHash });
       } catch (error) { this.fail(job, error); }
     })();
@@ -111,171 +178,277 @@ export class PresentationPlatformService {
 
   saveOutline(id: string, outline: unknown, expectedRevision: number) {
     const state = this.get(id);
-    if ((state.outline?.revision ?? 0) !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Outline revision conflict", 409);
-    const payload = NarrativePageSchema.array().min(1).parse((outline as { pages?: unknown }).pages);
-    state.outline = NarrativeOutlineSchema.parse(versioned({ pages: payload, briefId: id, confirmedAt: null }, expectedRevision + 1, { brief: state.brief.contentHash }));
-    delete state.design; delete state.tokens; delete state.candidates; delete state.assetPlan; delete state.scene; delete state.quality;
-    this.persist(state);
-    return state.outline;
+    if (!state.outline || state.outline.revision !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Outline revision conflict", 409);
+    const parsed = NarrativeOutlineSchema.pick({ pages: true, arc: true }).parse(outline);
+    const next = NarrativeOutlineSchema.parse(versioned({ briefId: id, pages: parsed.pages, arc: parsed.arc, confirmedAt: null }, expectedRevision + 1, { brief: state.brief.contentHash }));
+    validateNarrative(next, state.brief); this.invalidateAfterOutline(state); state.outline = next; this.persist(state); return next;
   }
 
   confirmOutline(id: string, expectedRevision: number) {
-    const state = this.get(id);
-    if (!state.outline) throw new AppError("OUTLINE_NOT_FOUND", "Outline not found", 404);
+    const state = this.get(id); if (!state.outline) throw new AppError("OUTLINE_NOT_FOUND", "Outline not found", 404);
     if (state.outline.revision !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Outline revision conflict", 409);
-    state.outline = NarrativeOutlineSchema.parse({ ...state.outline, confirmedAt: new Date().toISOString(), revision: state.outline.revision + 1 });
-    this.persist(state);
-    return state.outline;
+    const { briefId, pages, arc } = state.outline;
+    state.outline = NarrativeOutlineSchema.parse(versioned({ briefId, pages, arc, confirmedAt: new Date().toISOString() }, expectedRevision + 1, { brief: state.brief.contentHash }));
+    this.persist(state); return state.outline;
   }
 
   startDesign(id: string, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "design.generate", idempotencyKey);
-    if (existing) return job;
+    const state = this.get(id); const { job, existing } = this.newJob(state, "design.generate", idempotencyKey); if (existing) return job;
+    const capturedHash = this.businessHash(state);
     void (async () => {
       try {
         if (!state.outline?.confirmedAt) throw new AppError("OUTLINE_NOT_CONFIRMED", "Confirm outline first", 409);
         this.update(job, { status: "running", stage: "planning", progress: 20 });
         const planned = await this.designer.plan(state.brief, state.outline);
-        state.design = planned.value;
-        state.tokens = resolveDesignTokens(state.design.plan);
-        this.persist(state);
-        this.usage.push({ id: this.id("usage"), provider: "dmx", model: planned.telemetry.model, purpose: "design", scopeId: id, requestHash: promptHash(state.outline), estimatedCostRmb: planned.telemetry.estimatedCostRmb, success: true, parentJob: job.id });
-        this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.design.plan.contentHash });
+        this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: planned.telemetry.model, purpose: "design", scopeId: id, requestHash: promptHash({ outline: state.outline.contentHash, prompt: planned.telemetry.prompt.contentHash }), estimatedCostRmb: planned.telemetry.estimatedCostRmb, success: true, parentJob: job.id });
+        this.invalidateAfterDesign(state); state.design = planned.value; state.tokens = resolveDesignTokens(planned.value.plan);
+        this.commitSnapshot(state, capturedHash, "design", true);
+        this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: planned.value.plan.contentHash });
       } catch (error) { this.fail(job, error); }
     })();
     return job;
   }
 
-  compose(id: string, canvas = { width: 960, height: 540 }, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "composition.generate", idempotencyKey);
-    if (existing) return job;
+  compose(id: string, canvas = DEFAULT_CANVAS, idempotencyKey: string) {
+    const state = this.get(id); const { job, existing } = this.newJob(state, "composition.generate", idempotencyKey); if (existing) return job;
     try {
       if (!state.outline || !state.design || !state.tokens) throw new AppError("DESIGN_NOT_FOUND", "Generate design first", 409);
       this.update(job, { status: "running", stage: "generating_candidates", progress: 20 });
-      state.candidates = composeDeck(state.outline.pages, state.design.intents, canvas, state.tokens);
+      state.canvas = canvas; state.candidates = composeDeck(state.outline, state.design.intents, state.design.plan, canvas, state.tokens);
+      state.layoutTraces = Object.fromEntries(state.candidates.flat().map((candidate) => [candidate.id, candidate.trace]));
       this.update(job, { stage: "scoring", progress: 65 });
-      state.assetPlan = buildAssetPlan({ presentationId: id, outline: state.outline, intents: state.design.intents, candidateSets: state.candidates });
-      state.scene = compileSceneGraph({ presentationId: id, outline: state.outline, intents: state.design.intents, candidateSets: state.candidates, tokens: state.tokens, canvas, assetPlan: state.assetPlan, assets: this.assetView(state) });
-      this.persist(state);
-      this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.scene.contentHash });
+      this.refreshAssetBundle(state); this.compile(state); this.persist(state);
+      this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.scene!.contentHash });
     } catch (error) { this.fail(job, error); }
     return job;
   }
 
   async resolveAssets(id: string, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "assets.resolve", idempotencyKey);
-    if (existing) return job;
+    const state = this.get(id); const { job, existing } = this.newJob(state, "assets.resolve", idempotencyKey); if (existing) return job;
+    const capturedHash = this.businessHash(state);
     try {
-      if (!state.assetPlan || !state.scene || !state.design) throw new AppError("COMPOSITION_NOT_FOUND", "Compose before assets", 409);
+      if (!state.assetBundle || !state.scene || !state.design) throw new AppError("COMPOSITION_NOT_FOUND", "Compose before assets", 409);
       this.update(job, { status: "running", stage: "resolving_assets", progress: 10 });
-      for (const [index, placement] of state.assetPlan.placements.entries()) {
-        if (placement.assetId) continue;
-        const request = state.design.intents.flatMap((intent) => intent.mediaRequests).find((item) => item.id === placement.requestId);
-        if (!request || !this.image) continue;
-        const spec = buildImageRequest({ request, targetAspectRatio: placement.targetAspectRatio, illustrationDirection: state.design.plan.illustrationDirection });
-        const cachedAssetId = this.assetCache.get(spec.promptHash);
-        if (cachedAssetId && state.assets[cachedAssetId]) {
-          placement.assetId = cachedAssetId; placement.source = "cache"; placement.promptHash = spec.promptHash;
+      const unresolvedIdentityIds = [...new Set(state.assetBundle.placements.filter((placement) => !placement.assetId).map((placement) => placement.identityId))];
+      for (const [index, identityId] of unresolvedIdentityIds.entries()) {
+        const placements = state.assetBundle.placements.filter((placement) => placement.identityId === identityId && !placement.assetId);
+        const placement = placements[0];
+        const request = state.design.intents.flatMap((intent) => intent.mediaRequests).find((item) => item.identityId === identityId);
+        if (!placement || !request || !this.image) continue;
+        const spec = buildImageRequest({ request, targetAspectRatio: placement.targetAspectRatio, mediaLanguage: state.design.plan.visualGrammar.mediaLanguage });
+        const modelInput = { context: { ...spec.context }, size: spec.size };
+        const requestHash = this.image.requestHash(modelInput);
+        const cached = this.assetCache.get(requestHash);
+        const assetId = this.id("asset");
+        if (cached) {
+          state.assets[assetId] = structuredClone(cached);
+          placements.forEach((item) => { item.assetId = assetId; item.source = "cache"; item.promptHash = requestHash; });
+          state.assetTraces.push({ placementId: placement.id, identityId, requestHash, source: "cache", cacheHit: true, assetId });
         } else {
-          const result = await this.image.execute({ prompt: spec.prompt, size: spec.size });
-          const assetId = this.id("asset");
-          state.assets[assetId] = { ...(result.url ? { url: result.url } : {}), ...(result.base64 ? { base64: result.base64 } : {}), alt: request.description, promptHash: spec.promptHash };
-          this.assetCache.set(spec.promptHash, assetId);
-          placement.assetId = assetId; placement.source = "generated"; placement.promptHash = spec.promptHash;
-          this.usage.push({ id: this.id("usage"), provider: "dmx", model: result.model, purpose: "image", scopeId: placement.id, requestHash: spec.promptHash, estimatedCostRmb: result.estimatedCostRmb, success: true, parentJob: job.id });
+          const result = await this.image.execute(modelInput);
+          this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: result.model, purpose: "image", scopeId: identityId, requestHash: result.requestHash, estimatedCostRmb: result.estimatedCostRmb, success: true, parentJob: job.id });
+          const validated = await this.assetValidator.validate({ ...(result.url ? { url: result.url } : {}), ...(result.base64 ? { base64: result.base64 } : {}), role: request.role, targetAspectRatio: placement.targetAspectRatio, incurredCost: true });
+          const asset: StoredAsset = { base64: validated.base64, alt: request.audienceAlt ?? "", promptHash: result.requestHash, identityId, role: request.role, width: validated.width, height: validated.height, qualityStatus: "passed" };
+          state.assets[assetId] = asset; this.assetCache.set(result.requestHash, structuredClone(asset));
+          placements.forEach((item) => { item.assetId = assetId; item.source = "generated"; item.promptHash = result.requestHash; });
+          state.assetTraces.push({ placementId: placement.id, identityId, requestHash: result.requestHash, source: "generated", cacheHit: false, assetId });
         }
-        this.update(job, { progress: 10 + Math.round((index + 1) / Math.max(1, state.assetPlan.placements.length) * 80) });
+        this.update(job, { progress: 10 + Math.round((index + 1) / Math.max(1, unresolvedIdentityIds.length) * 80) });
       }
-      state.assetPlan.resolvedAssetIds = [...new Set(state.assetPlan.placements.map((placement) => placement.assetId).filter((assetId): assetId is string => Boolean(assetId)))];
-      this.compile(state, id);
-      this.persist(state);
-      this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.scene?.contentHash ?? null });
+      state.assetBundle.resolvedAssetIds = [...new Set(state.assetBundle.placements.map((placement) => placement.assetId).filter((assetId): assetId is string => Boolean(assetId)))];
+      this.compile(state); this.commitSnapshot(state, capturedHash, "asset resolution", unresolvedIdentityIds.length > 0);
+      this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.scene!.contentHash });
     } catch (error) { this.fail(job, error); }
     return job;
   }
 
   async quality(id: string, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "quality.evaluate", idempotencyKey);
-    if (existing) return job;
+    const state = this.get(id); const { job, existing } = this.newJob(state, "quality.evaluate", idempotencyKey); if (existing) return job;
+    const capturedHash = this.businessHash(state);
     try {
-      if (!state.scene) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
+      if (!state.scene || !state.outline) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
       this.update(job, { status: "running", stage: "rule_quality", progress: 50 });
-      state.quality = evaluateScene(state.scene, { ...(state.assetPlan ? { assetPlan: state.assetPlan } : {}) });
-      this.update(job, { stage: "visual_quality", progress: 75 });
-      state.visualReview = buildVisualReviewBatch(state.scene, state.quality);
-      if (this.visualReviewer && state.quality.passed && state.visualReview.pageIds.length) {
-        const reviewed = await this.visualReviewer.execute(state.scene, state.visualReview.pageIds, state.visualReview.instructions);
-        state.quality = applyVisualReview(state.quality, reviewed.issues);
-        this.usage.push({ id: this.id("usage"), provider: "dmx", model: reviewed.model, purpose: "visual-quality", scopeId: id, requestHash: promptHash({ scene: state.scene.contentHash, pages: state.visualReview.pageIds }), estimatedCostRmb: reviewed.estimatedCostRmb, success: true, parentJob: job.id });
+      state.quality = evaluateScene(state.scene, { measurer: this.textMeasurer, outline: state.outline, ...(state.assetBundle ? { assetPlan: state.assetBundle } : {}) });
+      let finalContactSheet: string | undefined;
+      if (state.quality.passed) {
+        const renderable = this.renderableScene(state);
+        const artifact = await exportSceneToPptx(renderable);
+        const rendered = await this.renderEvidence.create(renderable, artifact.bytes);
+        state.renderEvidence = rendered.evidence;
+        finalContactSheet = rendered.contactSheetDataUri;
+        state.quality = evaluateScene(state.scene, { measurer: this.textMeasurer, outline: state.outline, ...(state.assetBundle ? { assetPlan: state.assetBundle } : {}), renderEvidence: state.renderEvidence });
       }
-      this.persist(state);
+      state.visualReview = buildVisualReviewBatch(state.scene, state.quality);
+      this.update(job, { stage: "visual_quality", progress: 75 });
+      if (this.visualReviewer && state.quality.passed && state.visualReview.pageIds.length) {
+        const reviewed = await this.visualReviewer.execute(state.scene, state.visualReview.pageIds, state.visualReview.dimensions, finalContactSheet);
+        state.quality = applyVisualReview(state.quality, reviewed.issues);
+        this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: reviewed.model, purpose: "visual-quality", scopeId: id, requestHash: promptHash({ scene: state.scene.contentHash, pages: state.visualReview.pageIds, prompt: reviewed.prompt.contentHash }), estimatedCostRmb: reviewed.estimatedCostRmb, success: true, parentJob: job.id });
+      }
+      this.commitSnapshot(state, capturedHash, "quality review", Boolean(this.visualReviewer && state.visualReview.pageIds.length));
       this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.quality.contentHash });
     } catch (error) { this.fail(job, error); }
     return job;
   }
 
+  /** Converts quality failures into generic search constraints and recomposes linked page groups. */
   repair(id: string, idempotencyKey: string) {
-    const state = this.get(id);
-    const { job, existing } = this.newJob(id, "quality.repair", idempotencyKey);
-    if (existing) return job;
+    const state = this.get(id); const { job, existing } = this.newJob(state, "quality.repair", idempotencyKey); if (existing) return job;
     try {
-      if (!state.scene || !state.quality || !state.candidates || !state.outline || !state.design || !state.tokens) throw new AppError("QUALITY_NOT_FOUND", "Run quality before repair", 409);
+      if (!state.scene || !state.quality || !state.candidates || !state.outline || !state.design || !state.tokens || !state.canvas) throw new AppError("QUALITY_NOT_FOUND", "Run quality before repair", 409);
       if (state.repairCount >= 1) throw new AppError("REPAIR_LIMIT_REACHED", "Automatic repair is limited to one pass", 409);
       this.update(job, { status: "running", stage: "repairing", progress: 30 });
-      const failed = new Set(state.quality.issues.filter((issue) => issue.severity === "error" && issue.pageId).map((issue) => issue.pageId));
-      state.candidates.forEach((set, index) => {
-        if (!failed.has(state.outline!.pages[index]?.id)) return;
-        const alternatives = set.filter((candidate) => !candidate.selected).sort((left, right) => right.score - left.score);
-        if (alternatives[0]) set.forEach((candidate) => { candidate.selected = candidate.id === alternatives[0]!.id; });
+      const failedPageIds = new Set(state.quality.issues.filter((issue) => issue.severity === "error" && issue.pageId).map((issue) => issue.pageId!));
+      for (const link of state.outline.arc.pageLinks) if (link.fromPageId && (failedPageIds.has(link.fromPageId) || failedPageIds.has(link.toPageId))) { failedPageIds.add(link.fromPageId); failedPageIds.add(link.toPageId); }
+      const repairs: RepairConstraint[] = [...failedPageIds].map((pageId) => ({
+        id: `repair:${state.repairCount + 1}:${pageId}`,
+        pageId,
+        issueCodes: state.quality!.issues.filter((issue) => issue.pageId === pageId).map((issue) => issue.code),
+        forbiddenGrammarHashes: state.candidates![state.outline!.pages.findIndex((page) => page.id === pageId)]?.filter((candidate) => candidate.selected).map((candidate) => candidate.grammarHash) ?? []
+      }));
+      const relationConstraints = new RelationConstraintCompiler().compile(state.outline, state.design.plan);
+      const nextSets = state.outline.pages.map((page, index) => {
+        if (!failedPageIds.has(page.id)) return state.candidates![index]!;
+        const intent = state.design!.intents.find((item) => item.pageId === page.id)!;
+        return composePage(page, intent, state.design!.plan, relationConstraints, state.canvas!, state.tokens!, repairs);
       });
-      this.refreshAssetPlan(state, id);
-      this.compile(state, id);
-      state.repairCount += 1;
-      state.quality = { ...evaluateScene(state.scene!, { ...(state.assetPlan ? { assetPlan: state.assetPlan } : {}) }), repairCount: state.repairCount };
-      this.persist(state);
-      this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.quality.contentHash });
+      state.candidates = selectDeckCandidates(state.outline.pages.map((page) => page.id), nextSets, relationConstraints, state.canvas);
+      state.layoutTraces = Object.fromEntries(state.candidates.flat().map((candidate) => [candidate.id, candidate.trace]));
+      this.refreshAssetBundle(state); this.compile(state); state.repairCount += 1;
+      state.quality = { ...evaluateScene(state.scene!, { measurer: this.textMeasurer, outline: state.outline, ...(state.assetBundle ? { assetPlan: state.assetBundle } : {}) }), repairCount: state.repairCount };
+      this.persist(state); this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.quality.contentHash });
     } catch (error) { this.fail(job, error); }
     return job;
   }
 
-  command(id: string, input: SceneCommand) {
-    const state = this.get(id);
-    if (!state.scene) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
+  async command(id: string, input: SceneCommand) {
+    let state = this.get(id); if (!state.scene) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
+    if (input.type === "set-asset") {
+      const reference = String(input.value ?? "");
+      const localMatch = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(reference);
+      let safeRemote = false;
+      try {
+        const url = new URL(reference);
+        safeRemote = url.protocol === "https:" && !/^(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|0\.|169\.254\.|\[?::1\]?)$/i.test(url.hostname);
+      } catch { safeRemote = false; }
+      if (!safeRemote && !localMatch) throw new AppError("ASSET_REFERENCE_UNSAFE", "Image replacement must be an HTTPS public URL or supported local image", 400);
+      const page = state.scene.pages.find((item) => item.id === input.pageId);
+      const node = page?.nodes.find((item) => item.id === input.nodeId);
+      if (!page || node?.kind !== "image") throw new AppError("NODE_NOT_FOUND", "Image node not found", 404);
+      const role = typeof node.content.mediaRole === "string" ? node.content.mediaRole as StoredAsset["role"] : "subject";
+      const validated = await this.assetValidator.validate({ ...(localMatch ? { base64: localMatch[1]! } : { url: reference }), role, targetAspectRatio: node.bounds.width / node.bounds.height, incurredCost: false });
+      // Validation performs network I/O. Re-read the aggregate afterwards so a
+      // concurrent edit can never be overwritten by the stale Scene captured above.
+      state = this.get(id);
+      if (!state.scene || state.scene.revision !== input.expectedRevision) throw new AppError("REVISION_CONFLICT", "Scene revision conflict", 409);
+      const currentPage = state.scene.pages.find((item) => item.id === input.pageId);
+      const currentNode = currentPage?.nodes.find((item) => item.id === input.nodeId);
+      if (!currentPage || currentNode?.kind !== "image") throw new AppError("NODE_NOT_FOUND", "Image node not found", 404);
+      const assetId = this.id("asset");
+      state.assets[assetId] = { base64: validated.base64, alt: "", promptHash: hashContent({ source: "user", reference }), identityId: `user-${currentNode.id}`, role, width: validated.width, height: validated.height, qualityStatus: "passed" };
+      input = { ...input, value: { url: `/api/v1/presentations/${id}/assets/${assetId}/content`, assetId } };
+    }
     const previous = state.scene;
     try { state.scene = applySceneCommand(state.scene, input); }
-    catch (error) { throw new AppError(error instanceof Error && error.message === "NODE_NOT_FOUND" ? "NODE_NOT_FOUND" : "REVISION_CONFLICT", error instanceof Error ? error.message : "Scene command failed", 409); }
-    state.history.push(previous); state.future = []; delete state.quality; delete state.visualReview;
-    this.persist(state);
-    return state.scene;
+    catch (error) {
+      const code = error instanceof Error ? error.message : "SCENE_COMMAND_FAILED";
+      const status = code === "NODE_NOT_FOUND" || code === "PAGE_NOT_FOUND" ? 404 : 409;
+      throw new AppError(code, error instanceof Error ? error.message : "Scene command failed", status);
+    }
+    state.history.push(previous); state.future = []; this.invalidateAfterScene(state); this.persist(state); return state.scene;
   }
-  undo(id: string) { const state = this.get(id); const previous = state.history.pop(); if (!previous || !state.scene) return state.scene; state.future.push(state.scene); state.scene = previous; delete state.quality; this.persist(state); return state.scene; }
-  redo(id: string) { const state = this.get(id); const next = state.future.pop(); if (!next || !state.scene) return state.scene; state.history.push(state.scene); state.scene = next; delete state.quality; this.persist(state); return state.scene; }
+  undo(id: string) { const state = this.get(id); const previous = state.history.pop(); if (!previous || !state.scene) return state.scene; state.future.push(state.scene); state.scene = previous; this.invalidateAfterScene(state); this.persist(state); return state.scene; }
+  redo(id: string) { const state = this.get(id); const next = state.future.pop(); if (!next || !state.scene) return state.scene; state.history.push(state.scene); state.scene = next; this.invalidateAfterScene(state); this.persist(state); return state.scene; }
 
   selectCandidate(id: string, pageId: string, candidateId: string, expectedRevision: number) {
+    const state = this.get(id); if (!state.scene || state.scene.revision !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Scene revision conflict", 409);
+    if (!state.outline || !state.design || !state.candidates || !state.canvas) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
+    const pageIndex = state.outline.pages.findIndex((page) => page.id === pageId); const set = state.candidates[pageIndex];
+    if (!set?.some((candidate) => candidate.id === candidateId)) throw new AppError("CANDIDATE_NOT_FOUND", "Candidate not found", 404);
+    const previous = state.scene;
+    const relationConstraints = new RelationConstraintCompiler().compile(state.outline, state.design.plan);
+    state.candidates = selectDeckCandidates(state.outline.pages.map((page) => page.id), state.candidates, relationConstraints, state.canvas, { [pageId]: candidateId });
+    this.refreshAssetBundle(state); this.compile(state);
+    state.history.push(previous); state.future = [];
+    this.persist(state); return state.scene;
+  }
+
+  /** Re-searches one page without model or image calls, then lets deck-level constraints choose linked pages. */
+  redesignPage(id: string, pageId: string, expectedRevision: number) {
     const state = this.get(id);
     if (!state.scene || state.scene.revision !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Scene revision conflict", 409);
-    const pageIndex = state.outline?.pages.findIndex((page) => page.id === pageId) ?? -1;
-    const set = state.candidates?.[pageIndex];
-    if (!set?.some((candidate) => candidate.id === candidateId)) throw new AppError("CANDIDATE_NOT_FOUND", "Candidate not found", 404);
-    set.forEach((candidate) => { candidate.selected = candidate.id === candidateId; });
-    this.refreshAssetPlan(state, id);
-    this.compile(state, id);
+    if (!state.outline || !state.design || !state.tokens || !state.canvas || !state.candidates) throw new AppError("COMPOSITION_NOT_FOUND", "Composition is incomplete", 409);
+    const pageIndex = state.outline.pages.findIndex((page) => page.id === pageId);
+    const page = state.outline.pages[pageIndex];
+    const intent = state.design.intents.find((item) => item.pageId === pageId);
+    if (!page || !intent) throw new AppError("PAGE_NOT_FOUND", "Page not found", 404);
+    const previous = state.scene;
+    const relations = new RelationConstraintCompiler().compile(state.outline, state.design.plan);
+    const forbiddenGrammarHashes = state.candidates[pageIndex]?.filter((candidate) => candidate.selected).map((candidate) => candidate.grammarHash) ?? [];
+    const repair: RepairConstraint = { id: `manual-redesign:${pageId}:${expectedRevision}`, pageId, issueCodes: ["MANUAL_REDESIGN"], forbiddenGrammarHashes };
+    const nextSets = state.candidates.map((set, index) => index === pageIndex ? composePage(page, intent, state.design!.plan, relations, state.canvas!, state.tokens!, [repair]) : set);
+    state.candidates = selectDeckCandidates(state.outline.pages.map((item) => item.id), nextSets, relations, state.canvas);
+    state.layoutTraces = Object.fromEntries(state.candidates.flat().map((candidate) => [candidate.id, candidate.trace]));
+    this.refreshAssetBundle(state); this.compile(state);
+    state.history.push(previous); state.future = [];
     this.persist(state);
     return state.scene;
   }
 
+  /** Regenerates exactly one visual identity on explicit request; no automatic retry or hidden extra image call occurs. */
+  async regenerateAsset(id: string, assetId: string, expectedRevision: number, idempotencyKey: string) {
+    let state = this.get(id);
+    if (!state.scene || state.scene.revision !== expectedRevision) throw new AppError("REVISION_CONFLICT", "Scene revision conflict", 409);
+    const { job, existing } = this.newJob(state, `asset.regenerate:${assetId}`, idempotencyKey);
+    if (existing) return job;
+    try {
+      if (!state.assetBundle || !state.design || !this.image) throw new AppError("ASSET_GENERATION_UNAVAILABLE", "Image generation is unavailable for this project", 409);
+      const stored = state.assets[assetId];
+      const placement = state.assetBundle.placements.find((item) => item.assetId === assetId);
+      const request = placement && state.design.intents.flatMap((intent) => intent.mediaRequests).find((item) => item.identityId === placement.identityId);
+      if (!stored || !placement || !request) throw new AppError("ASSET_NOT_FOUND", "Generated asset or placement not found", 404);
+      this.update(job, { status: "running", stage: "regenerating_asset", progress: 20 });
+      const spec = buildImageRequest({ request, targetAspectRatio: placement.targetAspectRatio, mediaLanguage: state.design.plan.visualGrammar.mediaLanguage });
+      const modelInput = { context: { ...spec.context }, size: spec.size };
+      const result = await this.image.execute(modelInput);
+      this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: result.model, purpose: "image-regeneration", scopeId: placement.identityId, requestHash: result.requestHash, estimatedCostRmb: result.estimatedCostRmb, success: true, parentJob: job.id });
+      const validated = await this.assetValidator.validate({ ...(result.url ? { url: result.url } : {}), ...(result.base64 ? { base64: result.base64 } : {}), role: request.role, targetAspectRatio: placement.targetAspectRatio, incurredCost: true });
+
+      // The paid response is accounted for above, but a concurrent edit still wins.
+      // Refusing the stale commit prevents regeneration from erasing user changes.
+      state = this.get(id);
+      if (!state.scene || state.scene.revision !== expectedRevision || !state.assetBundle) throw new AppError("REVISION_CONFLICT", "Scene changed while the asset was being regenerated", 409, [], { stage: "asset-regeneration", incurredCost: true, manualRetryAllowed: true });
+      const replacementId = this.id("asset");
+      const replacement: StoredAsset = { base64: validated.base64, alt: request.audienceAlt ?? "", promptHash: result.requestHash, identityId: placement.identityId, role: request.role, width: validated.width, height: validated.height, qualityStatus: "passed" };
+      state.assets[replacementId] = replacement;
+      for (const item of state.assetBundle.placements) if (item.identityId === placement.identityId) { item.assetId = replacementId; item.source = "generated"; item.promptHash = result.requestHash; }
+      state.assetBundle.resolvedAssetIds = [...new Set(state.assetBundle.placements.map((item) => item.assetId).filter((value): value is string => Boolean(value)))];
+      this.assetCache.set(result.requestHash, structuredClone(replacement));
+      const previous = state.scene;
+      this.compile(state); state.history.push(previous); state.future = [];
+      this.persist(state); this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: replacementId });
+    } catch (error) { this.fail(job, error); }
+    return job;
+  }
+
+  /** Exports only after rule/visual quality and actual PPTX render evidence pass for the same Scene hash. */
   async export(id: string) {
     const state = this.get(id);
-    if (!state.scene) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
-    if (!state.quality?.passed || state.quality.upstreamHashes.scene !== state.scene.contentHash) throw new AppError("QUALITY_GATE_FAILED", "Quality gate has not passed for the current revision", 409);
-    return exportSceneToPptx(state.scene);
+    const capturedHash = this.businessHash(state);
+    if (!state.scene || !state.outline) throw new AppError("SCENE_NOT_FOUND", "Scene not found", 404);
+    if (!state.quality?.passed || state.quality.upstreamHashes.scene !== state.scene.contentHash || state.quality.visualReviewStatus === "pending" || state.quality.visualReviewStatus === "failed") throw new AppError("QUALITY_GATE_FAILED", "Quality gate has not passed for the current revision", 409);
+    const renderable = this.renderableScene(state);
+    const artifact = await exportSceneToPptx(renderable);
+    const rendered = await this.renderEvidence.create(renderable, artifact.bytes);
+    state.renderEvidence = rendered.evidence;
+    const refreshedRules = evaluateScene(state.scene, { measurer: this.textMeasurer, outline: state.outline, ...(state.assetBundle ? { assetPlan: state.assetBundle } : {}), renderEvidence: state.renderEvidence });
+    const priorVisualIssues = state.quality.issues.filter((issue) => issue.code === "VISUAL_REVIEW" && issue.pageId).map((issue) => ({ pageId: issue.pageId!, dimension: issue.dimension as "Content" | "Design" | "Coherence", severity: issue.severity, message: issue.message, repairIntent: issue.repairIntent ?? "manual-review" }));
+    state.quality = applyVisualReview(refreshedRules, priorVisualIssues);
+    this.commitSnapshot(state, capturedHash, "export rendering", false);
+    if (!state.renderEvidence.passed || !state.quality.passed) throw new AppError("EXPORT_RENDER_DIVERGENCE", "Final PPTX render evidence did not pass", 409, [], { stage: "rendering", presentationId: id, incurredCost: false, manualRetryAllowed: false });
+    return artifact;
   }
-  usageLedger(id: string) {
-    const jobIds = new Set([...this.jobs.values()].filter((job) => job.scopeId === id).map((job) => job.id));
-    return this.usage.filter((item) => jobIds.has(item.parentJob));
-  }
+
+  usageLedger(id: string) { const jobIds = new Set([...this.jobs.values()].filter((job) => job.scopeId === id).map((job) => job.id)); return this.usage.filter((item) => jobIds.has(item.parentJob)); }
+  assetContent(id: string, assetId: string) { const asset = this.get(id).assets[assetId]; if (!asset?.base64) throw new AppError("ASSET_CONTENT_NOT_FOUND", "Asset content not found", 404); return Buffer.from(asset.base64, "base64"); }
 }

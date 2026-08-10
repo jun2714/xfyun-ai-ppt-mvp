@@ -2,6 +2,7 @@ import type { TextGenerationRequest, TextGenerationResponse } from "../../domain
 import { ModelCostPolicy } from "../../domain/budget/model-cost-policy.js";
 import type { TextModelPort } from "../ports/text-model.port.js";
 
+/** Applies a hard cost ceiling before issuing one provider text request. */
 export class GenerateTextUseCase {
   constructor(
     private readonly model: TextModelPort,

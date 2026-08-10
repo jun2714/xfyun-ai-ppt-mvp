@@ -2,7 +2,8 @@ import type { PresentationState, PresentationStateRepositoryPort } from "../../.
 
 export class MemoryPresentationStateRepository implements PresentationStateRepositoryPort {
   private readonly records = new Map<string, PresentationState>();
-  save(state: PresentationState) { this.records.set(state.brief.id, state); }
-  get(id: string) { return this.records.get(id); }
-  list() { return [...this.records.values()]; }
+  /** Cloning prevents a failed job from leaking partially mutated state into the repository. */
+  save(state: PresentationState) { this.records.set(state.brief.id, structuredClone(state)); }
+  get(id: string) { const value = this.records.get(id); return value ? structuredClone(value) : undefined; }
+  list() { return [...this.records.values()].map((value) => structuredClone(value)); }
 }

@@ -10,6 +10,7 @@ interface DmxChatResponse {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
+/** Maps the text Port to one DMX chat-completions request. */
 export class DmxTextModelAdapter implements TextModelPort {
   constructor(
     private readonly http: JsonHttpClient,

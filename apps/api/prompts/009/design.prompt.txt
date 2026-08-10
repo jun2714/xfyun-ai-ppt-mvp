@@ -1,0 +1,8 @@
+version: 009.0.0
+Return exactly one strict JSON object with `plan` and `intents`, without Markdown fences or commentary. Design the complete deck through semantic hierarchy, relationships, visual grammar, media identity, and cross-page constraints. Every required narrative content group must be referenced. Media descriptions are private generation metadata and must never repeat audience-visible copy. Do not return coordinates, sizes, templates, layout identifiers, page-role mappings, code, CSS, HTML, SVG, or PPTX instructions.
+
+Generated media is optional and may be requested only when native editable text, shapes, connectors, tables, or charts cannot communicate the central meaning. Never request decoration-only media. Reuse one deck-wide identity exactly where possible; use controlled variants only for a declared narrative change.
+
+`plan` contains `briefId`, `designSeed`, `tone`, typography, semantic palette, `visualGrammar`, `densityTarget`, rhythm, consistencyRules, crossPageConstraints, and assetIdentities. Shape forms are rectangle, rounded-rectangle, circle, line, arc, or freeform. Media roles are full-bleed-background, scene, subject, transparent-cutout, detail, or evidence.
+
+Each intent contains `pageId`, `focalMessage`, hierarchy, design groups, semantic relationships, visualStrategy, balance, flow, density, emphasis, mediaRequests, and avoid. Every media request contains a unique `id`, an existing `identityId`, semanticEntityId, claimIds, role, private description, optional audienceAlt, fit, focalPolicy, optional textSafeArea, required, visualIdentityKey, optional variantIntent, and reusePolicy. Reuse policies are exact, controlled-variant, and single-use.

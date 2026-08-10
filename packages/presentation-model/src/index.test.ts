@@ -3,7 +3,7 @@ import test from "node:test";
 import { PageDesignIntentSchema, NarrativePageSchema } from "./index.js";
 
 test("narrative page preserves multiple content groups",()=>{
- const page=NarrativePageSchema.parse({id:"p",purpose:"teach",headline:"h",message:"m",contentGroups:[{id:"g1",kind:"paragraph",text:"a"},{id:"g2",kind:"annotation",text:"b"},{id:"g3",kind:"annotation",text:"c"},{id:"g4",kind:"annotation",text:"d"},{id:"g5",kind:"caption",text:"e"}],speakerNotes:[],evidenceRequests:[],continuityLinks:[]});
+ const page=NarrativePageSchema.parse({id:"p",purpose:"teach",headline:"h",message:"m",contentGroups:[{id:"g1",kind:"paragraph",text:"a"},{id:"g2",kind:"annotation",text:"b"},{id:"g3",kind:"annotation",text:"c"},{id:"g4",kind:"annotation",text:"d"},{id:"g5",kind:"caption",text:"e"}],speakerNotes:[],evidenceRequests:[]});
  assert.equal(page.contentGroups.length,5);
 });
 test("design intent rejects coordinate and template language",()=>{

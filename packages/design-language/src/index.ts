@@ -25,6 +25,9 @@ export type DesignTokens = {
   motif: string;
 };
 
+/** Central engineering default for a widescreen point canvas; it is not a page-layout answer. */
+export const DEFAULT_CANVAS: Readonly<{ width: number; height: number }> = Object.freeze({ width: 960, height: 540 });
+
 const channel = (value: number) => value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 const luminance = (hex: string) => {
   const rgb = [1, 3, 5].map((index) => channel(Number.parseInt(hex.slice(index, index + 2), 16) / 255));
@@ -63,9 +66,9 @@ export function resolveDesignTokens(plan: DeckDesignPlan): DesignTokens {
     lineHeight: 1.2,
     space: density === "airy" ? 24 : density === "dense" ? 12 : 18,
     safeInset: density === "dense" ? 34 : 42,
-    radius: plan.shapeLanguage.cornerStyle === "round" ? 24 : plan.shapeLanguage.cornerStyle === "soft" ? 10 : 0,
-    strokeWidth: plan.shapeLanguage.strokeStyle === "expressive" ? 3 : plan.shapeLanguage.strokeStyle === "subtle" ? 1 : 0,
-    motif: plan.shapeLanguage.motif
+    radius: plan.visualGrammar.shapeVocabulary.cornerStyle === "round" ? 24 : plan.visualGrammar.shapeVocabulary.cornerStyle === "soft" ? 10 : 0,
+    strokeWidth: plan.visualGrammar.shapeVocabulary.strokeStyle === "expressive" ? 3 : plan.visualGrammar.shapeVocabulary.strokeStyle === "subtle" ? 1 : 0,
+    motif: plan.visualGrammar.motifRules.map((rule) => rule.intent).join(" | ")
   };
 }
 

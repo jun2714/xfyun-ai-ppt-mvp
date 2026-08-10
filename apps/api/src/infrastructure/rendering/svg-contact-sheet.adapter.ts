@@ -17,7 +17,14 @@ const renderNode = (node: SceneNode) => {
   if (node.kind === "chart" && Array.isArray(node.content.rows)) {
     const values = (node.content.rows as unknown[]).slice(1).map((row) => Array.isArray(row) ? Number(row[1] ?? 0) : 0);
     const max = Math.max(1, ...values); const barWidth = width / Math.max(1, values.length) * 0.55;
-    return values.map((value, index) => { const barHeight = height * 0.8 * value / max; return `<rect x="${x + index * width / values.length + barWidth * 0.4}" y="${y + height - barHeight}" width="${barWidth}" height="${barHeight}" fill="#2D7A50"/>`; }).join("");
+    return values.map((value, index) => { const barHeight = height * 0.8 * value / max; return `<rect x="${x + index * width / values.length + barWidth * 0.4}" y="${y + height - barHeight}" width="${barWidth}" height="${barHeight}" fill="${xml(node.style.fill ?? "#2D7A50")}"/>`; }).join("");
+  }
+  if (node.kind === "connector") {
+    const x1 = node.content.flipH ? x + width : x;
+    const x2 = node.content.flipH ? x : x + width;
+    const y1 = node.content.flipV ? y + height : y;
+    const y2 = node.content.flipV ? y : y + height;
+    return `<defs><marker id="arrow-${xml(node.id)}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${xml(node.style.stroke ?? "#333333")}"/></marker></defs><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${xml(node.style.stroke ?? "#333333")}" stroke-width="${Number(node.style.strokeWidth ?? 1.5)}" marker-end="url(#arrow-${xml(node.id)})"/>`;
   }
   if (node.kind === "text") {
     const fontSize = Number(node.style.fontSize ?? 18); const lines = textLines(String(node.content.text ?? ""), width, fontSize);
@@ -28,6 +35,14 @@ const renderNode = (node: SceneNode) => {
   return "";
 };
 
+/** Renders one Scene page for preview and comparison without making layout decisions. */
+export async function renderScenePagePng(page: SceneGraph["pages"][number], targetWidth = 1600): Promise<Buffer> {
+  const content = [...page.nodes].sort((a, b) => a.zIndex - b.zIndex).map(renderNode).join("");
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" width="${page.width}" height="${page.height}" viewBox="0 0 ${page.width} ${page.height}"><rect width="${page.width}" height="${page.height}" fill="${page.background}"/>${content}</svg>`;
+  return sharp(Buffer.from(source)).resize({ width: targetWidth }).png().toBuffer();
+}
+
+/** Renders a labeled Scene contact sheet for diagnostics before office export. */
 export class SvgContactSheetAdapter implements ContactSheetPort {
   async render(scene: SceneGraph, pageIds: string[]): Promise<string> {
     const pages = pageIds.map((id) => scene.pages.find((page) => page.id === id)).filter((page): page is SceneGraph["pages"][number] => Boolean(page));

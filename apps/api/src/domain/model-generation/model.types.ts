@@ -28,10 +28,12 @@ export interface TextGenerationResponse extends TextModelResult {
 }
 
 export interface ImageGenerationRequest {
-  prompt: string;
+  context: Record<string, unknown>;
   size: string;
 }
 
 export interface ImageGenerationResponse extends ImageModelResult {
   estimatedCostRmb: number;
+  requestHash: string;
+  prompt: { id: string; version: string; contentHash: string };
 }

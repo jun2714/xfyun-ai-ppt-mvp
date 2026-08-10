@@ -8,6 +8,7 @@ export interface TextModelCommand {
   responseFormat: "text" | "json_object";
 }
 
+/** Sends one schema-constrained text request without automatic retries. */
 export interface TextModelPort {
   generate(command: TextModelCommand): Promise<TextModelResult>;
 }

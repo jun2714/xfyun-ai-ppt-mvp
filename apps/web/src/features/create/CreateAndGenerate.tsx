@@ -19,13 +19,13 @@ export function CreatePage() {
   };
   const field = (key: keyof typeof form, value: string | number) => setForm((current) => ({ ...current, [key]: value }));
   return <main className="create-page"><header className="site-header"><a className="brand" href="/">SparkDeck</a><span>幼儿园全场景 AI 演示</span></header><section className="create-hero"><span className="step-label">第 1 步</span><h1>说清楚要讲什么，先生成大纲</h1><p>大纲确认后，系统才会设计页面并按最终版式生成需要的图片。</p></section><form className="brief-form" onSubmit={(event) => void create(event)}>
-    <label className="wide-field">演示主题<input required value={form.title} onChange={(event) => field("title", event.target.value)} placeholder="例如：新学期家长会 / 春天科学活动 / 消防安全教育" /></label>
-    <label>给谁看<input required value={form.audience} onChange={(event) => field("audience", event.target.value)} placeholder="幼儿、家长、教师…" /></label>
-    <label>年龄或班级<input value={form.ageRange} onChange={(event) => field("ageRange", event.target.value)} placeholder="小班 / 4–5 岁" /></label>
-    <label>使用场景<input required value={form.usageContext} onChange={(event) => field("usageContext", event.target.value)} placeholder="课堂教学、家长会、园务汇报…" /></label>
+    <label className="wide-field">演示主题<input required value={form.title} onChange={(event) => field("title", event.target.value)} placeholder="输入本次演示的主题" /></label>
+    <label>给谁看<input required value={form.audience} onChange={(event) => field("audience", event.target.value)} placeholder="输入主要观众" /></label>
+    <label>年龄或班级<input value={form.ageRange} onChange={(event) => field("ageRange", event.target.value)} placeholder="输入适用年龄或班级" /></label>
+    <label>使用场景<input required value={form.usageContext} onChange={(event) => field("usageContext", event.target.value)} placeholder="输入实际使用场景" /></label>
     <label>页数<input required type="number" min={1} max={80} value={form.pageCount} onChange={(event) => field("pageCount", Number(event.target.value))} /></label>
     <label className="wide-field">希望观众听完以后怎样<input required value={form.objective} onChange={(event) => field("objective", event.target.value)} placeholder="理解、参与、形成共识或完成某项行动" /></label>
-    <label className="wide-field">视觉偏好（可选）<input value={form.style} onChange={(event) => field("style", event.target.value)} placeholder="例如：温暖自然、童趣但不幼稚、照片为主" /></label>
+    <label className="wide-field">视觉偏好（可选）<input value={form.style} onChange={(event) => field("style", event.target.value)} placeholder="输入希望呈现的视觉感受" /></label>
     {error && <div className="error-banner wide-field">{error}</div>}<div className="form-action wide-field"><span>费用仅在后台统计，不在流程中打断你。</span><button className="primary" disabled={busy}>{busy ? "正在生成大纲…" : "生成大纲"}</button></div>
   </form>{items.length > 0 && <section className="recent"><h2>最近的演示</h2><div>{items.map((item) => <a key={item.id} href={`/presentations/${item.id}/generate`}><b>{item.title}</b><span>{item.audience} · {item.pageCount} 页</span></a>)}</div></section>}</main>;
 }

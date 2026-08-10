@@ -9,16 +9,18 @@ interface DmxImageResponse {
   output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
 }
 
+/** Translates the configured DMX image protocol without inferring behavior from model names. */
 export class DmxImageModelAdapter implements ImageModelPort {
   constructor(
     private readonly http: JsonHttpClient,
     private readonly auth: DmxAuth,
     private readonly baseUrl: string,
-    private readonly model: string
+    private readonly model: string,
+    private readonly apiStyle: "responses" | "images"
   ) {}
 
   async generate(command: ImageModelCommand): Promise<ImageModelResult> {
-    const usesResponsesApi = this.model.startsWith("qwen-image-2.0");
+    const usesResponsesApi = this.apiStyle === "responses";
     const response = await this.http.post<DmxImageResponse>(
       `${this.baseUrl}/${usesResponsesApi ? "responses" : "images/generations"}`,
       this.auth.headers(),
@@ -26,7 +28,7 @@ export class DmxImageModelAdapter implements ImageModelPort {
         ? {
             model: this.model,
             input: {
-              messages: [{ role: "user", content: [{ text: command.prompt.slice(0, 800) }] }],
+              messages: [{ role: "user", content: [{ text: command.prompt }] }],
               parameters: {
                 size: command.size.replace("x", "*"),
                 n: 1,
