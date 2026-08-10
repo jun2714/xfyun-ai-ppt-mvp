@@ -6,6 +6,8 @@ import { executeAcceptance } from "./execute.mjs";
 const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const defaultRepositoryRoot = resolve(packageRoot, "../..");
 try { process.loadEnvFile(resolve(defaultRepositoryRoot, ".env")); } catch (error) { if (error?.code !== "ENOENT") throw error; }
+process.env.PROMPT_DIRECTORY = resolve(defaultRepositoryRoot, process.env.PROMPT_DIRECTORY ?? "apps/api/prompts/009");
+process.env.DATA_DIRECTORY = resolve(defaultRepositoryRoot, process.env.DATA_DIRECTORY ?? ".data");
 
 const valueAfter = (name) => {
   const index = process.argv.indexOf(name);
@@ -18,8 +20,8 @@ const outputDirectory = resolve(repositoryRoot, valueAfter("--output") ?? ".runt
 const report = await runPreflight({
   repositoryRoot,
   briefPath: resolve(brief),
-  promptDirectory: resolve(repositoryRoot, process.env.PROMPT_DIRECTORY ?? "apps/api/prompts/009"),
-  dataDirectory: resolve(repositoryRoot, process.env.DATA_DIRECTORY ?? ".data"),
+  promptDirectory: process.env.PROMPT_DIRECTORY,
+  dataDirectory: process.env.DATA_DIRECTORY,
   outputDirectory,
   tempDirectory: resolve(process.env.TEMP ?? process.env.TMP ?? ".runtime/tmp"),
   reportPath: resolve(outputDirectory, "preflight-report.json"),
