@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
+    "@sparkdeck/asset-planning": "workspace:*",
     "@sparkdeck/composition-engine": "workspace:*",
     "@sparkdeck/design-language": "workspace:*",
     "@sparkdeck/pptx-export": "workspace:*",
@@ -20,6 +21,7 @@
     "@sparkdeck/quality-engine": "workspace:*",
     "@sparkdeck/scene-graph": "workspace:*",
     "fastify": "^5.4.0",
+    "sharp": "^0.34.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

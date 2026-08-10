@@ -1,0 +1,12 @@
+export type Brief = { id: string; title: string; audience: string; ageRange?: string; usageContext: string; objective: string; pageCount: number; constraints: string[]; revision: number };
+export type ContentGroup = { id: string; kind: string; label?: string; text?: string; items?: string[]; rows?: Array<Array<string | number>>; claimIds: string[]; required: boolean };
+export type OutlinePage = { id: string; purpose: string; headline: string; message: string; contentGroups: ContentGroup[]; speakerNotes: string[]; evidenceRequests: unknown[]; continuityLinks: string[] };
+export type Outline = { revision: number; confirmedAt: string | null; pages: OutlinePage[] };
+export type Bounds = { x: number; y: number; width: number; height: number };
+export type SceneNode = { id: string; kind: "text" | "shape" | "image" | "chart" | "connector" | "group"; bounds: Bounds; zIndex: number; style: Record<string, unknown>; content: Record<string, unknown> };
+export type ScenePage = { id: string; width: number; height: number; background: string; nodes: SceneNode[]; selectedCandidateId: string; alternativeCandidateIds: string[]; riskFlags: string[] };
+export type Scene = { revision: number; pages: ScenePage[] };
+export type QualityIssue = { code: string; severity: "warning" | "error"; message: string; pageId?: string; nodeIds: string[] };
+export type Quality = { passed: boolean; visualReviewStatus: string; scores: Record<string, number>; issues: QualityIssue[] };
+export type PresentationState = { brief: Brief; outline?: Outline; design?: unknown; scene?: Scene; quality?: Quality };
+export type Job = { id: string; status: "queued" | "running" | "succeeded" | "failed"; stage: string; progress: number; error: { message: string } | null };

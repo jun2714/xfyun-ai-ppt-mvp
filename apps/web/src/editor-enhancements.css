@@ -1,0 +1,22 @@
+.insert-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 18px;
+}
+
+.insert-actions button {
+  border: 1px solid #d4d4cf;
+  background: #fff;
+  color: #29302c;
+  border-radius: 9px;
+  padding: 9px 12px;
+}
+
+.inspector button.danger {
+  color: #a2342c;
+  border-color: #e2b8b4;
+}
+
+.scene-node {
+  touch-action: none;
+}

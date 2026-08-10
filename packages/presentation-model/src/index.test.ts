@@ -7,6 +7,6 @@ test("narrative page preserves multiple content groups",()=>{
  assert.equal(page.contentGroups.length,5);
 });
 test("design intent rejects coordinate and template language",()=>{
- const base={pageId:"p",focalMessage:"m",hierarchy:[{contentGroupId:"g",priority:1}],groups:[{id:"d",contentGroupIds:["g"],treatment:"clear"}],relationships:[],visualStrategy:"none",balance:"centered",flow:"vertical",density:"low",emphasis:[],mediaRequests:[],avoid:[]};
+ const base={pageId:"p",focalMessage:"m",hierarchy:[{contentGroupId:"g",priority:1}],groups:[{id:"d",contentGroupIds:["g"],treatment:"plain"}],relationships:[],visualStrategy:"none",balance:"centered",flow:"vertical",density:"low",emphasis:[],mediaRequests:[],avoid:[]};
  assert.equal(PageDesignIntentSchema.safeParse({...base,avoid:["templateId=hero"]}).success,false);
 });

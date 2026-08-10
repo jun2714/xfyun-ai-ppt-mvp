@@ -6,6 +6,7 @@ export interface AppConfig {
   dmxApiKey: string;
   textModel: string;
   imageModel: string;
+  visionModel: string;
   requestTimeoutMs: number;
   textMaxOutputTokens: number;
   textInputRmbPerMillion: number;
@@ -31,6 +32,7 @@ export function loadConfig(): AppConfig {
     dmxApiKey: process.env.DMX_API_KEY?.trim() ?? "",
     textModel: process.env.DMX_TEXT_MODEL ?? "qwen3.5-plus",
     imageModel: process.env.DMX_IMAGE_MODEL ?? "qwen-image-2.0",
+    visionModel: process.env.DMX_VISION_MODEL ?? "gemini-2.5-flash",
     requestTimeoutMs: numberFromEnv("DMX_REQUEST_TIMEOUT_MS", 120_000),
     textMaxOutputTokens: numberFromEnv("DMX_TEXT_MAX_OUTPUT_TOKENS", 4_000),
     textInputRmbPerMillion: numberFromEnv("DMX_TEXT_INPUT_RMB_PER_MILLION", 0.4),
