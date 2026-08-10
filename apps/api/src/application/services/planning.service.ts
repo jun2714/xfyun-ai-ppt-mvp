@@ -23,6 +23,15 @@ const jsonOf = (content: string): unknown => {
   try { return JSON.parse(content); }
   catch { throw new AppError("MODEL_JSON_INVALID", "Model did not return valid JSON", 502); }
 };
+const contractFailure = (error: unknown, content: string, resultTelemetry: PlanningTelemetry) => {
+  const issues = error instanceof z.ZodError
+    ? error.issues.map(({ path, code, message }) => ({ path, code, message }))
+    : [{ path: [], code: error instanceof AppError ? error.code : "MODEL_CONTRACT_INVALID", message: error instanceof Error ? error.message : "Model response failed validation" }];
+  return new AppError("MODEL_CONTRACT_INVALID", "Model response does not match the narrative contract", 502, issues, {
+    stage: "planning", incurredCost: true, manualRetryAllowed: true, modelTelemetry: resultTelemetry,
+    modelResponseEvidence: { contentHash: hashContent(content), characterCount: content.length, validationIssues: issues }
+  });
+};
 const VersionKeys = { schemaVersion: true, revision: true, contentHash: true, upstreamHashes: true } as const;
 const NarrativeModelOutputSchema = z.object({ pages: z.array(NarrativePageSchema).min(1), arc: NarrativeArcSchema }).strict();
 const DesignPlanPayloadSchema = DeckDesignPlanSchema.omit(VersionKeys);
@@ -111,11 +120,14 @@ export class NarrativePlanner {
       userPrompt: JSON.stringify({ brief: { title: brief.title, audience: brief.audience, ageRange: brief.ageRange, usageContext: brief.usageContext, objective: brief.objective, pageCount: brief.pageCount, constraints: brief.constraints, language: brief.language } }),
       responseFormat: "json_object"
     });
-    if (productionLanguage.test(result.content)) throw new AppError("MODEL_PRODUCTION_LANGUAGE_LEAK", "Narrative model returned production language", 422);
-    const raw = NarrativeModelOutputSchema.parse(jsonOf(result.content));
-    const outline = NarrativeOutlineSchema.parse(versioned({ briefId: brief.id, pages: raw.pages, arc: raw.arc, confirmedAt: null }, 0, { brief: brief.contentHash }));
-    validateNarrative(outline, brief);
-    return { value: outline, telemetry: telemetry(result, prompt) };
+    const resultTelemetry = telemetry(result, prompt);
+    try {
+      if (productionLanguage.test(result.content)) throw new AppError("MODEL_PRODUCTION_LANGUAGE_LEAK", "Narrative model returned production language", 422);
+      const raw = NarrativeModelOutputSchema.parse(jsonOf(result.content));
+      const outline = NarrativeOutlineSchema.parse(versioned({ briefId: brief.id, pages: raw.pages, arc: raw.arc, confirmedAt: null }, 0, { brief: brief.contentHash }));
+      validateNarrative(outline, brief);
+      return { value: outline, telemetry: resultTelemetry };
+    } catch (error) { throw contractFailure(error, result.content, resultTelemetry); }
   }
 }
 

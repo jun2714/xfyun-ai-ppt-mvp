@@ -3,5 +3,5 @@ export type JobStage = "queued"|"planning"|"generating_candidates"|"scoring"|"re
 export type Job = {
   id: string; scopeId: string; type: string; status: JobStatus;
   progress: number; stage: JobStage; resultRef: string | null;
-  error: { code: string; message: string; incurredCost: boolean; manualRetryAllowed: boolean } | null;
+  error: { code: string; message: string; incurredCost: boolean; manualRetryAllowed: boolean; evidence?: unknown } | null;
 };

@@ -86,7 +86,7 @@ export class PresentationPlatformService {
   }
   private fail(job: Job, error: unknown) {
     const appError = error instanceof AppError ? error : undefined;
-    this.update(job, { status: "failed", progress: 100, stage: "failed", error: { code: appError?.code ?? "JOB_FAILED", message: error instanceof Error ? error.message : "Job failed", incurredCost: appError?.context.incurredCost ?? false, manualRetryAllowed: appError?.context.manualRetryAllowed ?? false } });
+    this.update(job, { status: "failed", progress: 100, stage: "failed", error: { code: appError?.code ?? "JOB_FAILED", message: error instanceof Error ? error.message : "Job failed", incurredCost: appError?.context.incurredCost ?? false, manualRetryAllowed: appError?.context.manualRetryAllowed ?? false, ...(appError?.context.modelResponseEvidence ? { evidence: appError.context.modelResponseEvidence } : {}) } });
   }
   private persist(state: PresentationState) { this.repository.save(state); }
   /** Hashes only user/business state; job progress and append-only usage must not invalidate their own job. */
@@ -171,7 +171,13 @@ export class PresentationPlatformService {
         this.invalidateAfterOutline(state); state.outline = planned.value;
         this.commitSnapshot(state, capturedHash, "narrative", true);
         this.update(job, { status: "succeeded", stage: "completed", progress: 100, resultRef: state.outline.contentHash });
-      } catch (error) { this.fail(job, error); }
+      } catch (error) {
+        if (error instanceof AppError && error.context.modelTelemetry) {
+          const telemetry = error.context.modelTelemetry;
+          this.recordUsage(state, { id: this.id("usage"), provider: "dmx", model: telemetry.model, purpose: "narrative", scopeId: id, requestHash: promptHash({ brief: state.brief.contentHash, prompt: telemetry.prompt.contentHash }), estimatedCostRmb: telemetry.estimatedCostRmb, success: false, parentJob: job.id });
+        }
+        this.fail(job, error);
+      }
     })();
     return job;
   }
