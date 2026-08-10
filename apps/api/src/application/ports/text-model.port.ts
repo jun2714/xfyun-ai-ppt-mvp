@@ -3,7 +3,7 @@ import type { TextModelResult } from "../../domain/model-generation/model.types.
 export interface TextModelCommand {
   systemPrompt: string;
   userPrompt: string;
-  maxOutputTokens: number;
+  maxOutputTokens?: number;
   temperature: number;
   responseFormat: "text" | "json_object";
 }

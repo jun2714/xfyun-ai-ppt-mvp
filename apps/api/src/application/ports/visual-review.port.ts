@@ -5,7 +5,7 @@ export type VisualReviewIssue = {
   message: string;
   repairIntent: string;
 };
-export type VisualReviewCommand = { contactSheetDataUri: string; pageIds: string[]; systemPrompt: string; contextJson: string; maxOutputTokens: number };
+export type VisualReviewCommand = { contactSheetDataUri: string; pageIds: string[]; systemPrompt: string; contextJson: string };
 export type VisualReviewResult = { model: string; inputTokens: number; outputTokens: number; issues: VisualReviewIssue[] };
 /** Reviews one complete-deck image batch and returns semantic issues only. */
 export interface VisualReviewPort { review(command: VisualReviewCommand): Promise<VisualReviewResult> }

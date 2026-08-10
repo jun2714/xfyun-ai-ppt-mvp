@@ -4,7 +4,7 @@ import type { ImageModelPort } from "../ports/image-model.port.js";
 import type { PromptCatalogPort } from "../ports/prompt-catalog.port.js";
 import { hashContent } from "@sparkdeck/presentation-model";
 
-/** Applies cost policy and a versioned external prompt contract to one unique asset request. */
+/** Applies a versioned external prompt contract and records cost without blocking the request. */
 export class GenerateImageUseCase {
   constructor(
     private readonly model: ImageModelPort,
@@ -20,7 +20,6 @@ export class GenerateImageUseCase {
 
   async execute(input: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     const estimatedCostRmb = this.costPolicy.estimateImage();
-    this.costPolicy.assertWithinBudget(estimatedCostRmb);
     const prompt = this.prompts.get("image");
     const contextJson = JSON.stringify(input.context);
     const requestHash = this.requestHash(input);

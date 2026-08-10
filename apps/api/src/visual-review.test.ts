@@ -16,7 +16,7 @@ test("contact sheet rasterizes selected scene pages locally", async () => {
 test("visual review uses one multimodal request and validates page references", async () => {
   let body: any;
   const http = { post: async (_url: string, _headers: Record<string, string>, input: unknown) => { body = input; return { model: "gemini-2.5-flash", choices: [{ message: { content: JSON.stringify({ issues: [] }) } }], usage: { prompt_tokens: 100, completion_tokens: 20 } }; } } as unknown as JsonHttpClient;
-  const result = await new DmxVisualReviewAdapter(http, new DmxAuth("test"), "https://www.dmxapi.cn/v1", "gemini-2.5-flash").review({ contactSheetDataUri: "data:image/png;base64,AAAA", pageIds: ["page"], systemPrompt: "Review the supplied evidence.", contextJson: JSON.stringify({ pageIds: ["page"] }), maxOutputTokens: 500 });
+  const result = await new DmxVisualReviewAdapter(http, new DmxAuth("test"), "https://www.dmxapi.cn/v1", "gemini-2.5-flash").review({ contactSheetDataUri: "data:image/png;base64,AAAA", pageIds: ["page"], systemPrompt: "Review the supplied evidence.", contextJson: JSON.stringify({ pageIds: ["page"] }) });
   assert.equal(result.issues.length, 0);
   assert.equal(body.messages[1].content.filter((item: { type: string }) => item.type === "image_url").length, 1);
 });

@@ -6,15 +6,13 @@ import type { PromptCatalogPort } from "../ports/prompt-catalog.port.js";
 
 /** Combines versioned review instructions with one final-render contact sheet. */
 export class ReviewVisualQualityUseCase {
-  constructor(private readonly renderer: ContactSheetPort, private readonly reviewer: VisualReviewPort, private readonly prompts: PromptCatalogPort, private readonly costPolicy: ModelCostPolicy, private readonly maxOutputTokens: number) {}
+  constructor(private readonly renderer: ContactSheetPort, private readonly reviewer: VisualReviewPort, private readonly prompts: PromptCatalogPort, private readonly costPolicy: ModelCostPolicy) {}
   async execute(scene: SceneGraph, pageIds: string[], dimensions: readonly string[], finalPptxContactSheetDataUri?: string) {
     const prompt = this.prompts.get("visual-quality");
     // Final PPTX pixels take precedence; Scene rendering is retained only for non-export diagnostics.
     const contactSheetDataUri = finalPptxContactSheetDataUri ?? await this.renderer.render(scene, pageIds);
     const contextJson = JSON.stringify({ pageIds, dimensions });
-    const estimatedInputTokens = 1_500 + Math.ceil((prompt.content.length + contextJson.length) / 2);
-    this.costPolicy.assertWithinBudget(this.costPolicy.estimateText(estimatedInputTokens, this.maxOutputTokens));
-    const result = await this.reviewer.review({ contactSheetDataUri, pageIds, systemPrompt: prompt.content, contextJson, maxOutputTokens: this.maxOutputTokens });
+    const result = await this.reviewer.review({ contactSheetDataUri, pageIds, systemPrompt: prompt.content, contextJson });
     return { ...result, prompt: { id: prompt.id, version: prompt.version, contentHash: prompt.contentHash }, estimatedCostRmb: this.costPolicy.estimateText(result.inputTokens, result.outputTokens) };
   }
 }

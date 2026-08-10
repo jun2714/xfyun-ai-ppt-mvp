@@ -31,7 +31,7 @@ export class DmxTextModelAdapter implements TextModelPort {
         ],
         stream: false,
         temperature: command.temperature,
-        max_tokens: command.maxOutputTokens,
+        ...(command.maxOutputTokens === undefined ? {} : { max_tokens: command.maxOutputTokens }),
         ...(command.responseFormat === "json_object"
           ? { response_format: { type: "json_object" } }
           : {})

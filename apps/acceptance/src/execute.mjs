@@ -44,13 +44,12 @@ export async function executeAcceptance({ repositoryRoot, briefPath, outputDirec
     return parsed?.data ?? parsed ?? response;
   };
   const waitJob = async (jobId) => {
-    for (let count = 0; count < 600; count += 1) {
+    while (true) {
       const job = await request("GET", `/api/v1/jobs/${jobId}`);
       if (job.status === "succeeded") return job;
       if (job.status === "failed") throw new Error(`${job.error?.code ?? "JOB_FAILED"}: ${job.error?.message ?? "job failed"}`);
       await new Promise((done) => setTimeout(done, 500));
     }
-    throw new Error(`JOB_TIMEOUT:${jobId}`);
   };
   const start = async (path, payload = {}) => waitJob((await request("POST", path, { idempotencyKey: randomUUID(), ...payload })).id);
   let presentationId;

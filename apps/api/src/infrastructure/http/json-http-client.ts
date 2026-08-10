@@ -2,17 +2,14 @@ import { AppError } from "../../shared/errors/app-error.js";
 
 /** Executes exactly one provider request; retry belongs to no layer because paid calls must never repeat automatically. */
 export class JsonHttpClient {
-  constructor(private readonly timeoutMs: number) {}
+  constructor() {}
 
   async post<T>(url: string, headers: Record<string, string>, body: unknown): Promise<T> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify(body),
-        signal: controller.signal
+        body: JSON.stringify(body)
       });
       const raw = await response.text();
       let parsed: unknown;
@@ -28,12 +25,7 @@ export class JsonHttpClient {
       return parsed as T;
     } catch (error) {
       if (error instanceof AppError) throw error;
-      if ((error as Error).name === "AbortError") {
-        throw new AppError("PROVIDER_TIMEOUT", "DMX request timed out", 504);
-      }
       throw new AppError("PROVIDER_UNAVAILABLE", "Unable to reach DMX", 502);
-    } finally {
-      clearTimeout(timeout);
     }
   }
 

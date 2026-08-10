@@ -88,10 +88,6 @@ export async function runPreflight(options) {
     if (!new Set(["responses", "images"]).has(style)) throw new Error("DMX_IMAGE_API_STYLE must be responses or images");
     return { baseUrlOrigin: baseUrl.origin, imageApiStyle: style, secretsEchoed: false };
   });
-  await record("call-budget", async () => {
-    if (!Number.isInteger(options.maxCalls) || options.maxCalls < 1 || options.maxCalls > 50) throw new Error("maxCalls must be between 1 and 50");
-    return { maxCalls: options.maxCalls };
-  });
   await record("data-directory", () => checkWritableDirectory(options.dataDirectory));
   await record("output-directory", () => checkWritableDirectory(options.outputDirectory));
   await record("temp-directory", () => checkWritableDirectory(options.tempDirectory));

@@ -15,7 +15,7 @@ export class DmxVisualReviewAdapter implements VisualReviewPort {
   constructor(private readonly http: JsonHttpClient, private readonly auth: DmxAuth, private readonly baseUrl: string, private readonly model: string) {}
   async review(command: VisualReviewCommand): Promise<VisualReviewResult> {
     const response = await this.http.post<DmxResponse>(`${this.baseUrl}/chat/completions`, this.auth.headers(), {
-      model: this.model, stream: false, temperature: 0.1, max_tokens: command.maxOutputTokens, response_format: { type: "json_object" },
+      model: this.model, stream: false, temperature: 0.1, response_format: { type: "json_object" },
       messages: [{ role: "system", content: command.systemPrompt }, {
         role: "user", content: [
           { type: "text", text: command.contextJson },

@@ -19,13 +19,13 @@ import { FontkitTextMeasurerAdapter } from "../infrastructure/typography/fontkit
 
 export function createContainer() {
   const config = loadConfig();
-  const http = new JsonHttpClient(config.requestTimeoutMs);
+  const http = new JsonHttpClient();
   const auth = new DmxAuth(config.dmxApiKey);
   const costPolicy = new ModelCostPolicy(config);
   const prompts = new FilePromptCatalogAdapter(config.promptDirectory);
-  const generateText=new GenerateTextUseCase(new DmxTextModelAdapter(http, auth, config.dmxApiBaseUrl, config.textModel), costPolicy, config.textMaxOutputTokens);
+  const generateText=new GenerateTextUseCase(new DmxTextModelAdapter(http, auth, config.dmxApiBaseUrl, config.textModel), costPolicy);
   const generateImage=new GenerateImageUseCase(new DmxImageModelAdapter(http, auth, config.dmxApiBaseUrl, config.imageModel, config.imageApiStyle), prompts, costPolicy);
-  const reviewVisualQuality=new ReviewVisualQualityUseCase(new SvgContactSheetAdapter(),new DmxVisualReviewAdapter(http,auth,config.dmxApiBaseUrl,config.visionModel),prompts,costPolicy,1200);
+  const reviewVisualQuality=new ReviewVisualQualityUseCase(new SvgContactSheetAdapter(),new DmxVisualReviewAdapter(http,auth,config.dmxApiBaseUrl,config.visionModel),prompts,costPolicy);
   const renderEvidence = new OfficeRenderEvidenceAdapter(config.officeRenderProgramId);
   return {
     config,
