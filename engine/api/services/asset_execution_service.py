@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from models.image_prompt import ImagePrompt
 from models.sql.image_asset import ImageAsset
 from models.sql.asset_generation_trace import AssetGenerationTrace
@@ -75,12 +77,14 @@ async def process_presentation_assets(
     image_generation_service: ImageGenerationService,
     slides: list[SlideModel],
     presentation_id=None,
+    on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
     generated_assets: list[ImageAsset] = []
 
     for item in plan:
+        item_asset_start = len(generated_assets)
         last_error: Exception | None = None
         result: str | ImageAsset | None = None
         source_asset: ImageAsset | None = None
@@ -197,6 +201,8 @@ async def process_presentation_assets(
                     slot,
                     filesystem_image_path_to_app_data_url(output),
                 )
+            if on_item_completed is not None:
+                await on_item_completed(generated_assets[item_asset_start:])
             continue
 
         if item.generation_mode == "single-cutout":
@@ -215,10 +221,14 @@ async def process_presentation_assets(
                 item.slots[0],
                 filesystem_image_path_to_app_data_url(output),
             )
+            if on_item_completed is not None:
+                await on_item_completed(generated_assets[item_asset_start:])
             continue
 
         url = _asset_url(result)
         for slot in item.slots:
             _assign_url(slides_by_index[slot.slide_index], slot, url)
+        if on_item_completed is not None:
+            await on_item_completed(generated_assets[item_asset_start:])
 
     return generated_assets, plan

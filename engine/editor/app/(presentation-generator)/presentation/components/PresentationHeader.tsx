@@ -52,6 +52,7 @@ import {
 import MarkdownRenderer from "@/components/MarkDownRender";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
 
 const MAX_EXPORT_TITLE_LENGTH = 40;
 
@@ -361,7 +362,7 @@ const PresentationHeader = ({
 
   const ExportOptions = ({ mobile }: { mobile: boolean }) => (
     <div
-      className={` rounded-[18px] max-md:mt-4 ${mobile ? "" : "bg-white"}  p-5`}
+      className={`rounded-md max-md:mt-4 ${mobile ? "" : "bg-white"} p-4`}
     >
       <p className="text-sm font-medium text-[#19001F]">导出为</p>
       <div className="my-[18px] h-[1px] bg-[#E8E8E8]" />
@@ -402,7 +403,7 @@ const PresentationHeader = ({
       )}
     >
       {isEditingTitle ? (
-        <div className="flex items-stretch w-[450px]  gap-0.5 rounded-[14px] border border-[#E4E2EB] bg-white pl-3.5 pr-1 py-1 shadow-[0_2px_12px_rgba(17,3,31,0.06)] ring-2 ring-[#5141e5]/15">
+        <div className="flex h-10 w-[min(450px,42vw)] items-stretch gap-0.5 rounded-md border border-[#B9B2F7] bg-white pl-3 pr-1 shadow-[0_1px_3px_rgba(17,3,31,0.08)]">
           <input
             ref={titleInputRef}
             value={draftTitle}
@@ -429,7 +430,7 @@ const PresentationHeader = ({
                 type="button"
                 onMouseDown={onTitleSaveMouseDown}
                 onClick={commitTitleEdit}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5141e5] hover:bg-[#5141e5]/10 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded text-[#5141e5] transition-colors hover:bg-[#F0EEFF]"
                 aria-label="保存标题"
               >
                 <Check className="h-4 w-4" strokeWidth={2.25} />
@@ -440,7 +441,7 @@ const PresentationHeader = ({
                 type="button"
                 onMouseDown={onTitleCancelMouseDown}
                 onClick={cancelTitleEdit}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#101323]/55 hover:bg-[#F6F6F9] hover:text-[#101323] transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded text-[#101323]/55 transition-colors hover:bg-[#F3F4F6] hover:text-[#101323]"
                 aria-label="取消编辑标题"
               >
                 <X className="h-4 w-4" strokeWidth={2.25} />
@@ -454,8 +455,8 @@ const PresentationHeader = ({
           onClick={beginTitleEdit}
           disabled={isStreaming || !presentationData}
           className={cn(
-            "group/title flex w-full min-w-0 items-center gap-2.5 rounded-[14px] px-3 py-2 text-left -mx-3 transition-colors",
-            "hover:bg-[#F6F6F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5141e5] focus-visible:ring-offset-2",
+            "group/title flex h-9 w-full min-w-0 items-center gap-2 rounded px-2 text-left transition-colors",
+            "hover:bg-[#F5F5F8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5141e5]/30",
             "disabled:pointer-events-none disabled:opacity-100 disabled:hover:bg-transparent"
           )}
         >
@@ -478,16 +479,23 @@ const PresentationHeader = ({
 
   return (
     <>
-      <div className="py-[18px] px-4 sticky top-0 bg-white z-50 shadow-sm font-syne flex justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <img
+      <div className="sticky top-0 z-50 flex h-16 items-center justify-between gap-5 border-b border-[#E7E7EB] bg-white px-5 font-syne">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <button
+            type="button"
             onClick={() => {
-              router.push("/dashboard");
+              if (!requestTeachnovaHome()) router.push("/dashboard");
             }}
-            src="/teachnova-logo.png"
-            alt="Teachnova"
-            className="h-10 w-auto max-w-[180px] cursor-pointer object-contain"
-          />
+            className="flex shrink-0 items-center gap-2 text-left"
+            aria-label="返回 Teachnova 首页"
+          >
+            <img src="/teachnova-mark.png" alt="" className="h-9 w-9 object-contain" />
+            <span className="hidden items-baseline gap-1.5 lg:flex">
+              <span className="text-base font-bold tracking-[-0.03em] text-[#17152d]">Teachnova</span>
+              <span className="text-xs font-semibold text-[#4f4b5d]">幼教PPT</span>
+            </span>
+          </button>
+          <span aria-hidden="true" className="h-6 w-px shrink-0 bg-[#E7E7EB]" />
           {presentationData && !isStreaming && !isEditingTitle ? (
             <ToolTip content="重命名演示文稿">{titleBlock}</ToolTip>
           ) : (
@@ -496,7 +504,7 @@ const PresentationHeader = ({
          
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-2">
           {isPresentationSaving && (
             <div className="flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -510,7 +518,7 @@ const PresentationHeader = ({
                 onClick={toggleHtmlSelector}
                 aria-pressed={enableHtmlSelector}
                 className={cn(
-                  "hidden h-[38px] items-center gap-2.5 rounded-[80px] border px-3.5 font-syne text-xs font-semibold transition-colors xl:inline-flex",
+                  "hidden h-9 items-center gap-2 rounded-md border px-3 font-syne text-xs font-semibold transition-colors xl:inline-flex",
                   enableHtmlSelector
                     ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                     : "border-[#EDECEC] bg-[#F6F6F9] text-[#101323] hover:bg-white"
@@ -535,21 +543,21 @@ const PresentationHeader = ({
               </button>
             </ToolTip>
           )}
-          <div className="flex items-center gap-2 bg-[#F6F6F9] px-3.5 h-[38px] border border-[#EDECEC] rounded-[80px]">
+          <div className="flex h-9 items-center rounded-md border border-[#DEDEE5] bg-white p-0.5">
             <ToolTip content="重新生成演示文稿">
               <button
                 type="button"
                 onClick={() => setIsRegenerateConfirmOpen(true)}
-                className="group"
+                className="group flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-[#F2F0FF]"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-[#101323] group-hover:text-[#5141e5] duration-300" />
               </button>
             </ToolTip>
-            <Separator orientation="vertical" className="h-4" />
+            <Separator orientation="vertical" className="h-5" />
             <ToolTip content="撤销">
               <button
                 disabled={!canUndo}
-                className=" disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
+                className="group flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[#F2F0FF] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 onClick={() => {
                   onUndo();
                 }}
@@ -557,11 +565,11 @@ const PresentationHeader = ({
                 <Undo2 className="w-3.5 h-3.5 text-[#101323] group-hover:text-[#5141e5] duration-300" />
               </button>
             </ToolTip>
-            <Separator orientation="vertical" className="h-4" />
+            <Separator orientation="vertical" className="h-5" />
             <ToolTip content="重做">
               <button
                 disabled={!canRedo}
-                className=" disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
+                className="group flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[#F2F0FF] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 onClick={() => {
                   onRedo();
                 }}
@@ -569,7 +577,7 @@ const PresentationHeader = ({
                 <Redo2 className="w-3.5 h-3.5 text-[#101323] group-hover:text-[#5141e5] duration-300" />
               </button>
             </ToolTip>
-            <Separator orientation="vertical" className="h-4 w-[2px]" />
+            <Separator orientation="vertical" className="h-5" />
             <ToolTip content="放映">
               <button
                 onClick={() => {
@@ -590,7 +598,7 @@ const PresentationHeader = ({
                   !presentationData?.slides ||
                   presentationData?.slides.length === 0
                 }
-                className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+                className="group flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[#F2F0FF] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 <Play className="w-3.5 h-3.5 text-[#101323] group-hover:text-[#5141e5] duration-300" />
               </button>
@@ -606,7 +614,7 @@ const PresentationHeader = ({
               aria-expanded={shortcutsDialogOpen}
               aria-keyshortcuts="?"
               data-testid="keyboard-shortcuts-btn"
-              className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-full border border-[#EDECEC] bg-[#F6F6F9] text-[#101323] transition-colors hover:border-[#D8D3FE] hover:bg-[#F0EDFF] hover:text-[#6847F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8] focus-visible:ring-offset-2"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#DEDEE5] bg-white text-[#101323] transition-colors hover:border-[#C9C3F7] hover:bg-[#F2F0FF] hover:text-[#6847F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]/30"
               onClick={() => setShortcutsDialogOpen(true)}
             >
               <Keyboard
@@ -620,11 +628,7 @@ const PresentationHeader = ({
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <button
-                className="flex  items-center gap-[7px] px-[18px] py-[11px] rounded-[53px] text-sm font-semibold text-[#101323]"
-                style={{
-                  background:
-                    "linear-gradient(270deg, #D5CAFC 2.4%, #E3D2EB 27.88%, #F4DCD3 69.23%, #FDE4C2 100%)",
-                }}
+                className="flex h-9 items-center gap-2 rounded-md bg-[#6847F4] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#5738DE] disabled:bg-[#B8AEEC]"
                 disabled={isExporting || isStreaming === true}
               >
                 {isExporting ? (
@@ -637,7 +641,7 @@ const PresentationHeader = ({
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-[200px] rounded-[18px] space-y-2 p-0  "
+              className="w-[200px] space-y-2 rounded-md p-0"
             >
               <ExportOptions mobile={false} />
             </PopoverContent>

@@ -67,13 +67,13 @@ export function KeyboardShortcutsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="z-[10021] max-h-[calc(100vh-32px)] w-[calc(100%-32px)] max-w-[780px] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-[20px] border border-[#E7E8EC] bg-white p-0 font-syne shadow-[0_24px_80px_rgba(16,24,40,0.24)]"
+        className="z-[10021] max-h-[calc(100vh-32px)] w-[calc(100%-32px)] max-w-[780px] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-md border border-[#E7E8EC] bg-white p-0 font-syne shadow-[0_24px_80px_rgba(16,24,40,0.24)]"
         overlayClassName="z-[10020] bg-[#101323]/45 backdrop-blur-[2px]"
       >
         <DialogHeader className="space-y-0 border-b border-[#EAECF0] px-6 py-5 pr-14 text-left">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3.5">
-              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-[#F0EDFF] text-[#6847F4]">
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-[#F0EDFF] text-[#6847F4]">
                 <Keyboard
                   aria-hidden="true"
                   className="size-5"
@@ -82,17 +82,16 @@ export function KeyboardShortcutsDialog({
               </span>
               <div>
                 <DialogTitle className="text-[18px] font-semibold leading-6 text-[#101323]">
-                  Keyboard shortcuts
+                  快捷键
                 </DialogTitle>
                 <DialogDescription className="mt-1 text-[13px] leading-5 text-[#667085]">
-                  Work faster while the slide canvas is active. Shortcuts pause
-                  while you are typing in a text field.
+                  在幻灯片画布中快速编辑；输入文字时快捷键会自动暂停。
                 </DialogDescription>
               </div>
             </div>
             <div
-              aria-label="Shortcut platform"
-              className="inline-flex w-fit shrink-0 rounded-[9px] border border-[#E1E3E9] bg-[#F6F6F9] p-1"
+              aria-label="快捷键平台"
+              className="inline-flex w-fit shrink-0 rounded-md border border-[#E1E3E9] bg-[#F6F6F9] p-1"
               role="group"
             >
               <PlatformButton
@@ -116,7 +115,7 @@ export function KeyboardShortcutsDialog({
               return (
                 <section
                   key={section.id}
-                  className="overflow-hidden rounded-[14px] border border-[#EAECF0] bg-[#FCFCFD]"
+                  className="overflow-hidden rounded-md border border-[#EAECF0] bg-[#FCFCFD]"
                 >
                   <div className="border-b border-[#EAECF0] bg-white px-4 py-3.5">
                     <div className="flex items-center gap-2">
@@ -161,7 +160,7 @@ export function KeyboardShortcutsDialog({
         </div>
 
         <div className="border-t border-[#EAECF0] bg-[#FCFCFD] px-6 py-3 text-center text-[11px] text-[#7A8295]">
-          Showing shortcuts for {applePlatform ? "macOS" : "Windows and Linux"}.
+          当前显示 {applePlatform ? "macOS" : "Windows / Linux"} 快捷键
         </div>
       </DialogContent>
     </Dialog>
@@ -181,7 +180,7 @@ function PlatformButton({
     <button
       type="button"
       aria-pressed={active}
-      className={`rounded-[6px] px-2.5 py-1.5 font-manrope text-[11px] font-semibold transition-colors ${
+      className={`rounded px-2.5 py-1.5 font-manrope text-[11px] font-semibold transition-colors ${
         active
           ? "bg-white text-[#6847F4] shadow-[0_1px_3px_rgba(16,24,40,0.12)]"
           : "text-[#667085] hover:text-[#344054]"

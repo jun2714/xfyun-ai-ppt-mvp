@@ -68,7 +68,14 @@ export default function RootLayout({
           </MixpanelInitializer>
         </Providers>
         <TailwindCdnRuntime />
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-right"
+          offset={{ top: 84, right: 20 }}
+          mobileOffset={{ top: 76, right: 12, left: 12 }}
+          expand
+          gap={10}
+          visibleToasts={3}
+        />
       </body>
     </html>
   );

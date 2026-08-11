@@ -11,11 +11,14 @@ import React, {
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Info,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  FileUp,
   Sparkles,
   Trash2,
   Upload,
@@ -84,9 +87,6 @@ const studioSteps: { id: StudioStep; label: string }[] = [
   { id: 4, label: "确认" },
 ];
 
-const pillGradient =
-  "linear-gradient(270deg, #D5CAFC 2.4%, #E3D2EB 27.88%, #F4DCD3 69.23%, #FDE4C2 100%)";
-
 const FONT_FALLBACK_OPTION_HEIGHT = 40;
 const FONT_FALLBACK_MAX_VISIBLE_ROWS = 7;
 const FONT_FALLBACK_OVERSCAN_ROWS = 4;
@@ -109,14 +109,14 @@ function activeStudioStep(step: TemplateCreationStep): StudioStep {
 
 function StudioTopBar({ activeStep, embedded = false }: { activeStep: StudioStep; embedded?: boolean }) {
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[72px] sm:h-[80px] 2xl:h-[96px] bg-gradient-to-b from-white via-white to-white/0">
-      <div className="relative mx-auto flex h-full max-w-[1280px] 2xl:max-w-[1536px] items-center justify-between px-5 sm:px-8 2xl:px-[90px]">
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[72px] border-b border-[#ECEAF2] bg-white/95 backdrop-blur-sm">
+      <div className="relative mx-auto flex h-full max-w-[1280px] items-center justify-center px-5 sm:px-8">
         {embedded ? <span className="w-8 shrink-0" /> : <a
           href="/dashboard"
-          className="pointer-events-auto block h-8 w-8 sm:h-[34px] sm:w-[34px] 2xl:h-[44px] 2xl:w-[44px] shrink-0"
+          className="pointer-events-auto absolute left-6 block h-9 w-9 shrink-0"
           aria-label="返回控制台"
         >
-          <img src="/logo-with-bg.png" alt="Presenton" className="h-full w-full" draggable={false} />
+          <img src="/teachnova-mark.png" alt="Teachnova" className="h-full w-full object-contain" draggable={false} />
         </a>}
 
         <nav
@@ -125,25 +125,28 @@ function StudioTopBar({ activeStep, embedded = false }: { activeStep: StudioStep
         >
           {studioSteps.map((step, index) => {
             const isActive = step.id === activeStep;
+            const isComplete = step.id < activeStep;
             return (
               <React.Fragment key={step.id}>
-                <div className="flex items-center gap-1 sm:gap-1.5 2xl:gap-2">
+                <div className="flex items-center gap-2">
                   <span
-                    className={`flex h-5 w-5 sm:h-6 sm:w-6 2xl:h-7 2xl:w-7 items-center justify-center rounded-full border text-[10px] sm:text-[11px] 2xl:text-xs leading-none ${isActive
-                      ? "border-black bg-black text-white"
-                      : "border-[#E4E5EB] bg-white text-[#9B9CA3]"
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold leading-none ${isActive
+                      ? "border-[#6847F4] bg-[#6847F4] text-white"
+                      : isComplete
+                        ? "border-[#CFC7FA] bg-[#F0EDFF] text-[#6847F4]"
+                        : "border-[#DCDCE4] bg-white text-[#8B8D98]"
                       }`}
                   >
-                    {step.id}
+                    {isComplete ? <Check className="h-4 w-4" strokeWidth={2.2} /> : step.id}
                   </span>
                   <span
-                    className={`hidden text-[10px] font-medium sm:inline sm:text-[11px] 2xl:text-xs ${isActive ? "text-black" : "text-[#9B9CA3]"}`}
+                    className={`hidden text-sm font-semibold sm:inline ${isActive || isComplete ? "text-[#40306F]" : "text-[#8B8D98]"}`}
                   >
                     {step.label}
                   </span>
                 </div>
                 {index < studioSteps.length - 1 ? (
-                  <span className="mx-1.5 sm:mx-2 2xl:mx-2.5 h-px w-3 sm:w-[18px] 2xl:w-[22px] bg-[#E9EAF0]" />
+                  <span className={`mx-3 h-px w-8 ${step.id < activeStep ? "bg-[#BEB4F6]" : "bg-[#DEDDE5]"}`} />
                 ) : null}
               </React.Fragment>
             );
@@ -164,7 +167,7 @@ function StudioBottomAction({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GradientPillButton({
+function PrimaryActionButton({
   children,
   onClick,
   disabled,
@@ -186,11 +189,10 @@ function GradientPillButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex ${fullWidth ? "w-full" : ""} h-10 items-center justify-center gap-2 rounded-[58px] px-5 text-sm font-medium text-black shadow-none transition disabled:cursor-not-allowed ${isMuted
+      className={`inline-flex ${fullWidth ? "w-full" : ""} h-10 items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold shadow-none transition-colors disabled:cursor-not-allowed ${isMuted
         ? "bg-[#ECECF1] text-[#5C5E68] disabled:opacity-100"
-        : "disabled:opacity-60"
+        : "bg-[#6847F4] text-white hover:bg-[#5738DE] disabled:bg-[#B8AEEC] disabled:text-white disabled:opacity-100"
         } ${className}`}
-      style={isMuted ? undefined : { background: pillGradient }}
     >
       {children}
     </button>
@@ -202,10 +204,10 @@ function TemplateStudioTitle({ compact = false }: { compact?: boolean }) {
     <div
       className={`px-4 text-center ${compact ? "pt-[88px] sm:pt-[96px] 2xl:pt-[112px]" : "pt-[96px] sm:pt-[108px] 2xl:pt-[128px]"}`}
     >
-      <h1 className="font-unbounded text-[36px] font-normal leading-none tracking-[-1.2px] text-[#101323] sm:text-[48px] sm:tracking-[-1.4px] md:text-[56px] 2xl:text-[68px] 2xl:tracking-[-1.8px]">
+      <h1 className="font-unbounded text-[40px] font-semibold leading-[1.08] tracking-[-1.4px] text-[#101323] sm:text-[52px] md:text-[58px]">
         制作自己的模板
       </h1>
-      <p className="mx-auto mt-3 max-w-[480px] text-center font-syne text-[15px] font-normal leading-[1.4] text-[#101323CC] sm:mt-4 sm:max-w-[520px] sm:text-[16px] 2xl:mt-5 2xl:max-w-[600px] 2xl:text-[18px]">
+      <p className="mx-auto mt-4 max-w-[620px] text-center font-syne text-base font-normal leading-[1.65] text-[#646674] sm:text-[17px]">
         上传一份 PPTX，系统会提取其中的页面设计并转换为可复用模板。
       </p>
     </div>
@@ -254,9 +256,9 @@ function UploadPanel({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex h-[34px] 2xl:h-[42px] items-center gap-1.5 2xl:gap-2 border border-[#DDD9E7] bg-white px-3.5 2xl:px-4 text-[12px] 2xl:text-sm font-semibold text-black"
+              className="flex h-10 items-center gap-2 rounded-md border border-[#CFC9EA] bg-white px-4 text-sm font-semibold text-[#5940C7] transition-colors hover:border-[#6847F4] hover:bg-[#F7F5FF]"
             >
-              <Upload className="h-3.5 w-3.5 2xl:h-4 2xl:w-4 text-[#7A5AF8]" />
+              <FileUp className="h-4 w-4" strokeWidth={1.9} />
               选择 PPTX 文件
             </button>
             <input
@@ -327,13 +329,10 @@ function UploadPanel({
                 </div>
               ) : (
                 <div className="flex h-full flex-col py-[28px] 2xl:py-[36px] items-center justify-center">
-                  <img
-                    src="/upload_icon.png"
-                    alt=""
-                    className="h-[42px] w-[55px] 2xl:h-[52px] 2xl:w-[68px]"
-                    draggable={false}
-                  />
-                  <p className="mt-3 2xl:mt-4 text-sm 2xl:text-base font-normal text-[#808080]">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#EEEAFE] text-[#6847F4]">
+                    <FileUp className="h-6 w-6" strokeWidth={1.8} />
+                  </span>
+                  <p className="mt-4 text-base font-medium text-[#686A76]">
                     将 PPTX 拖到这里，或点击选择文件
                   </p>
                 </div>
@@ -341,10 +340,10 @@ function UploadPanel({
             </div>
 
             <div className="mt-3 flex items-center justify-end gap-3 px-1">
-              <GradientPillButton
+              <PrimaryActionButton
                 onClick={handleGetStarted}
                 disabled={isProcessing}
-                className="h-9 px-5 text-xs font-semibold"
+                className="h-10 min-w-[124px] px-5 text-sm"
               >
                 {isProcessing ? "正在处理" : "开始制作"}
                 {isProcessing ? (
@@ -352,7 +351,7 @@ function UploadPanel({
                 ) : (
                   <ChevronRight className="h-3.5 w-3.5" />
                 )}
-              </GradientPillButton>
+              </PrimaryActionButton>
             </div>
           </div>
         </div>
@@ -360,8 +359,8 @@ function UploadPanel({
         <ul className="mx-auto mt-6 2xl:mt-8 flex max-w-[480px] 2xl:max-w-[600px] items-center justify-between gap-5 2xl:gap-8">
           {["实时预览", "最大 100MB", "通常约 5 分钟"].map((item) => (
             <li key={item} className="flex items-center gap-2 2xl:gap-2.5">
-              <span className="h-2.5 w-2.5 2xl:h-3 2xl:w-3 rounded-full bg-[#EBE9FE]" />
-              <span className="text-[13px] 2xl:text-[15px] font-normal text-[#3A3A3A]">{item}</span>
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#6847F4]" strokeWidth={1.9} />
+              <span className="text-sm font-medium text-[#555762]">{item}</span>
             </li>
           ))}
         </ul>
@@ -369,9 +368,7 @@ function UploadPanel({
 
       <div className="mt-auto w-full pb-5 2xl:pb-8 pt-12 2xl:pt-16">
         <div className="mx-auto flex max-w-[558px] 2xl:max-w-[700px] items-center gap-2 2xl:gap-3 rounded-[6px] bg-[#F4F7FB] px-3 2xl:px-4 py-2 2xl:py-2.5 text-[11px] 2xl:text-[13px] leading-tight text-[#505462]">
-          <span className="flex h-[14px] w-[14px] 2xl:h-4 2xl:w-4 shrink-0 items-center justify-center rounded-full bg-[#0B4FBD] text-[10px] 2xl:text-[11px] font-bold text-white">
-            i
-          </span>
+          <Info className="h-4 w-4 shrink-0 text-[#6847F4]" strokeWidth={1.9} />
           <p>
             系统会分析每一页的截图和版式结构。复杂模板需要视觉模型才能准确识别，处理期间请不要关闭页面。
           </p>
@@ -663,35 +660,32 @@ function AnalyzePanel({
   return (
     <main className="flex min-h-screen flex-col bg-white px-4 pb-28 font-syne sm:px-6 sm:pb-32 2xl:px-10 2xl:pb-36">
       <TemplateStudioTitle compact />
-      <section className="mx-auto mt-8 w-full max-w-[600px] sm:mt-10 2xl:mt-12 2xl:max-w-[900px]">
-
-
-
-
-        <div className="relative z-10 ml-8 2xl:ml-10 w-max rounded-t-[28px] 2xl:rounded-t-[32px] border border-b-0 border-[#EDEEF4] bg-white px-3 2xl:px-4 pb-2.5 2xl:pb-3 pt-2 2xl:pt-2.5">
+      <section className="mx-auto mt-8 w-full max-w-[720px] sm:mt-10 2xl:mt-12 2xl:max-w-[900px]">
+        <div className="w-full overflow-hidden rounded-md border border-[#E2E2E8] bg-white">
+          <div className="flex h-12 items-center border-b border-[#E7E7EC] bg-[#FAFAFC] px-4">
           <button
             type="button"
             onClick={() => {
               const firstMissing = missingFonts[0];
               if (firstMissing) setResolvingFont(firstMissing);
             }}
-            className="flex h-[34px] 2xl:h-[42px] items-center gap-1.5 2xl:gap-2 rounded-[80px] bg-white px-3.5 2xl:px-4 text-[12px] 2xl:text-sm font-semibold text-black shadow-[0_0_4px_rgba(0,0,0,0.06)]"
+            className="flex h-full items-center gap-2 text-sm font-semibold text-[#262330] transition-colors hover:text-[#6847F4]"
           >
-            <Upload className="h-3.5 w-3.5 2xl:h-4 2xl:w-4 text-[#7A5AF8]" />
+            <FileUp className="h-4 w-4 text-[#6847F4]" strokeWidth={1.9} />
             处理缺失字体
           </button>
-        </div>
+          </div>
 
-        <div className="relative -mt-px rounded-[28px] w-full  2xl:rounded-[32px] border border-[#EDEEF4] bg-white p-5 2xl:p-3 shadow-[0_0_16px_rgba(80,71,230,0.08)] transition-shadow duration-200 ">
+          <div className="p-5 sm:p-6">
           {fontAnalysisNotice ? (
             <div
-              className={`mb-5 flex items-start gap-3 rounded-[16px] border px-4 py-3 ${fontAnalysisNotice.tone === "success"
+              className={`mb-5 flex items-start gap-3 rounded-md border px-4 py-3 ${fontAnalysisNotice.tone === "success"
                 ? "border-[#BBF7D0] bg-[#F0FDF4]"
                 : "border-[#FDE68A] bg-[#FFFBEB]"
                 }`}
             >
               <span
-                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${fontAnalysisNotice.tone === "success"
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded ${fontAnalysisNotice.tone === "success"
                   ? "bg-[#DCFCE7] text-[#16A34A]"
                   : "bg-[#FEF3C7] text-[#D97706]"
                   }`}
@@ -723,7 +717,7 @@ function AnalyzePanel({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-3 pt-2 min-h-[140px] ">
+          <div className="flex min-h-[96px] flex-wrap content-start gap-3 pt-1">
             {fontChips.length > 0 ? (
               fontChips.map((font, index) => {
                 const label = chipLabel(font);
@@ -740,7 +734,7 @@ function AnalyzePanel({
                     onClick={() => {
                       if (missingFont) setResolvingFont(missingFont);
                     }}
-                    className={`relative flex   h-[59px] items-center justify-center rounded-xl border px-4 text-center text-sm font-semibold transition ${isMissing
+                    className={`relative flex h-12 min-w-[210px] items-center justify-start rounded-md border px-4 pr-12 text-left text-sm font-semibold transition-colors ${isMissing
                       ? isUploaded
                         ? "border-[#CFEBDD] bg-[#F4FBF7] text-[#236C4A] hover:border-[#9FD7BA]"
                         : "border-[#F3C78F] bg-[#FFF8F1] text-[#D12B1F] hover:border-[#E8AA5D]"
@@ -748,9 +742,9 @@ function AnalyzePanel({
                       } disabled:cursor-default`}
                     title={label}
                   >
-                    <span className="line-clamp-2 text-xs">{label}</span>
+                    <span className="line-clamp-2 text-sm">{label}</span>
                     {isMissing ? (
-                      <span className="absolute -right-2 -top-2 flex h-[26px] w-[46px] items-center justify-center rounded-full border border-[#EDEEEF] bg-white text-[#171821] shadow-sm">
+                      <span className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[#DDD9E7] bg-white text-[#6847F4]">
                         {isUploaded ? (
                           <Check className="h-3.5 w-3.5 text-[#237A50]" />
                         ) : (
@@ -763,14 +757,14 @@ function AnalyzePanel({
                 );
               })
             ) : (
-              <div className="col-span-full flex min-h-[140px] items-center justify-center rounded-xl border border-[#E8EAF0] bg-white text-sm font-medium text-[#686C78]">
+              <div className="flex min-h-24 w-full items-center justify-center rounded-md border border-[#E8EAF0] bg-[#FAFAFC] text-sm font-medium text-[#686C78]">
                 未检测到字体
               </div>
             )}
           </div>
 
           <div className="mt-6 flex justify-end px-1 pb-1">
-            <GradientPillButton
+            <PrimaryActionButton
               onClick={onContinue}
               disabled={isUploading || isAutoContinuing}
               className="h-9 min-w-[120px] px-6 text-sm font-semibold"
@@ -786,18 +780,19 @@ function AnalyzePanel({
                   <ChevronRight className="h-4 w-4" />
                 </>
               )}
-            </GradientPillButton>
+            </PrimaryActionButton>
+          </div>
           </div>
         </div>
 
         {resolvingFont ? (
           <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/35 px-4 font-syne">
-            <div className="relative w-full max-w-[550px] rounded-2xl bg-white shadow-[0_22px_70px_rgba(16,24,40,0.22)]">
+            <div className="relative w-full max-w-[550px] rounded-md bg-white shadow-[0_22px_70px_rgba(16,24,40,0.22)]">
               <button
                 type="button"
                 onClick={() => setResolvingFont(null)}
                 aria-label="关闭"
-                className="absolute -right-14 top-0 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#20222B] shadow-sm"
+                className="absolute -right-12 top-0 flex h-10 w-10 items-center justify-center rounded-md border border-[#E2E2E8] bg-white text-[#20222B] shadow-sm"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -814,8 +809,7 @@ function AnalyzePanel({
                 <button
                   type="button"
                   onClick={() => setResolvingFont(null)}
-                  className="h-9 rounded-full px-5 text-sm font-medium text-black"
-                  style={{ background: pillGradient }}
+                  className="h-9 rounded-md bg-[#6847F4] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#5738DE]"
                 >
                   保存
                 </button>
@@ -839,9 +833,9 @@ function AnalyzePanel({
                     type="button"
                     onClick={() => fileInputRefs.current[resolvingFontName]?.click()}
                     disabled={isUploading}
-                    className="flex h-[78px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#DADDE6] bg-white text-sm font-medium text-[#606470] transition hover:border-[#B8BCC8] hover:bg-[#FAFBFC] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex h-[78px] w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-[#DADDE6] bg-white text-sm font-medium text-[#606470] transition hover:border-[#B8BCC8] hover:bg-[#FAFBFC] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F3EFFF] text-[#7A3DF0]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded bg-[#F3EFFF] text-[#7A3DF0]">
                       {resolvingFontUploaded ? (
                         <Check className="h-4 w-4" />
                       ) : (
@@ -881,10 +875,8 @@ function AnalyzePanel({
       </section>
 
       <div className="mt-auto w-full pb-5 pt-12 2xl:pb-8 2xl:pt-16">
-        <div className="mx-auto flex max-w-[558px] items-center gap-2 rounded-[6px] bg-[#F4F7FB] px-3 py-2 text-[11px] leading-tight text-[#505462] 2xl:max-w-[700px] 2xl:px-4 2xl:py-2.5 2xl:text-[13px]">
-          <span className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-[#0B4FBD] text-[10px] font-bold text-white 2xl:h-4 2xl:w-4 2xl:text-[11px]">
-            i
-          </span>
+        <div className="mx-auto flex max-w-[720px] items-center gap-2 rounded-md bg-[#F4F5F8] px-3 py-2 text-xs leading-5 text-[#555762] 2xl:max-w-[900px] 2xl:px-4 2xl:py-2.5 2xl:text-[13px]">
+          <Info className="h-4 w-4 shrink-0 text-[#6847F4]" strokeWidth={1.9} />
           <p>
             使用原字体最能保持文字排版；替代字体可能轻微改变换行和间距。
           </p>
@@ -1440,8 +1432,7 @@ function SaveTemplateModal({
             type="button"
             onClick={handleSubmit}
             disabled={isSaving || !name.trim()}
-            className="inline-flex h-8 2xl:h-9 min-w-[78px] 2xl:min-w-[88px] items-center justify-center rounded-[58px] px-5 2xl:px-6 text-[13px] 2xl:text-sm font-medium text-black disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: pillGradient }}
+            className="inline-flex h-9 min-w-[88px] items-center justify-center rounded-md bg-[#6847F4] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#5738DE] disabled:cursor-not-allowed disabled:bg-[#B8AEEC]"
           >
             {isSaving ? <Loader2 className="h-4 w-4 2xl:h-5 2xl:w-5 animate-spin" /> : submitLabel}
           </button>
@@ -1800,7 +1791,12 @@ const CustomTemplatePage = () => {
         );
         setTemplateModalMode(null);
         if (embedded && document.referrer) {
-          window.top?.location.assign(new URL("/templates", document.referrer).toString());
+          // Reading Location.assign across the 5001 -> 5173 iframe boundary is
+          // blocked. Assigning href requests top-level navigation without
+          // accessing a cross-origin method.
+          if (window.top) {
+            window.top.location.href = new URL("/templates", document.referrer).toString();
+          }
         } else {
           router.push("/templates?tab=custom");
         }
@@ -1862,25 +1858,25 @@ const CustomTemplatePage = () => {
 
     if (showPreview) {
       return (
-        <GradientPillButton
+        <PrimaryActionButton
           onClick={() => setTemplateModalMode("create")}
           disabled={state.isLoading || isSubmittingTemplate}
           fullWidth
         >
           {isSubmittingTemplate ? "正在创建模板…" : "创建模板"}
-        </GradientPillButton>
+        </PrimaryActionButton>
       );
     }
 
     if (showReview) {
       return (
-        <GradientPillButton
+        <PrimaryActionButton
           onClick={() => setTemplateModalMode("save")}
           disabled={!generatedSlidesReady || state.isLoading || isSubmittingTemplate}
           fullWidth
         >
           {generatedSlidesReady ? "保存为模板" : "正在生成模板"}
-        </GradientPillButton>
+        </PrimaryActionButton>
       );
     }
 

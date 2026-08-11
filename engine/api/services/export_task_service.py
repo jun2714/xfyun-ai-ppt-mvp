@@ -85,6 +85,56 @@ def _localize_json_image_assets(
     return localized
 
 
+def _localize_json_fonts(fonts: Mapping[str, str]) -> dict[str, str]:
+    """Embed app-local fonts so renderer children never call back into FastAPI.
+
+    Template generation runs inside the API process and waits for the renderer
+    child. Letting that child fetch an ``/app_data/fonts`` URL from the same API
+    can deadlock the request worker. External font URLs remain unchanged.
+    """
+    localized: dict[str, str] = {}
+    data_uri_cache: dict[str, str] = {}
+
+    for family, source in fonts.items():
+        if not isinstance(source, str) or not source:
+            continue
+
+        parsed = urlparse(source)
+        if parsed.scheme in ("http", "https"):
+            candidate = unquote(parsed.path)
+        elif not parsed.scheme and source.startswith(("/app_data/", "/static/")):
+            candidate = source
+        else:
+            localized[family] = source
+            continue
+
+        if not candidate.startswith(("/app_data/", "/static/")):
+            localized[family] = source
+            continue
+
+        resolved = resolve_app_path_to_filesystem(candidate)
+        if not resolved:
+            localized[family] = source
+            continue
+
+        data_uri = data_uri_cache.get(resolved)
+        if data_uri is None:
+            try:
+                with open(resolved, "rb") as font_file:
+                    font_data = font_file.read()
+            except OSError:
+                localized[family] = source
+                continue
+            mime_type = mimetypes.guess_type(resolved)[0] or "font/ttf"
+            encoded = base64.b64encode(font_data).decode("ascii")
+            data_uri = f"data:{mime_type};base64,{encoded}"
+            data_uri_cache[resolved] = data_uri
+
+        localized[family] = data_uri
+
+    return localized
+
+
 def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
     if os.name != "nt":
         return {}
@@ -604,7 +654,7 @@ class ExportTaskService:
             "height": height,
         }
         if fonts:
-            task_payload["fonts"] = dict(fonts)
+            task_payload["fonts"] = _localize_json_fonts(fonts)
 
         response_data = await self._run_task(
             task_payload,

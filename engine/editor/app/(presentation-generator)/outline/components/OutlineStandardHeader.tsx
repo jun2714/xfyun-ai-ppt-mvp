@@ -22,7 +22,7 @@ const OutlineStandardHeader = ({
           className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]/30"
         >
           <Image
-            src="/logo-with-bg.png"
+            src="/teachnova-mark.png"
             alt=""
             width={32}
             height={33}

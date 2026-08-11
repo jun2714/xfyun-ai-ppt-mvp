@@ -258,11 +258,14 @@ def _template_task_progress_data(
     name: str | None = None,
     thumbnail: str | None = None,
     completed_layout_indices: set[int] | None = None,
+    request: CreateTemplateRequest | None = None,
+    generated_layouts_by_index: dict[int, SlideLayout] | None = None,
+    template_id: str | None = None,
 ) -> dict[str, Any]:
     total_layouts = max(created_layouts, 0) + max(remaining_layouts, 0)
     if completed_layout_indices is None:
         completed_layout_indices = set(range(max(created_layouts, 0)))
-    return {
+    data: dict[str, Any] = {
         "created_layouts": max(created_layouts, 0),
         "remaining_layouts": max(remaining_layouts, 0),
         "slide_layout_statuses": [
@@ -277,6 +280,47 @@ def _template_task_progress_data(
         "name": name,
         "thumbnail": thumbnail,
     }
+    if request is not None:
+        data["request"] = request.model_dump(mode="json")
+    if generated_layouts_by_index:
+        data["generated_layouts"] = [
+            {
+                "index": index,
+                "layout": generated_layouts_by_index[index].model_dump(
+                    mode="json", exclude_none=True
+                ),
+            }
+            for index in sorted(generated_layouts_by_index)
+        ]
+    if template_id:
+        data["template_id"] = template_id
+    return data
+
+
+def _checkpointed_template_layouts(task: AsyncTaskModel) -> dict[int, SlideLayout]:
+    data = task.data if isinstance(task.data, dict) else {}
+    raw_items = data.get("generated_layouts")
+    if not isinstance(raw_items, list):
+        return {}
+
+    layouts: dict[int, SlideLayout] = {}
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        index = item.get("index")
+        raw_layout = item.get("layout")
+        if not isinstance(index, int) or index < 0 or not isinstance(raw_layout, dict):
+            continue
+        try:
+            layouts[index] = SlideLayout.model_validate(raw_layout)
+        except ValidationError:
+            LOGGER.warning(
+                "[template.create.async] ignoring invalid layout checkpoint "
+                "task_id=%s slide=%d",
+                task.id,
+                index + 1,
+            )
+    return layouts
 
 
 def _template_request_name(request: InitTemplateRequest) -> str:
@@ -465,6 +509,8 @@ async def _commit_template_task_progress(
     total_layouts: int,
     name: str | None,
     thumbnail: str | None,
+    request: CreateTemplateRequest,
+    generated_layouts_by_index: dict[int, SlideLayout],
 ) -> None:
     task.data = _template_task_progress_data(
         created_layouts=len(completed_layout_indices),
@@ -472,6 +518,8 @@ async def _commit_template_task_progress(
         completed_layout_indices=completed_layout_indices,
         name=name,
         thumbnail=thumbnail,
+        request=request,
+        generated_layouts_by_index=generated_layouts_by_index,
     )
     task.updated_at = datetime.now()
     sql_session.add(task)
@@ -510,6 +558,7 @@ async def _generate_slide_layouts_with_task_progress(
     *,
     name: str | None,
     thumbnail: str | None,
+    request: CreateTemplateRequest,
 ) -> SlideLayouts:
     if not raw_layouts.layouts:
         raise ValueError("layouts must contain at least one slide layout")
@@ -526,8 +575,20 @@ async def _generate_slide_layouts_with_task_progress(
         max_workers,
     )
     loop = asyncio.get_running_loop()
-    completed_layout_indices: set[int] = set()
-    layouts_by_index: dict[int, SlideLayout] = {}
+    layouts_by_index = {
+        index: layout
+        for index, layout in _checkpointed_template_layouts(task).items()
+        if index < slide_count
+    }
+    completed_layout_indices = set(layouts_by_index)
+    if completed_layout_indices:
+        LOGGER.info(
+            "[template.create.async] resuming layout generation "
+            "task_id=%s completed=%d/%d",
+            task.id,
+            len(completed_layout_indices),
+            slide_count,
+        )
 
     async def generate_one(index: int, executor: ThreadPoolExecutor):
         context = copy_context()
@@ -557,6 +618,7 @@ async def _generate_slide_layouts_with_task_progress(
         pending_tasks = [
             asyncio.create_task(generate_one(index, executor))
             for index in range(slide_count)
+            if index not in completed_layout_indices
         ]
         try:
             for completed_task in asyncio.as_completed(pending_tasks):
@@ -570,6 +632,8 @@ async def _generate_slide_layouts_with_task_progress(
                     total_layouts=slide_count,
                     name=name,
                     thumbnail=thumbnail,
+                    request=request,
+                    generated_layouts_by_index=layouts_by_index,
                 )
                 LOGGER.info(
                     "[template.create.async] slide layout complete "
@@ -1116,14 +1180,6 @@ async def _create_template_with_task_progress(
         request.pptx_url, pptx_path
     )
     thumbnail = _template_request_thumbnail(request)
-    await _commit_template_task_progress(
-        task,
-        sql_session,
-        completed_layout_indices=set(),
-        total_layouts=len(raw_layouts.layouts),
-        name=name,
-        thumbnail=thumbnail,
-    )
     try:
         generated_layouts = await _generate_slide_layouts_with_task_progress(
             raw_layouts,
@@ -1133,6 +1189,7 @@ async def _create_template_with_task_progress(
             sql_session,
             name=name,
             thumbnail=thumbnail,
+            request=request,
         )
     except (ValidationError, ValueError) as exc:
         LOGGER.exception(
@@ -1191,11 +1248,17 @@ async def _run_create_template_task(
         try:
             task.status = AsyncTaskStatus.PENDING
             task.message = "Creating template"
+            checkpointed_layouts = _checkpointed_template_layouts(task)
             task.data = _template_task_progress_data(
-                created_layouts=0,
-                remaining_layouts=len(request.slide_image_urls),
+                created_layouts=len(checkpointed_layouts),
+                remaining_layouts=(
+                    len(request.slide_image_urls) - len(checkpointed_layouts)
+                ),
+                completed_layout_indices=set(checkpointed_layouts),
                 name=_template_request_name(request),
                 thumbnail=_template_request_thumbnail(request),
+                request=request,
+                generated_layouts_by_index=checkpointed_layouts,
             )
             task.updated_at = datetime.now()
             sql_session.add(task)
@@ -1216,6 +1279,8 @@ async def _run_create_template_task(
                 remaining_layouts=len(request.slide_image_urls) - created_layouts,
                 name=template.name,
                 thumbnail=_get_template_thumbnail_from_assets(template.assets),
+                request=request,
+                template_id=template.id,
             )
             task.updated_at = datetime.now()
             sql_session.add(task)
@@ -1257,6 +1322,7 @@ async def create_template(
             remaining_layouts=len(request.slide_image_urls),
             name=_template_request_name(request),
             thumbnail=_template_request_thumbnail(request),
+            request=request,
         ),
     )
     sql_session.add(task)
@@ -1265,6 +1331,53 @@ async def create_template(
 
     background_tasks.add_task(_run_create_template_task, task.id, request)
     return task
+
+
+async def resume_pending_template_create_tasks() -> int:
+    """Resume persisted template jobs after an API process restart.
+
+    Page layouts are checkpointed individually in ``AsyncTaskModel.data`` so
+    only missing slides invoke the model again. Legacy tasks without a saved
+    request are left untouched because reconstructing their input would be
+    unsafe.
+    """
+    from sqlalchemy import select
+
+    resumed = 0
+    async with async_session_maker() as sql_session:
+        result = await sql_session.execute(
+            select(AsyncTaskModel).where(
+                AsyncTaskModel.type == ASYNC_TASK_TYPE_TEMPLATE_CREATE,
+                AsyncTaskModel.status == AsyncTaskStatus.PENDING,
+            )
+        )
+        tasks = list(result.scalars().all())
+
+    for task in tasks:
+        data = task.data if isinstance(task.data, dict) else {}
+        raw_request = data.get("request")
+        if not isinstance(raw_request, dict):
+            LOGGER.warning(
+                "[template.create.async] pending legacy task cannot resume "
+                "without saved request task_id=%s",
+                task.id,
+            )
+            continue
+        try:
+            request = CreateTemplateRequest.model_validate(raw_request)
+        except ValidationError:
+            LOGGER.exception(
+                "[template.create.async] pending task has invalid saved request "
+                "task_id=%s",
+                task.id,
+            )
+            continue
+        asyncio.create_task(_run_create_template_task(task.id, request))
+        resumed += 1
+
+    if resumed:
+        LOGGER.info("[template.create.async] resumed pending tasks count=%d", resumed)
+    return resumed
 
 
 @TEMPLATE_ROUTER.post(

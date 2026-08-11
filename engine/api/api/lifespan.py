@@ -63,6 +63,11 @@ async def app_lifespan(_: FastAPI):
     if get_can_change_keys_env() != "false":
         update_env_with_user_config()
     await check_llm_and_image_provider_api_or_model_availability()
+    # Resume page-level checkpointed template jobs only after providers and the
+    # database are ready. The import stays local to avoid router startup cycles.
+    from api.v1.ppt.endpoints.template import resume_pending_template_create_tasks
+
+    await resume_pending_template_create_tasks()
     yield
     # Shutdown: release all database connections to prevent stale/leaked pools.
     await dispose_engines()

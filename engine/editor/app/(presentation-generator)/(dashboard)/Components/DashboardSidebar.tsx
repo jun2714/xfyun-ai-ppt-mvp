@@ -4,6 +4,7 @@ import React from "react";
 import { LayoutDashboard, Star, Brain, Settings, HelpCircle, UsersRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
 
 
 
@@ -30,10 +31,14 @@ const DashboardSidebar = () => {
         >
             <div>
 
-                <Link href={`/dashboard`} className="flex items-center  pb-6 border-b border-[#E1E1E5]   gap-2    ">
-                    <div className="bg-[#7C51F8] rounded-full cursor-pointer p-1 flex justify-center items-center mx-auto">
-                        <img src="/teachnova-logo.png" alt="Teachnova" className="h-[40px] object-contain w-full" />
-                    </div>
+                <Link
+                    href={`/dashboard`}
+                    className="flex items-center  pb-6 border-b border-[#E1E1E5]   gap-2    "
+                    onClick={(event) => {
+                        if (requestTeachnovaHome()) event.preventDefault();
+                    }}
+                >
+                    <img src="/teachnova-mark.png" alt="Teachnova" className="mx-auto h-10 w-10 object-contain" />
                 </Link>
                 <nav className="pt-6 font-syne" aria-label="Dashboard sections">
                     <div className="  space-y-6">

@@ -49,6 +49,11 @@ CONTENT_ICON_PLACEHOLDER_URL = "/static/icons/placeholder.svg"
 
 LOGGER = logging.getLogger(__name__)
 
+
+def _get_template_model() -> str:
+    """Use a vision-capable model for template derivation without raising normal text costs."""
+    return os.getenv("TEMPLATE_MODEL", "").strip() or get_model()
+
 _DUPLICATE_POSITION_GRID_UNITS = 5
 _IGNORED_DUPLICATE_SCHEMA_KEYS = {
     "name",
@@ -324,7 +329,7 @@ def merge_similar_components(layouts: SlideLayouts) -> MergedComponents:
     )
     response = _generate_with_validation_retries(
         client=get_client(config=get_llm_config()),
-        model=get_model(),
+        model=_get_template_model(),
         messages=[
             SystemMessage(content=CLUSTER_SIMILAR_COMPONENTS_SYSTEM_PROMPT),
             UserMessage(
@@ -768,7 +773,7 @@ def generate_slide_layout(
     )
     llm_config = get_llm_config()
     client = get_client(config=llm_config)
-    model = get_model()
+    model = _get_template_model()
     messages = [
         SystemMessage(content=GENERATE_SLIDE_LAYOUT_SYSTEM_PROMPT),
         UserMessage(
@@ -832,7 +837,7 @@ def generate_prompted_slide_layout(
             )
 
     client = get_client(config=get_llm_config())
-    model = get_model()
+    model = _get_template_model()
     generated = _generate_with_validation_retries(
         client=client,
         model=model,
@@ -1012,6 +1017,105 @@ def _strip_decorative_fields(value: Any) -> Any:
     return value
 
 
+_LAYOUT_ALIGNMENT_ALIASES = {
+    "start": "flex-start",
+    "end": "flex-end",
+    # The renderer schema has no CSS space-* values. Stretch preserves the
+    # intended distributed use of the available row/column space most closely.
+    "space-between": "stretch",
+    "space-around": "stretch",
+    "space-evenly": "stretch",
+}
+
+
+def _infer_slide_element_type(element: dict[str, Any]) -> str | None:
+    if "children" in element:
+        if "columns" in element or "rows" in element:
+            return "grid"
+        if "direction" in element:
+            return "flex"
+        return "group"
+    if "child" in element:
+        return "container"
+    if "runs" in element:
+        return "text"
+    if "latex" in element:
+        return "math"
+    if "items" in element:
+        return "text-list"
+    if "points" in element or "shape" in element:
+        return "vector"
+    if "data" in element and "is_icon" in element:
+        return "image"
+    return None
+
+
+def _normalize_slide_element(element: dict[str, Any]) -> dict[str, Any] | None:
+    normalized = dict(element)
+    element_type = normalized.get("type")
+    if not isinstance(element_type, str) or not element_type:
+        element_type = _infer_slide_element_type(normalized)
+        if element_type is None:
+            return None
+        normalized["type"] = element_type
+
+    for key in ("align_items", "justify_content", "justify_items"):
+        value = normalized.get(key)
+        if isinstance(value, str) and value in _LAYOUT_ALIGNMENT_ALIASES:
+            normalized[key] = _LAYOUT_ALIGNMENT_ALIASES[value]
+
+    child = normalized.get("child")
+    if isinstance(child, dict):
+        normalized_child = _normalize_slide_element(child)
+        normalized["child"] = normalized_child
+
+    children = normalized.get("children")
+    if isinstance(children, list):
+        normalized_children = [
+            normalized_child
+            for item in children
+            if isinstance(item, dict)
+            for normalized_child in [_normalize_slide_element(item)]
+            if normalized_child is not None
+        ]
+        normalized["children"] = normalized_children
+        if element_type in ("flex", "grid"):
+            child_count = len(normalized_children)
+            normalized.setdefault("min_children", child_count)
+            normalized.setdefault("max_children", child_count)
+
+    return normalized
+
+
+def _normalize_slide_layout_payload(payload: Any) -> Any:
+    """Repair small, unambiguous schema drift in otherwise valid LLM output."""
+    if not isinstance(payload, dict):
+        return payload
+
+    normalized = dict(payload)
+    components = normalized.get("components")
+    if not isinstance(components, list):
+        return normalized
+
+    normalized_components: list[dict[str, Any]] = []
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        normalized_component = dict(component)
+        elements = normalized_component.get("elements")
+        if isinstance(elements, list):
+            normalized_component["elements"] = [
+                normalized_element
+                for item in elements
+                if isinstance(item, dict)
+                for normalized_element in [_normalize_slide_element(item)]
+                if normalized_element is not None
+            ]
+        normalized_components.append(normalized_component)
+    normalized["components"] = normalized_components
+    return normalized
+
+
 def _generate_preview_candidate(
     *,
     client: Any,
@@ -1026,6 +1130,7 @@ def _generate_preview_candidate(
     last_error: Exception | None = None
     max_attempts = validation_retries + 1
     preview_call_count = 0
+    last_preview_candidate: SlideLayout | None = None
 
     for attempt in range(1, max_attempts + 1):
         attempt_started_at = perf_counter()
@@ -1043,17 +1148,17 @@ def _generate_preview_candidate(
             generate_kwargs = {
                 "model": model,
                 "messages": attempt_messages,
-                "response_format": JSONSchemaResponse(
-                    name="SlideLayoutResponse",
-                    strict=False,
-                    json_schema=SlideLayout,
-                ),
             }
             if max_tokens is not None:
                 generate_kwargs["max_tokens"] = max_tokens
             if preview_tool_available:
                 generate_kwargs.update(
                     {
+                        "response_format": JSONSchemaResponse(
+                            name="SlideLayoutResponse",
+                            strict=False,
+                            json_schema=SlideLayout,
+                        ),
                         "tools": [preview_tool],
                         "tool_choice": ToolChoice(
                             mode=ToolChoiceMode.AUTO,
@@ -1074,7 +1179,9 @@ def _generate_preview_candidate(
                 )
             if tool_call is None:
                 parsed = _parse_json_content(response.content)
-                layout = SlideLayout.model_validate(parsed)
+                layout = SlideLayout.model_validate(
+                    _normalize_slide_layout_payload(parsed)
+                )
                 LOGGER.info(
                     "[templates.v2.llm] %s: slide layout JSON returned "
                     "attempt=%d/%d duration_ms=%.1f components=%d",
@@ -1089,7 +1196,10 @@ def _generate_preview_candidate(
             arguments = json.loads(tool_call.arguments or "{}")
             if not isinstance(arguments, dict):
                 raise ValueError(f"{preview_tool.name} arguments must be a JSON object")
-            candidate_layout = SlideLayout.model_validate(arguments)
+            candidate_layout = SlideLayout.model_validate(
+                _normalize_slide_layout_payload(arguments)
+            )
+            last_preview_candidate = candidate_layout
             preview_call_count += 1
             LOGGER.info(
                 "[templates.v2.llm] %s: preview slide called attempt=%d/%d "
@@ -1171,6 +1281,13 @@ def _generate_preview_candidate(
                 exc,
             )
             if attempt > validation_retries:
+                if last_preview_candidate is not None:
+                    LOGGER.warning(
+                        "[templates.v2.llm] %s: final review was invalid; "
+                        "using the last successfully rendered preview",
+                        label,
+                    )
+                    return last_preview_candidate
                 raise
             retry_instruction = (
                 f"Return one complete SlideLayout JSON object, or call "
@@ -1200,6 +1317,13 @@ def _generate_preview_candidate(
                 exc,
             )
             if attempt > validation_retries:
+                if last_preview_candidate is not None:
+                    LOGGER.warning(
+                        "[templates.v2.llm] %s: final review failed; using the "
+                        "last successfully rendered preview",
+                        label,
+                    )
+                    return last_preview_candidate
                 raise
             retry_instruction = (
                 "Call the tool again with the complete candidate SlideLayout."
@@ -1373,7 +1497,33 @@ def _validate_output_model(
 
 def _parse_json_content(content: Any) -> dict[str, Any]:
     text_content = _text_from_content(content)
-    parsed = json.loads(text_content) if text_content is not None else content
+    if text_content is None:
+        parsed = content
+    else:
+        raw_text = text_content.strip()
+        if raw_text.startswith("```"):
+            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text, count=1)
+            raw_text = re.sub(r"\s*```$", "", raw_text, count=1)
+        try:
+            parsed = json.loads(raw_text)
+        except JSONDecodeError as original_error:
+            # Some OpenAI-compatible providers append a short explanation after
+            # a valid JSON object even when response_format is requested. Decode
+            # the first complete object instead of paying for another retry.
+            object_start = raw_text.find("{")
+            if object_start < 0:
+                raise
+            try:
+                parsed, end = json.JSONDecoder().raw_decode(raw_text[object_start:])
+            except JSONDecodeError:
+                raise original_error
+            trailing = raw_text[object_start + end :].strip()
+            if trailing:
+                LOGGER.warning(
+                    "[templates.v2.llm] ignored trailing text after valid JSON "
+                    "characters=%d",
+                    len(trailing),
+                )
     if not isinstance(parsed, dict):
         raise ValueError("LLM response must be a JSON object")
     return parsed
@@ -1389,6 +1539,11 @@ def _text_from_content(content: Any) -> str | None:
     for part in content:
         if isinstance(part, str):
             parts.append(part)
+            continue
+        if isinstance(part, dict):
+            text = part.get("text")
+            if isinstance(text, str):
+                parts.append(text)
             continue
         text = getattr(part, "text", None)
         if isinstance(text, str):

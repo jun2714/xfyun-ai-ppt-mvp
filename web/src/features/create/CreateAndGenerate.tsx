@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { api, consumeStream, localizeError, localizeStatus } from "../../api/client";
 import type { Presentation, PresentationOutline, TemplateItem, TemplateList } from "../../entities/types";
 import { OutlineEditor } from "../outline/OutlineEditor";
+import { ArrowRightIcon, CopyIcon, MoreVerticalIcon, SparklesIcon, TrashIcon } from "../../components/Icons";
+
+function projectTitle(item: Presentation) {
+  return item.title || item.content.split("\n")[0]?.replace("主题：", "") || "未命名演示";
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return <div className="app-shell">
     <header className="topbar">
-      <a className="brand" href="/"><img className="brand-logo" src="/teachnova-logo.png" alt="Teachnova" /><span>幼教PPT</span></a>
+      <a className="brand" href="/">
+        <img className="brand-logo" src="/teachnova-mark.png" alt="" />
+        <span className="brand-name">Teachnova</span>
+        <span className="brand-product">幼教PPT</span>
+      </a>
       <nav className="topnav"><a href="/templates">模板库</a><a href="/templates/new">制作模板</a></nav>
     </header>
     {children}
@@ -24,6 +33,9 @@ export function CreatePage() {
   const [slideCount, setSlideCount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [projectError, setProjectError] = useState("");
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Presentation | null>(null);
 
   useEffect(() => {
     void api<Presentation[]>("/presentation/all?include_slides=true&version=v2-standard")
@@ -63,10 +75,36 @@ export function CreatePage() {
     }
   };
 
+  const duplicateProject = async (item: Presentation) => {
+    setPendingProjectId(item.id); setProjectError("");
+    try {
+      const duplicated = await api<Presentation>(`/presentation/${item.id}/duplicate`, { method: "POST" });
+      setPresentations((current) => [duplicated, ...current]);
+    } catch (cause) {
+      setProjectError(localizeError(cause));
+    } finally {
+      setPendingProjectId(null);
+    }
+  };
+
+  const deleteProject = async () => {
+    if (!deleteTarget) return;
+    setPendingProjectId(deleteTarget.id); setProjectError("");
+    try {
+      await api<null>(`/presentation/${deleteTarget.id}`, { method: "DELETE" });
+      setPresentations((current) => current.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (cause) {
+      setProjectError(localizeError(cause));
+    } finally {
+      setPendingProjectId(null);
+    }
+  };
+
   return <Shell><main className="home-main">
-      <div className="hero-copy"><span>智能生成可编辑演示文稿</span><h1>把你的想法，变成一套好看的 PPT</h1></div>
+      <div className="hero-copy"><h1>输入一个主题，生成完整幼教 PPT</h1></div>
       <form className="prompt-workspace" onSubmit={(event) => void create(event)}>
-        <div className="prompt-main"><span className="prompt-symbol">✦</span><textarea required value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="例如：为幼儿园中班制作一套认识海洋动物的互动课件" /></div>
+        <div className="prompt-main"><span className="prompt-symbol"><SparklesIcon /></span><textarea required value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="例如：为幼儿园中班制作一套认识海洋动物的互动课件" /></div>
         <div className="brief-row">
           <label><span>观众</span><input required value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="幼儿、家长或教师" /></label>
           <label><span>年龄或班级</span><input value={age} onChange={(event) => setAge(event.target.value)} placeholder="如：中班 4—5 岁" /></label>
@@ -78,13 +116,57 @@ export function CreatePage() {
           <label><span>视觉风格</span><input value={style} onChange={(event) => setStyle(event.target.value)} placeholder="如：明亮、童趣、自然" /></label>
         </div></details>
         {error && <div className="error-line">{error}</div>}
-        <footer><span>下一步可逐页修改大纲</span><button className="primary" disabled={busy}>{busy ? "正在创建…" : "生成大纲"}<i>→</i></button></footer>
+        <footer><span>下一步可逐页修改大纲</span><button className="primary" disabled={busy}>{busy ? "正在创建…" : "生成大纲"}<ArrowRightIcon /></button></footer>
       </form>
-      {presentations.length > 0 && <section className="recent-list"><header><h2>最近项目</h2><span>{presentations.length} 个</span></header>
-        {presentations.map((item) => <a key={item.id} href={item.slides.length ? `/presentations/${item.id}/edit` : `/presentations/${item.id}/outline`}>
-          <span className="file-icon">稿</span><b>{item.title || item.content.split("\n")[0]?.replace("主题：", "") || "未命名演示"}</b><small>{item.n_slides || "自动"} 页 · {new Date(item.updated_at).toLocaleDateString("zh-CN")}</small><i>→</i>
-        </a>)}
+      {presentations.length > 0 && <section className="recent-projects">
+        <header><h2>最近项目</h2><span>{presentations.length} 个</span></header>
+        {projectError && <div className="project-error">{projectError}</div>}
+        <div className="recent-grid">
+          {presentations.map((item) => {
+            const title = projectTitle(item);
+            const previewBase = import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
+            const projectUrl = item.slides.length ? `/presentations/${item.id}/edit` : `/presentations/${item.id}/outline`;
+            return <article className="project-card" key={item.id}>
+              <a className="project-preview" href={projectUrl}>
+                <iframe
+                  aria-hidden="true"
+                  loading="lazy"
+                  src={`${previewBase}/presentation-thumbnail?id=${encodeURIComponent(item.id)}`}
+                  tabIndex={-1}
+                  title={`${title} 第一页预览`}
+                />
+                <span className="project-kind">PPT</span>
+                <span className="project-pages">{item.n_slides || 0}</span>
+              </a>
+              <div className="project-copy">
+                <a className="project-meta" href={projectUrl}><b>{title}</b><span>{new Date(item.updated_at).toLocaleDateString("zh-CN")}</span></a>
+                <details className="project-actions">
+                  <summary aria-label={`管理${title}`}><MoreVerticalIcon /></summary>
+                  <div className="project-menu">
+                    <button disabled={pendingProjectId === item.id} onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      void duplicateProject(item);
+                    }}><CopyIcon />{pendingProjectId === item.id ? "正在复制…" : "复制"}</button>
+                    <button className="danger" disabled={pendingProjectId === item.id} onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      setDeleteTarget(item);
+                    }}><TrashIcon />删除</button>
+                  </div>
+                </details>
+              </div>
+            </article>;
+          })}
+        </div>
       </section>}
+      {deleteTarget && <div className="confirm-backdrop" role="presentation" onMouseDown={(event) => {
+        if (event.target === event.currentTarget && pendingProjectId !== deleteTarget.id) setDeleteTarget(null);
+      }}>
+        <section aria-labelledby="delete-project-title" aria-modal="true" className="confirm-dialog" role="dialog">
+          <h2 id="delete-project-title">删除演示文稿？</h2>
+          <p>“{projectTitle(deleteTarget)}”删除后无法恢复。</p>
+          <footer><button disabled={pendingProjectId === deleteTarget.id} onClick={() => setDeleteTarget(null)}>取消</button><button className="danger" disabled={pendingProjectId === deleteTarget.id} onClick={() => void deleteProject()}>{pendingProjectId === deleteTarget.id ? "正在删除…" : "确认删除"}</button></footer>
+        </section>
+      </div>}
   </main></Shell>;
 }
 

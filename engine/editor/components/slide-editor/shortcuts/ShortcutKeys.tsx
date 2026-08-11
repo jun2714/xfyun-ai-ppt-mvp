@@ -41,7 +41,7 @@ export function ShortcutKeys({
 
   return (
     <span
-      aria-label={`${shortcut.label} shortcut`}
+      aria-label={`${shortcut.label}快捷键`}
       className={cn("inline-flex shrink-0 items-center gap-1.5", className)}
     >
       {chords.map((chord, chordIndex) => (
@@ -51,7 +51,7 @@ export function ShortcutKeys({
         >
           {chordIndex > 0 ? (
             <span className="px-0.5 text-[10px] font-medium text-[#98A0B3]">
-              or
+              或
             </span>
           ) : null}
           {chord.map((key) => (

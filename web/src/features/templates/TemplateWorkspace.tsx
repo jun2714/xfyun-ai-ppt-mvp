@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, localizeError } from "../../api/client";
 import type { TemplateItem, TemplateList } from "../../entities/types";
 import { Shell } from "../create/CreateAndGenerate";
+import { ArrowRightIcon } from "../../components/Icons";
 
 const DISPLAY_NAMES: Record<string, string> = {
   dynamic: "动感橙黑",
@@ -48,7 +49,7 @@ function TemplateCard({ template }: { template: TemplateItem }) {
     <div className="template-card-copy">
       <h2>{displayName}</h2>
       <p>{DISPLAY_DESCRIPTIONS[template.id] || template.description || "查看模板包含的页面布局与视觉样式"}</p>
-      <span>查看模板 →</span>
+      <span>查看模板 <ArrowRightIcon /></span>
     </div>
   </a>;
 }
@@ -74,7 +75,7 @@ export function TemplateLibrary() {
   return <Shell><main className="templates-page">
     <header className="templates-heading">
       <div><span>模板中心</span><h1>选择一套合适的设计</h1><p>模板只决定视觉和布局，不限制你的主题、页数和内容结构。</p></div>
-      <a className="primary" href="/templates/new">制作模板 <i>→</i></a>
+      <a className="primary" href="/templates/new">制作模板 <ArrowRightIcon /></a>
     </header>
     <nav className="template-tabs" aria-label="模板分类">
       <button className={tab === "built-in" ? "active" : ""} onClick={() => setTab("built-in")}>内置模板</button>
@@ -89,7 +90,9 @@ export function TemplateLibrary() {
 
 export function TemplateBuilder() {
   const base = import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
+  const fastApiUrl = import.meta.env.VITE_ENGINE_API_URL ?? "http://127.0.0.1:8000";
+  const studioUrl = `${base}/custom-template?embed=teachnova&fastapiUrl=${encodeURIComponent(fastApiUrl)}`;
   return <Shell><main className="template-builder-page">
-    <iframe title="制作模板" src={`${base}/custom-template?embed=teachnova`} />
+    <iframe title="制作模板" src={studioUrl} />
   </main></Shell>;
 }

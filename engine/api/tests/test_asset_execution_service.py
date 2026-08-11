@@ -80,3 +80,38 @@ def test_cutout_validation_retries_only_failed_asset(tmp_path, monkeypatch):
     assert traces[1].retry_of == plan[0].request_id
     assert len(generated) == 2  # accepted source plus derived transparent cutout
     assert "image_url" in slide.content["main"]["subject"]
+
+
+def test_completed_asset_is_exposed_to_checkpoint_before_return(tmp_path, monkeypatch):
+    source = tmp_path / "source.png"
+    image = Image.new("RGB", (600, 600), "white")
+    ImageDraw.Draw(image).ellipse((160, 120, 440, 480), fill="red")
+    image.save(source)
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    service = FakeImageService(tmp_path, [source])
+    slide = _cutout_slide()
+    checkpoints = []
+
+    async def checkpoint(assets):
+        checkpoints.append(
+            {
+                "paths": [asset.path for asset in assets],
+                "url": slide.content["main"]["subject"].get("image_url"),
+            }
+        )
+
+    asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service,
+            [slide],
+            on_item_completed=checkpoint,
+        )
+    )
+
+    assert len(checkpoints) == 1
+    assert len(checkpoints[0]["paths"]) == 2
+    assert checkpoints[0]["url"]

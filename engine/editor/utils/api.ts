@@ -58,8 +58,30 @@ function isElectronRuntime(): boolean {
   return typeof window !== "undefined" && !!window.electron;
 }
 
+function shouldUseConfiguredFastApiInLocalWeb(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname !== "127.0.0.1" && window.location.hostname !== "localhost") {
+    return false;
+  }
+
+  const configured = getConfiguredFastApiUrl();
+  if (!configured) return false;
+
+  try {
+    // Long-running local template imports can outlive the Next.js development
+    // proxy connection. Direct FastAPI requests avoid losing a completed job.
+    return new URL(configured).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function shouldUseDirectFastApiOriginInBrowser(): boolean {
-  return isElectronRuntime() || !!getFastApiUrlFromQuery();
+  return (
+    isElectronRuntime() ||
+    !!getFastApiUrlFromQuery() ||
+    shouldUseConfiguredFastApiInLocalWeb()
+  );
 }
 
 function resolveBackendPathForRuntime(path: string): string {

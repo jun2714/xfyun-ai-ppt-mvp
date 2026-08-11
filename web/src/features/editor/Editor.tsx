@@ -12,16 +12,18 @@ export function Editor({ presentationId }: { presentationId: string }) {
   );
 
   useEffect(() => {
-    if (!streaming) return;
-
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.searchParams.delete("stream");
-    window.history.replaceState({}, "", cleanUrl.toString());
-
     const expectedOrigin = new URL(editorUrl(presentationId, true)).origin;
     const handleEngineMessage = (event: MessageEvent) => {
       if (event.origin !== expectedOrigin) return;
       if (
+        event.data?.type === "teachnova:navigate" &&
+        event.data.target === "home"
+      ) {
+        window.location.assign("/");
+        return;
+      }
+      if (
+        !streaming ||
         !event.data ||
         event.data.type !== "presenton:stream-settled" ||
         event.data.presentationId !== presentationId
@@ -35,6 +37,12 @@ export function Editor({ presentationId }: { presentationId: string }) {
       settledUrl.searchParams.delete("stream");
       window.history.replaceState({}, "", settledUrl.toString());
     };
+
+    if (streaming) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("stream");
+      window.history.replaceState({}, "", cleanUrl.toString());
+    }
 
     window.addEventListener("message", handleEngineMessage);
     return () => window.removeEventListener("message", handleEngineMessage);

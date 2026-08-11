@@ -134,7 +134,7 @@ export const usePresentationStreaming = (
   stream: string | null,
   setLoading: (loading: boolean) => void,
   setError: (error: boolean) => void,
-  fetchUserSlides: () => void,
+  fetchUserSlides: () => void | Promise<unknown>,
   options: { preloadPresentationData?: boolean } = {}
 ) => {
   const dispatch = useDispatch();
@@ -190,6 +190,10 @@ export const usePresentationStreaming = (
       dispatch(setStreaming(false));
       setError(true);
       settleStreamUrl(presentationId, "failed");
+      // The backend checkpoints generated slides and images before reporting
+      // progress. Reload that saved state before autosave can write stale
+      // placeholders back over a partially completed deck.
+      void Promise.resolve(fetchUserSlides());
       if (options.showToast !== false) {
         notify.error("生成失败", localizeStreamError(description));
       }

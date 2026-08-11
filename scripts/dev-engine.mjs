@@ -34,6 +34,9 @@ const shared = {
   CUSTOM_LLM_URL: source.DMX_API_BASE_URL || "https://www.dmxapi.cn/v1",
   CUSTOM_LLM_API_KEY: source.DMX_API_KEY || "",
   CUSTOM_MODEL: source.DMX_TEXT_MODEL || "",
+  // Template import needs screenshot understanding and reliable tool/schema output.
+  // Keep it separate so ordinary outline/content calls can use the cheaper text model.
+  TEMPLATE_MODEL: source.DMX_TEMPLATE_MODEL || source.DMX_TEXT_MODEL || "",
   IMAGE_PROVIDER: source.DMX_IMAGE_API_STYLE === "gemini" ? "gemini_flash" : "openai_compatible",
   GOOGLE_API_KEY: source.DMX_API_KEY || "",
   GEMINI_IMAGE_BASE_URL: source.DMX_GEMINI_BASE_URL || "https://www.dmxapi.cn",

@@ -88,15 +88,14 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
 
         /* Neutral "card" toast container — design tokens */
         [data-sonner-toast][data-styled="true"] {
-          border-radius: 10px !important;
-
-          border: 1px solid var(--Base-Gray-700, #e1e1e5) !important;
-          background: rgba(255, 255, 255, 0.6) !important;
-          box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.06) !important;
-          padding: clamp(9px, 0.5rem + 0.35vw, 12px) clamp(11px, 0.65rem + 0.5vw, 14px) !important;
-          gap: clamp(8px, 0.5rem + 0.35vw, 11px) !important;
-          backdrop-filter: blur(6px) !important;
-          -webkit-backdrop-filter: blur(6px) !important;
+          border-radius: 6px !important;
+          border: 1px solid #d9d8e2 !important;
+          background: #ffffff !important;
+          box-shadow: 0 10px 30px rgba(36, 31, 56, 0.14) !important;
+          padding: 14px 16px !important;
+          gap: 12px !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
           width: 100% !important;
           max-width: 100% !important;
         }
@@ -106,11 +105,11 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
           font-family: var(--font-syne), ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
             "Noto Sans", sans-serif !important;
-          font-size: clamp(0.8125rem, 0.8rem + 0.12vw, 0.9375rem) !important;
-          font-weight: 500 !important;
-          line-height: 1.35 !important;
-          letter-spacing: 0.03em !important;
-          color: rgb(15 23 42) !important; /* slate-900 */
+          font-size: 0.9375rem !important;
+          font-weight: 650 !important;
+          line-height: 1.4 !important;
+          letter-spacing: 0 !important;
+          color: #1d1a2b !important;
           text-transform: none !important;
         }
 
@@ -118,11 +117,11 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
           font-family: var(--font-syne), ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
             "Noto Sans", sans-serif !important;
-          font-size: clamp(0.6875rem, 0.67rem + 0.1vw, 0.8125rem) !important;
-          font-weight: 400 !important;
-          line-height: 1.4 !important;
-          letter-spacing: 0.03em !important;
-          color: rgb(100 116 139) !important; /* slate-500 */
+          font-size: 0.8125rem !important;
+          font-weight: 450 !important;
+          line-height: 1.55 !important;
+          letter-spacing: 0 !important;
+          color: #5d586b !important;
         }
 
         [data-sonner-toast][data-styled="true"] [data-content] {
@@ -178,8 +177,8 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
           font-family: var(--font-syne), ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
             "Noto Sans", sans-serif !important;
-          font-size: clamp(0.625rem, 0.62rem + 0.08vw, 0.75rem) !important;
-          font-weight: 400 !important;
+          font-size: 0.8125rem !important;
+          font-weight: 600 !important;
           background: rgb(255 255 255) !important;
           color: #3F3F3F !important;
           border: 1px solid #EDEEEF !important;
@@ -210,8 +209,8 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
           font-family: var(--font-syne), ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
             "Noto Sans", sans-serif !important;
-          font-size: clamp(0.625rem, 0.62rem + 0.08vw, 0.75rem) !important;
-          font-weight: 400 !important;
+          font-size: 0.8125rem !important;
+          font-weight: 600 !important;
           line-height: 1.3 !important;
           letter-spacing: 0.02em !important;
         }

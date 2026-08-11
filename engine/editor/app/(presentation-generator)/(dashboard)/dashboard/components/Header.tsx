@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
 import { ArrowLeft } from "lucide-react";
+import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
 
 const PATHS_WITH_HEADER_BACK = [
   "/upload",
@@ -43,13 +44,19 @@ const Header = () => {
       <Wrapper className="px-5 sm:px-10 lg:px-20">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-center gap-3">
-            <Link className="flex items-center gap-3" href="/dashboard" onClick={() => trackEvent(MixpanelEvent.Navigation, { from: pathname, to: "/dashboard" })}>
-              <img
-                src="/teachnova-logo.png"
-                alt="Teachnova"
-                className="h-10 w-auto max-w-[190px] object-contain"
-              />
-              <span className="hidden text-sm font-semibold text-[#101323] sm:inline">幼教PPT</span>
+            <Link
+              className="flex items-center gap-3"
+              href="/dashboard"
+              onClick={(event) => {
+                if (requestTeachnovaHome()) event.preventDefault();
+                trackEvent(MixpanelEvent.Navigation, { from: pathname, to: "/dashboard" });
+              }}
+            >
+              <img src="/teachnova-mark.png" alt="" className="h-10 w-10 object-contain" />
+              <span className="hidden items-baseline gap-1.5 sm:flex">
+                <span className="text-lg font-bold tracking-[-0.03em] text-[#17152d]">Teachnova</span>
+                <span className="text-sm font-semibold text-[#4f4b5d]">幼教PPT</span>
+              </span>
             </Link>
           </div>
           <div className="flex items-center">

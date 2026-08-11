@@ -48,6 +48,7 @@ from services.temp_file_service import TEMP_FILE_SERVICE
 from services.webhook_service import WebhookService
 from services.image_generation_service import ImageGenerationService
 from services.asset_execution_service import process_presentation_assets
+from services.asset_planning_service import build_asset_plan
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
@@ -92,6 +93,8 @@ from utils.outline_utils import (
 )
 from utils.outline_limits import normalize_outline_payload
 from utils.process_slides import (
+    ICON_QUERY_KEYS,
+    _asset_dicts_with_prompt,
     apply_provided_image_urls,
     process_slide_add_placeholder_assets,
     process_slide_and_fetch_assets,
@@ -1949,6 +1952,29 @@ async def stream_presentation(
     if presentation.generation_mode == "smart":
         return await _stream_smart_presentation(presentation, sql_session)
 
+    async def persist_asset_checkpoint(
+        slides: list[SlideModel], new_assets: list[ImageAsset]
+    ) -> None:
+        # JSON columns are mutated while an image URL is assigned. Reassigning
+        # copies makes SQLAlchemy persist those in-place changes immediately,
+        # so a disconnected browser can resume without paying for that image again.
+        for slide in slides:
+            slide.content = copy.deepcopy(slide.content)
+            slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
+        sql_session.add_all(slides)
+        sql_session.add_all(new_assets)
+        await sql_session.commit()
+
+    def has_unresolved_icons(slides: list[SlideModel]) -> bool:
+        for slide in slides:
+            for _path, parent, _query in _asset_dicts_with_prompt(
+                slide.content, ICON_QUERY_KEYS
+            ):
+                url = parent.get("icon_url") or parent.get("__icon_url__")
+                if not isinstance(url, str) or not url.strip() or "placeholder" in url.casefold():
+                    return True
+        return False
+
     existing_slides = list(
         await sql_session.scalars(
             select(SlideModel)
@@ -1956,7 +1982,12 @@ async def stream_presentation(
             .order_by(SlideModel.index)
         )
     )
-    if existing_slides:
+    pending_image_assets = (
+        presentation.image_policy is not ImagePolicy.DISABLED
+        and bool(build_asset_plan(existing_slides))
+    )
+    pending_icon_assets = has_unresolved_icons(existing_slides)
+    if existing_slides and not pending_image_assets and not pending_icon_assets:
         # The stream URL starts paid generation. A browser refresh can replay
         # that GET, so an already persisted deck must be treated as complete.
         # Explicit regeneration belongs to a separate command, never refresh.
@@ -1991,6 +2022,99 @@ async def stream_presentation(
                 replay_existing_slides(),
                 logger=logger,
                 error_detail="Failed to load the saved presentation.",
+            ),
+            media_type="text/event-stream",
+        )
+
+    image_generation_service = ImageGenerationService(get_images_directory())
+
+    if existing_slides:
+        async def resume_saved_slides():
+            slides = existing_slides
+            generated_assets: list[ImageAsset] = []
+
+            if pending_image_assets:
+                asset_events: asyncio.Queue[list[SlideModel]] = asyncio.Queue()
+
+                async def checkpoint(assets: list[ImageAsset]) -> None:
+                    await persist_asset_checkpoint(slides, assets)
+                    await asset_events.put(copy.deepcopy(slides))
+
+                asset_task = asyncio.create_task(
+                    process_presentation_assets(
+                        image_generation_service,
+                        slides,
+                        presentation_id=id,
+                        on_item_completed=checkpoint,
+                    )
+                )
+                while not asset_task.done() or not asset_events.empty():
+                    try:
+                        checkpoint_slides = await asyncio.wait_for(
+                            asset_events.get(), timeout=5
+                        )
+                    except asyncio.TimeoutError:
+                        yield SSEStatusResponse(status="正在生成图片").to_string()
+                        continue
+                    for slide in checkpoint_slides:
+                        yield SSEResponse(
+                            event="response",
+                            data=json.dumps(
+                                {
+                                    "type": "slide_assets",
+                                    "slide_index": slide.index,
+                                    "slide": slide.model_dump(mode="json"),
+                                    "warnings": [],
+                                }
+                            ),
+                        ).to_string()
+                generated_assets, _asset_plan = await asset_task
+
+            if pending_icon_assets:
+                icon_asset_lists = await asyncio.gather(
+                    *[
+                        process_slide_and_fetch_assets(
+                            image_generation_service,
+                            slide,
+                            icon_weight=_get_presentation_stream_layout(presentation).icon_weight,
+                            process_images=False,
+                        )
+                        for slide in slides
+                    ]
+                )
+                icon_assets = [asset for assets in icon_asset_lists for asset in assets]
+                generated_assets.extend(icon_assets)
+                await persist_asset_checkpoint(slides, icon_assets)
+
+            await persist_asset_checkpoint(slides, [])
+            for slide in slides:
+                yield SSEResponse(
+                    event="response",
+                    data=json.dumps(
+                        {
+                            "type": "slide_assets",
+                            "slide_index": slide.index,
+                            "slide": slide.model_dump(mode="json"),
+                            "warnings": [],
+                        }
+                    ),
+                ).to_string()
+
+            response = PresentationWithSlides(
+                **_presentation_response_data(presentation),
+                slides=slides,
+            )
+            yield SSECompleteResponse(
+                key="presentation",
+                value=response.model_dump(mode="json"),
+            ).to_string()
+
+        return StreamingResponse(
+            safe_sse_stream(
+                resume_saved_slides(),
+                logger=logger,
+                error_detail="Failed to resume presentation assets. Please try again.",
+                on_error=sql_session.rollback,
             ),
             media_type="text/event-stream",
         )
@@ -2036,8 +2160,6 @@ async def stream_presentation(
             status_code=400,
             detail="Presentation structure contains an invalid slide layout",
         )
-
-    image_generation_service = ImageGenerationService(get_images_directory())
 
     async def inner():
         icon_weight = layout.icon_weight
@@ -2113,13 +2235,54 @@ async def stream_presentation(
             data=json.dumps({"type": "chunk", "chunk": " ] }"}),
         ).to_string()
 
+        # Content generation is complete at this point. Save it before any paid
+        # image call so a refresh resumes asset work instead of regenerating text.
+        await sql_session.execute(
+            delete(SlideModel).where(
+                SlideModel.presentation == id,
+                SlideModel.owner_id == get_current_owner_id(),
+            )
+        )
+        sql_session.add_all(slides)
+        await sql_session.commit()
+
         generated_assets: list[ImageAsset] = []
         if presentation.image_policy is not ImagePolicy.DISABLED:
-            generated_assets, _asset_plan = await process_presentation_assets(
-                image_generation_service,
-                slides,
-                presentation_id=id,
+            asset_events: asyncio.Queue[list[SlideModel]] = asyncio.Queue()
+
+            async def checkpoint(assets: list[ImageAsset]) -> None:
+                await persist_asset_checkpoint(slides, assets)
+                await asset_events.put(copy.deepcopy(slides))
+
+            asset_task = asyncio.create_task(
+                process_presentation_assets(
+                    image_generation_service,
+                    slides,
+                    presentation_id=id,
+                    on_item_completed=checkpoint,
+                )
             )
+            while not asset_task.done() or not asset_events.empty():
+                try:
+                    checkpoint_slides = await asyncio.wait_for(
+                        asset_events.get(), timeout=5
+                    )
+                except asyncio.TimeoutError:
+                    yield SSEStatusResponse(status="正在生成图片").to_string()
+                    continue
+                for slide in checkpoint_slides:
+                    yield SSEResponse(
+                        event="response",
+                        data=json.dumps(
+                            {
+                                "type": "slide_assets",
+                                "slide_index": slide.index,
+                                "slide": slide.model_dump(mode="json"),
+                                "warnings": [],
+                            }
+                        ),
+                    ).to_string()
+            generated_assets, _asset_plan = await asset_task
 
         # Icons remain local/search assets and are resolved independently from
         # the paid whole-deck image plan.
@@ -2137,6 +2300,10 @@ async def stream_presentation(
         for assets in icon_asset_lists:
             generated_assets.extend(assets)
 
+        # Persist the finished deck before emitting the final progress events.
+        # Closing the tab while those events are sent must not roll generation back.
+        await persist_asset_checkpoint(slides, generated_assets)
+
         for slide in slides:
             slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
             yield SSEResponse(
@@ -2150,20 +2317,6 @@ async def stream_presentation(
                     }
                 ),
             ).to_string()
-
-        # Moved this here to make sure new slides are generated before deleting the old ones
-        await sql_session.execute(
-            delete(SlideModel).where(
-                SlideModel.presentation == id,
-                SlideModel.owner_id == get_current_owner_id(),
-            )
-        )
-        await sql_session.commit()
-
-        sql_session.add(presentation)
-        sql_session.add_all(slides)
-        sql_session.add_all(generated_assets)
-        await sql_session.commit()
 
         response = PresentationWithSlides(
             **_presentation_response_data(presentation),

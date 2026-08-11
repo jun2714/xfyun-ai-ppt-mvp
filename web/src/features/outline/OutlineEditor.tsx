@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { api, localizeError } from "../../api/client";
 import type { Presentation, PresentationOutline, TemplateItem } from "../../entities/types";
+import { ArrowLeftIcon, PlusIcon, SparklesIcon } from "../../components/Icons";
 
 function outlineTitle(content: string) {
   return content.split("\n").find((line) => line.trim())?.replace(/^#+\s*/, "").trim() || "未命名页面";
@@ -54,14 +55,14 @@ export function OutlineEditor({ presentation, initial, templates }: { presentati
   };
 
   return <main className="outline-layout">
-    <aside className="outline-sidebar"><header><a href="/">← 返回首页</a><b>大纲</b></header>
+    <aside className="outline-sidebar"><header><a href="/"><ArrowLeftIcon />返回首页</a><b>大纲</b></header>
       <div className="outline-list">{outline.slides.map((slide, index) => <button className={index === selected ? "active" : ""} key={`${index}-${outlineTitle(slide.content)}`} onClick={() => setSelected(index)}>
         <span>{String(index + 1).padStart(2, "0")}</span><b>{outlineTitle(slide.content)}</b>
       </button>)}</div>
-      <button className="add-page" onClick={addSlide}>＋ 添加一页</button>
+      <button className="add-page" onClick={addSlide}><PlusIcon />添加一页</button>
     </aside>
     <section className="outline-canvas"><header><div><h1>{title}</h1></div>
-      <div className="outline-actions"><label>模板<select value={template} onChange={(event) => setTemplate(event.target.value)}><option value="general">自动匹配</option>{templates.filter((item) => item.id !== "general").map((item) => <option value={item.id} key={item.id}>{templateName(item)} · {item.layout_count} 种布局</option>)}</select></label><a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">预览模板</a><button className="primary" disabled={saving} onClick={() => void confirm()}>{saving ? "正在准备…" : "确认生成"} →</button></div>
+      <div className="outline-actions"><label>模板<select value={template} onChange={(event) => setTemplate(event.target.value)}><option value="general">自动匹配</option>{templates.filter((item) => item.id !== "general").map((item) => <option value={item.id} key={item.id}>{templateName(item)} · {item.layout_count} 种布局</option>)}</select></label><a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">预览模板</a><button className="primary" disabled={saving} onClick={() => void confirm()}><SparklesIcon />{saving ? "正在准备…" : "确认生成"}</button></div>
     </header>
     <div className="outline-editor-flat"><div className="page-meta"><b>第 {selected + 1} 页</b><span>{current.content.length} 字</span><button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button></div>
       <textarea value={current.content} onChange={(event) => updateCurrent(event.target.value)} />
