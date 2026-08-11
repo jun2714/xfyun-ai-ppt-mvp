@@ -5,16 +5,16 @@
   "packageManager": "pnpm@10.23.0",
   "engines": { "node": ">=20" },
   "scripts": {
-    "dev": "pnpm --parallel --filter @sparkdeck/api --filter @sparkdeck/web dev",
-    "dev:api": "pnpm --filter @sparkdeck/api dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:app": "pnpm --filter @sparkdeck/web dev",
+    "dev:engine": "node scripts/dev-engine.mjs",
+    "setup:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-engine.ps1",
     "dev:web": "pnpm --filter @sparkdeck/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "start": "pnpm --filter @sparkdeck/api start",
-    "verify": "pnpm build && pnpm typecheck && pnpm test",
-    "test": "pnpm -r --if-present test",
-    "acceptance:preflight": "pnpm build && pnpm --filter @sparkdeck/acceptance preflight",
-    "acceptance:run": "pnpm build && pnpm --filter @sparkdeck/acceptance run run"
+    "verify": "pnpm build && pnpm typecheck && pnpm test && pnpm audit:recognition-template",
+    "audit:recognition-template": "node scripts/audit-recognition-template.mjs",
+    "test": "pnpm -r --if-present test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

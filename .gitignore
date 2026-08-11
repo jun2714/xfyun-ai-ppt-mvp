@@ -1,5 +1,11 @@
 .env
 .data/
+.data/engine/
+engine/api/.venv/
+engine/editor/.next/
+engine/editor/.next-build/
+engine/editor/node_modules/
+engine/export/.cache/
 .runtime/
 node_modules/
 dist/
@@ -13,3 +19,5 @@ dist/
 *.pptx
 .tmp-reference-audit/
 *.tsbuildinfo
+__pycache__/
+*.egg-info/

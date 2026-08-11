@@ -1,0 +1,6 @@
+{
+  "name": "sparkdeck-export-runtime",
+  "private": true,
+  "version": "0.4.2",
+  "exportVersion": "v0.4.2"
+}
