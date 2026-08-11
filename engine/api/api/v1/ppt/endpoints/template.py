@@ -51,6 +51,10 @@ from templates.v2.generation import (
     generate_template,
     merge_similar_components,
 )
+from templates.v2.derivation import (
+    DeriveTemplateLayoutsRequest,
+    derive_template_layouts_without_model,
+)
 from templates.v2.models.elements import Image as SlideImageElement
 from templates.v2.models.layouts import (
     MergedComponents,
@@ -1434,6 +1438,58 @@ async def create_template_slide_layouts(
         sum(len(item.layout.components) for item in created_layouts),
     )
     return CreateTemplateLayoutsResponse(layouts=created_layouts)
+
+
+@TEMPLATE_ROUTER.post(
+    "/layouts/derive-without-model",
+    response_model=TemplateResponse,
+)
+async def derive_template_slide_layouts_without_model(
+    request: DeriveTemplateLayoutsRequest = Body(...),
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    template = await sql_session.get(TemplateV2, request.template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    _require_private_template(template)
+    if not isinstance(template.raw_layouts, dict):
+        raise HTTPException(status_code=400, detail="Template raw layouts are unavailable")
+
+    try:
+        raw_layouts = RawSlideLayouts.model_validate(template.raw_layouts)
+        layouts, merged_components, source_indexes = (
+            derive_template_layouts_without_model(
+                raw_layouts.layouts,
+                request.layouts,
+            )
+        )
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    assets = dict(template.assets) if isinstance(template.assets, dict) else {}
+    assets["layout_indexes"] = source_indexes
+    _set_template_icon_type_asset(assets, layouts)
+    template.layouts = layouts.model_dump(mode="json", exclude_none=True)
+    template.merged_components = merged_components.model_dump(
+        mode="json", exclude_none=True
+    )
+    template.assets = assets
+    sql_session.add(template)
+    await sql_session.commit()
+    await sql_session.refresh(template)
+    return TemplateResponse(
+        id=template.id,
+        name=template.name,
+        description=template.description,
+        layout_count=_count_layouts(template.layouts),
+        thumbnail=_get_template_thumbnail_from_assets(template.assets),
+        is_default=template.is_default,
+        created_at=template.created_at or get_current_utc_datetime(),
+        updated_at=template.updated_at or get_current_utc_datetime(),
+        merged_components=template.merged_components,
+        layouts=template.layouts,
+        fonts=_get_template_fonts(template),
+    )
 
 
 @TEMPLATE_ROUTER.post(

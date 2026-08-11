@@ -119,6 +119,7 @@ def get_messages(
     data: str,
     instructions: Optional[str] = None,
     source_content: Optional[str] = None,
+    allowed_layout_indices: Optional[list[list[int]]] = None,
 ) -> list[Message]:
     intent_sections = []
     if instructions:
@@ -129,6 +130,16 @@ def get_messages(
         user_instruction_header="\n\n".join(intent_sections),
         n_slides=n_slides,
     )
+    if allowed_layout_indices is not None:
+        allowed_lines = "\n".join(
+            f"- Slide {index + 1}: {indices}"
+            for index, indices in enumerate(allowed_layout_indices)
+        )
+        system_prompt += (
+            "\n# Hard Layout Compatibility\nChoose each slide only from its listed "
+            "layout indices. These constraints were computed from capacity and media "
+            f"metadata and are mandatory.\n{allowed_lines}\n"
+        )
 
     return [
         SystemMessage(content=system_prompt),
@@ -148,6 +159,7 @@ def get_messages_for_slides_markdown(
     data: str,
     instructions: Optional[str] = None,
     source_content: Optional[str] = None,
+    allowed_layout_indices: Optional[list[list[int]]] = None,
 ) -> list[Message]:
     intent_sections = []
     if instructions:
@@ -158,6 +170,15 @@ def get_messages_for_slides_markdown(
         user_intent="\n\n".join(intent_sections),
         presentation_layout=presentation_layout.to_string(with_schema=True),
     )
+    if allowed_layout_indices is not None:
+        allowed_lines = "\n".join(
+            f"- Slide {index + 1}: {indices}"
+            for index, indices in enumerate(allowed_layout_indices)
+        )
+        system_prompt += (
+            "\n# Hard Layout Compatibility\nChoose each slide only from its listed "
+            f"layout indices.\n{allowed_lines}\n"
+        )
 
     return [SystemMessage(content=system_prompt), UserMessage(content=data)]
 
@@ -169,6 +190,7 @@ async def generate_presentation_structure(
     using_slides_markdown: bool = False,
     source_content: Optional[str] = None,
     disconnect_checker: Optional[DisconnectChecker] = None,
+    allowed_layout_indices: Optional[list[list[int]]] = None,
 ) -> PresentationStructureModel:
     client = get_client(config=get_llm_config())
     model = get_model()
@@ -184,6 +206,7 @@ async def generate_presentation_structure(
                 presentation_outline.to_string(),
                 instructions,
                 source_content,
+                allowed_layout_indices,
             )
             if using_slides_markdown
             else get_messages(
@@ -192,6 +215,7 @@ async def generate_presentation_structure(
                 presentation_outline.to_string(),
                 instructions,
                 source_content,
+                allowed_layout_indices,
             )
         )
         structure_schema = prepare_schema_for_validation(

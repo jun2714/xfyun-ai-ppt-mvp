@@ -71,9 +71,10 @@ def get_system_prompt(
     )
 
     title_slide_instruction = (
-        "Include presenter name in first slide."
+        "Include a title slide, but include presenter, organization, class, or date "
+        "only when the user supplied those facts."
         if include_title_slide
-        else "Do not include presenter name in any slides."
+        else "Do not add a title slide or invent presenter information."
     )
 
     toc_instruction = (
@@ -90,6 +91,10 @@ def get_system_prompt(
         "   - Must be in Markdown format.\n"
         "   - Don't use **bold** and __italic__ text.\n"
         "   - First slide title must be the same as the presentation title."
+        "\nFor each slide also populate content_contract from that slide's actual "
+        "audience-facing structure: relationship, item_count, whether imagery is "
+        "needed, intended media role, and visible character count. Do not put this "
+        "metadata inside content."
     )
 
     content_only_rules = (
@@ -145,7 +150,8 @@ def get_system_prompt(
         f"{slide_outline_structure}\n"
         f"{content_only_rules}"
         "Slide content must not contain any presentation branding/styling information.\n"
-        "Title slide must only contain title, presenter name, date and overview.\n"
+        "When a title slide is requested, keep it concise and never invent presenter, "
+        "organization, class, school, or date information.\n"
         "Do not include URLs, hyperlinks, citations, footnotes, references, or source lists in slide outlines.\n"
         "Make sure data is consistent across all slides.\n"
         "When a web search tool is available, use it for current, factual, or external information.\n"

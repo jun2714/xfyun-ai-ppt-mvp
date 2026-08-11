@@ -238,6 +238,23 @@ class Image(BaseModel):  # Konva Image
     prompt: Optional[str] = None
     is_icon: bool
     icon_type: Optional[IconType] = None
+    # Asset planning metadata. It describes how this image frame consumes an
+    # asset; it never maps a business topic to a fixed layout.
+    asset_role: Optional[Literal["background", "framed-image", "cutout"]] = None
+    asset_mode: Optional[
+        Literal[
+            "auto",
+            "direct-background",
+            "composite-image",
+            "sprite-sheet",
+            "single-cutout",
+            "reuse-or-search",
+        ]
+    ] = None
+    asset_group: Optional[str] = None
+    aspect_ratio: Optional[str] = None
+    text_safe_area: Optional[Literal["none", "left", "right", "center"]] = None
+    required: bool = True
 
 
 class TextList(BaseModel):  # Konva Group

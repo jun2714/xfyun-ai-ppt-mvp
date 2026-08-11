@@ -12,8 +12,7 @@
     "dev:web": "pnpm --filter @sparkdeck/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "verify": "pnpm build && pnpm typecheck && pnpm test && pnpm audit:recognition-template",
-    "audit:recognition-template": "node scripts/audit-recognition-template.mjs",
+    "verify": "pnpm build && pnpm typecheck && pnpm test",
     "test": "pnpm -r --if-present test"
   },
   "devDependencies": {

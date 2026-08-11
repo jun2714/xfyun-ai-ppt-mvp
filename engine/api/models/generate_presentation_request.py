@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from enums.tone import Tone
 from enums.verbosity import Verbosity
+from models.image_policy import ImagePolicy
 
 
 class GeneratePresentationRequest(BaseModel):
@@ -43,4 +44,8 @@ class GeneratePresentationRequest(BaseModel):
     )
     trigger_webhook: bool = Field(
         default=False, description="Whether to trigger subscribed webhooks"
+    )
+    image_policy: ImagePolicy = Field(
+        default=ImagePolicy.STANDARD,
+        description="Whether images are disabled, minimized, or generated normally",
     )

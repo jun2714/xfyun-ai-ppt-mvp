@@ -228,6 +228,9 @@ def _build_assets(
         if isinstance(rewritten_template_json.get("fonts"), dict)
         else {},
         "images": _collect_image_urls(layouts, merged_components),
+        "template_metadata": rewritten_template_json.get("metadata")
+        if isinstance(rewritten_template_json.get("metadata"), dict)
+        else {},
     }
 
     thumbnail = rewritten_template_json.get("thumbnail")

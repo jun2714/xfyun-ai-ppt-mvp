@@ -5,6 +5,8 @@ import uuid
 from pydantic import BaseModel
 
 from models.sql.slide import SlideModel
+from models.image_policy import ImagePolicy
+from models.quality_status import QualityStatus
 
 
 class PresentationWithSlides(BaseModel):
@@ -22,3 +24,6 @@ class PresentationWithSlides(BaseModel):
     fonts: Optional[Any] = None
     generation_mode: Literal["standard", "smart"] = "standard"
     community_design_ids: Optional[List[int]] = None
+    image_policy: ImagePolicy = ImagePolicy.STANDARD
+    quality_status: QualityStatus = QualityStatus.PENDING
+    quality_report: Optional[dict] = None

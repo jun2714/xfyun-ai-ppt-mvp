@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -13,10 +13,19 @@ const parseEnv = (file) => Object.fromEntries(
 );
 const source = { ...parseEnv(resolve(root, ".env")), ...process.env };
 const dataDirectory = resolve(root, source.ENGINE_DATA_DIRECTORY || ".data/engine");
+const tempDirectory = resolve(root, source.ENGINE_TEMP_DIRECTORY || ".runtime/temp");
+const localBrowser = [
+  source.PUPPETEER_EXECUTABLE_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+].find((candidate) => candidate && existsSync(candidate));
+mkdirSync(tempDirectory, { recursive: true });
 const shared = {
   ...source,
   PYTHONDONTWRITEBYTECODE: "1",
   APP_DATA_DIRECTORY: dataDirectory,
+  TEMP_DIRECTORY: tempDirectory,
   DISABLE_AUTH: "true",
   CAN_CHANGE_KEYS: "false",
   LLM: "custom",
@@ -31,12 +40,21 @@ const shared = {
   OPENAI_COMPAT_IMAGE_API_KEY: source.DMX_API_KEY || "",
   OPENAI_COMPAT_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "",
   ENGINE_MAX_SCHEMA_RETRIES: source.ENGINE_MAX_SCHEMA_RETRIES || "1",
+  MIGRATE_DATABASE_ON_STARTUP: source.MIGRATE_DATABASE_ON_STARTUP || "true",
   NEXT_PUBLIC_FAST_API: "http://127.0.0.1:8000",
   FAST_API_INTERNAL_URL: "http://127.0.0.1:8000",
   NEXT_PUBLIC_URL: "http://127.0.0.1:5001",
   EXPORT_PACKAGE_ROOT: resolve(root, "engine/export/runtime"),
-  NODE_PATH: resolve(root, "engine/editor/node_modules")
+  NODE_PATH: resolve(root, "engine/editor/node_modules"),
+  PYTHON_EXECUTABLE: resolve(root, "engine/api/.venv/Scripts/python.exe"),
+  QUALITY_VALIDATOR_SCRIPT: resolve(root, "scripts/validate-pptx.py")
 };
+if (localBrowser) {
+  // Use an installed browser for previews instead of downloading Chrome while
+  // a template request is already running.
+  shared.PUPPETEER_EXECUTABLE_PATH = localBrowser;
+  shared.PUPPETEER_SKIP_DOWNLOAD = "true";
+}
 
 const children = [
   spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "false"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),

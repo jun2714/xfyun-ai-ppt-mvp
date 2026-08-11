@@ -107,8 +107,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { format, id, title } = body;
-  const cookieHeader = req.headers.get("cookie") ?? "";
-
   if (typeof id !== "string" || !id.trim()) {
     return NextResponse.json(
       { error: "Missing Presentation ID" },
@@ -130,11 +128,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const presentationId = id.trim();
+
     const { path: unscopedOutPath } = await runBundledPresentationExport({
       format,
-      presentationId: id.trim(),
+      presentationId,
       title: typeof title === "string" ? title : undefined,
-      cookieHeader,
+      cookieHeader: req.headers.get("cookie") ?? "",
     });
     const outPath = await moveExportIntoOwnerDirectory(
       unscopedOutPath,

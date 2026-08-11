@@ -4,7 +4,6 @@ from datetime import datetime
 import json
 import logging
 import os
-import random
 import re
 import traceback
 from typing import Annotated, Any, List, Literal, Optional, Tuple
@@ -29,6 +28,8 @@ from enums.async_task_status import AsyncTaskStatus
 from enums.webhook_event import WebhookEvent
 from models.api_error_model import APIErrorModel
 from models.generate_presentation_request import GeneratePresentationRequest
+from models.image_policy import ImagePolicy
+from models.quality_status import QualityStatus
 from models.presentation_and_path import PresentationPathAndEditPath
 from models.presentation_from_template import EditPresentationRequest
 from models.presentation_outline_model import (
@@ -46,6 +47,7 @@ from services.chat.slide_ui_helpers import _normalize_generated_image_fit
 from services.temp_file_service import TEMP_FILE_SERVICE
 from services.webhook_service import WebhookService
 from services.image_generation_service import ImageGenerationService
+from services.asset_execution_service import process_presentation_assets
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
@@ -56,6 +58,8 @@ from utils.llm_calls.generate_presentation_outlines import (
     get_messages as get_outline_messages,
 )
 from models.sql.slide import SlideModel
+from models.sql.image_asset import ImageAsset
+from models.sql.asset_generation_trace import AssetGenerationTrace
 from models.sse_response import (
     SSECompleteResponse,
     SSEErrorResponse,
@@ -88,8 +92,14 @@ from utils.outline_utils import (
 )
 from utils.outline_limits import normalize_outline_payload
 from utils.process_slides import (
+    apply_provided_image_urls,
     process_slide_add_placeholder_assets,
     process_slide_and_fetch_assets,
+)
+from utils.layout_compatibility import (
+    LayoutCompatibilityError,
+    get_layout_candidates,
+    remap_and_validate_structure,
 )
 from utils.icon_weights import DEFAULT_ICON_TYPE, extract_icon_type_from_settings
 from utils.llm_utils import TextGenerationMetrics, message_content_to_text
@@ -148,6 +158,23 @@ class PresentationPrepareResponse(BaseModel):
     presentation_id: uuid.UUID
 
 
+class PresentationQualityUpdate(BaseModel):
+    status: QualityStatus
+    report: Optional[dict] = None
+
+
+class AssetCostReport(BaseModel):
+    presentation_id: uuid.UUID
+    call_count: int
+    succeeded_calls: int
+    failed_calls: int
+    known_cost: float
+    calls_without_authoritative_cost: int
+    output_count: int
+    consumer_slot_count: int
+    reused_consumer_slot_count: int
+
+
 def _blank_presentation_slide_ui() -> dict[str, Any]:
     return copy.deepcopy(BLANK_PRESENTATION_SLIDE_UI)
 
@@ -155,11 +182,24 @@ def _blank_presentation_slide_ui() -> dict[str, Any]:
 def _presentation_task_progress_data(
     created_slides: int,
     remaining_slides: int,
-) -> dict[str, int]:
-    return {
+    *,
+    previous: Optional[dict[str, Any]] = None,
+    stage: Optional[str] = None,
+    presentation_id: Optional[uuid.UUID] = None,
+    outlines: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    data: dict[str, Any] = dict(previous or {})
+    data.update({
         "created_slides": max(created_slides, 0),
         "remaining_slides": max(remaining_slides, 0),
-    }
+    })
+    if stage is not None:
+        data["stage"] = stage
+    if presentation_id is not None:
+        data["presentation_id"] = str(presentation_id)
+    if outlines is not None:
+        data["outlines"] = outlines
+    return data
 
 
 def _requested_slide_count(request: GeneratePresentationRequest) -> int:
@@ -377,6 +417,7 @@ def _build_template_layout_model(
                 description=source_layout.get("description")
                 or layout_schema.get("description"),
                 json_schema=layout_schema,
+                metadata=source_layout.get("metadata"),
             )
         )
 
@@ -1427,6 +1468,7 @@ async def create_presentation(
     web_search: Annotated[bool, Body()] = False,
     generation_mode: Annotated[Literal["standard", "smart"], Body()] = "standard",
     community_design_ids: Annotated[Optional[List[int]], Body()] = None,
+    image_policy: Annotated[ImagePolicy, Body()] = ImagePolicy.STANDARD,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
 
@@ -1487,6 +1529,7 @@ async def create_presentation(
         web_search=web_search,
         generation_mode=generation_mode,
         community_design_ids=normalized_community_ids or None,
+        image_policy=image_policy,
     )
 
     sql_session.add(presentation)
@@ -1590,26 +1633,26 @@ async def prepare_presentation(
         )
     total_outlines = len(outlines)
 
-    if structure_layout.ordered:
-        presentation_structure = structure_layout.to_presentation_structure()
-    else:
-        presentation_structure: PresentationStructureModel = (
-            await generate_presentation_structure(
+    try:
+        layout_candidates = get_layout_candidates(
+            structure_layout, presentation.image_policy
+        )
+        if layout_candidates.layout.ordered:
+            selected_structure = layout_candidates.layout.to_presentation_structure()
+        else:
+            selected_structure = await generate_presentation_structure(
                 presentation_outline=presentation_outline_model,
-                presentation_layout=structure_layout,
+                presentation_layout=layout_candidates.layout,
                 instructions=presentation.instructions,
                 source_content=presentation.content,
             )
+        presentation_structure = remap_and_validate_structure(
+            selected_structure,
+            layout_candidates,
+            total_outlines,
         )
-
-    presentation_structure.slides = presentation_structure.slides[: len(outlines)]
-    for index in range(total_outlines):
-        random_slide_index = random.randint(0, total_slide_layouts - 1)
-        if index >= total_outlines:
-            presentation_structure.slides.append(random_slide_index)
-            continue
-        if presentation_structure.slides[index] >= total_slide_layouts:
-            presentation_structure.slides[index] = random_slide_index
+    except LayoutCompatibilityError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if presentation.include_table_of_contents:
         n_toc_slides = get_no_of_toc_required_for_n_outlines(
@@ -1617,7 +1660,14 @@ async def prepare_presentation(
             title_slide=presentation.include_title_slide,
             target_total_slides=(presentation.n_slides if presentation.n_slides > 0 else None),
         )
-        toc_slide_layout_index = select_toc_or_list_slide_layout_index(structure_layout)
+        candidate_toc_index = select_toc_or_list_slide_layout_index(
+            layout_candidates.layout
+        )
+        toc_slide_layout_index = (
+            layout_candidates.original_indices[candidate_toc_index]
+            if candidate_toc_index != -1
+            else -1
+        )
         _insert_toc_layouts(
             presentation_structure,
             n_toc_slides,
@@ -1946,153 +1996,113 @@ async def stream_presentation(
         icon_weight = layout.icon_weight
         image_urls_for_slides = get_images_for_slides_from_outline(outline.slides)
 
-        async_assets_generation_tasks: List[asyncio.Task] = []
-        asset_events: asyncio.Queue = asyncio.Queue()
-        asset_warnings_by_slide: dict[int, list[dict]] = {}
-
-        async def notify_slide_assets_ready(slide_index: int, asset_task: asyncio.Task):
-            try:
-                await asset_task
-            except Exception:
-                logger.exception(
-                    "Slide asset generation failed: presentation_id=%s slide_index=%s",
-                    id,
-                    slide_index,
-                )
-                asset_warnings_by_slide.setdefault(slide_index, []).append(
-                    {
-                        "type": "asset_generation_failed",
-                        "message": "Some slide assets could not be generated.",
-                    }
-                )
-            finally:
-                await asset_events.put(slide_index)
-
-        slides: List[SlideModel] = []
+        slides_by_index: dict[int, SlideModel] = {}
         yield SSEResponse(
             event="response",
             data=json.dumps({"type": "chunk", "chunk": '{ "slides": [ '}),
         ).to_string()
-        yielded_slide_asset_sse_count = 0
 
-        for i, slide_layout_index in enumerate(structure.slides):
+        async def generate_one_slide(i: int, slide_layout_index: int):
             slide_layout = layout.slides[slide_layout_index]
-
-            try:
-                slide_content = await get_slide_content_from_type_and_outline(
-                    slide_layout,
-                    outline.slides[i],
-                    presentation.language,
-                    presentation.tone,
-                    presentation.verbosity,
-                    presentation.instructions,
-                    slide_number=i + 1,
-                )
-            except HTTPException as e:
-                yield SSEErrorResponse(detail=e.detail).to_string()
-                return
-
-            slide = SlideModel(
-                presentation=id,
-                layout_group=layout.name,
-                layout=slide_layout.id,
-                index=i,
-                speaker_note=slide_content.get("__speaker_note__", ""),
-                content=slide_content,
-                ui=_template_slide_ui(presentation.layout, slide_layout.id),
+            slide_content = await get_slide_content_from_type_and_outline(
+                slide_layout,
+                outline.slides[i],
+                presentation.language,
+                presentation.tone,
+                presentation.verbosity,
+                presentation.instructions,
+                slide_number=i + 1,
             )
-            slides.append(slide)
+            return i, slide_layout, slide_content
 
-            # This will mutate slide and add placeholder assets
-            process_slide_add_placeholder_assets(slide)
-            slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
+        yield SSEStatusResponse(
+            status=f"正在生成 {len(structure.slides)} 页内容"
+        ).to_string()
+        content_tasks = [
+            asyncio.create_task(generate_one_slide(i, slide_layout_index))
+            for i, slide_layout_index in enumerate(structure.slides)
+        ]
 
-            # This will mutate slide - start task immediately so it runs in parallel with next slide LLM generation
-            asset_warnings_by_slide[i] = []
-            asset_task = asyncio.create_task(
-                process_slide_and_fetch_assets(
-                    image_generation_service,
+        try:
+            for completed_task in asyncio.as_completed(content_tasks):
+                i, slide_layout, slide_content = await completed_task
+
+                slide = SlideModel(
+                    presentation=id,
+                    layout_group=layout.name,
+                    layout=slide_layout.id,
+                    index=i,
+                    speaker_note=slide_content.get("__speaker_note__", ""),
+                    content=slide_content,
+                    ui=_template_slide_ui(presentation.layout, slide_layout.id),
+                )
+                slides_by_index[i] = slide
+
+                apply_provided_image_urls(
                     slide,
-                    outline_image_urls=(
-                        image_urls_for_slides[i]
-                        if i < len(image_urls_for_slides)
-                        else None
-                    ),
-                    icon_weight=icon_weight,
-                    allow_image_fallback=True,
-                    image_warnings=asset_warnings_by_slide[i],
+                    image_urls_for_slides[i] if i < len(image_urls_for_slides) else None,
                 )
-            )
-            async_assets_generation_tasks.append(asset_task)
-            asyncio.create_task(notify_slide_assets_ready(i, asset_task))
 
-            yield SSEResponse(
-                event="response",
-                data=json.dumps({"type": "chunk", "chunk": slide.model_dump_json()}),
-            ).to_string()
+                # This will mutate slide and add placeholder assets
+                process_slide_add_placeholder_assets(slide)
+                slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
 
-            while True:
-                try:
-                    done_idx = asset_events.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-                slides[done_idx].ui = _apply_template_content_to_ui(
-                    slides[done_idx].ui,
-                    slides[done_idx].content,
-                )
-                yielded_slide_asset_sse_count += 1
                 yield SSEResponse(
                     event="response",
-                    data=json.dumps(
-                        {
-                            "type": "slide_assets",
-                            "slide_index": done_idx,
-                            "slide": slides[done_idx].model_dump(mode="json"),
-                            "warnings": asset_warnings_by_slide.get(done_idx, []),
-                        }
-                    ),
+                    data=json.dumps({"type": "chunk", "chunk": slide.model_dump_json()}),
                 ).to_string()
+        except HTTPException as error:
+            for task in content_tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*content_tasks, return_exceptions=True)
+            yield SSEErrorResponse(detail=error.detail).to_string()
+            return
+
+        slides = [slides_by_index[i] for i in range(len(structure.slides))]
 
         yield SSEResponse(
             event="response",
             data=json.dumps({"type": "chunk", "chunk": " ] }"}),
         ).to_string()
 
-        while yielded_slide_asset_sse_count < len(slides):
-            done_idx = await asset_events.get()
-            slides[done_idx].ui = _apply_template_content_to_ui(
-                slides[done_idx].ui,
-                slides[done_idx].content,
+        generated_assets: list[ImageAsset] = []
+        if presentation.image_policy is not ImagePolicy.DISABLED:
+            generated_assets, _asset_plan = await process_presentation_assets(
+                image_generation_service,
+                slides,
+                presentation_id=id,
             )
-            yielded_slide_asset_sse_count += 1
+
+        # Icons remain local/search assets and are resolved independently from
+        # the paid whole-deck image plan.
+        icon_asset_lists = await asyncio.gather(
+            *[
+                process_slide_and_fetch_assets(
+                    image_generation_service,
+                    slide,
+                    icon_weight=icon_weight,
+                    process_images=False,
+                )
+                for slide in slides
+            ]
+        )
+        for assets in icon_asset_lists:
+            generated_assets.extend(assets)
+
+        for slide in slides:
+            slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
             yield SSEResponse(
                 event="response",
                 data=json.dumps(
                     {
                         "type": "slide_assets",
-                        "slide_index": done_idx,
-                        "slide": slides[done_idx].model_dump(mode="json"),
-                        "warnings": asset_warnings_by_slide.get(done_idx, []),
+                        "slide_index": slide.index,
+                        "slide": slide.model_dump(mode="json"),
+                        "warnings": [],
                     }
                 ),
             ).to_string()
-
-        generated_assets_lists = await asyncio.gather(
-            *async_assets_generation_tasks,
-            return_exceptions=True,
-        )
-        generated_assets = []
-        for assets_list in generated_assets_lists:
-            if isinstance(assets_list, Exception):
-                logger.error(
-                    "Slide asset generation failed during final collection: %s",
-                    assets_list,
-                )
-                continue
-            generated_assets.extend(assets_list)
-
-        for slide in slides:
-            slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
 
         # Moved this here to make sure new slides are generated before deleting the old ones
         await sql_session.execute(
@@ -2184,6 +2194,10 @@ async def update_presentation(
         )
         sql_session.add_all(slides)
 
+    if presentation_update_dict or slides is not None:
+        presentation.quality_status = QualityStatus.STALE
+        presentation.quality_report = None
+
     await sql_session.commit()
 
     response_slides = slides or []
@@ -2222,10 +2236,83 @@ async def update_presentation_slide(
             exclude={"id", "presentation", "index"},
         )
     )
+    presentation = await sql_session.get(PresentationModel, presentation_id)
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    presentation.quality_status = QualityStatus.STALE
+    presentation.quality_report = None
     sql_session.add(stored_slide)
+    sql_session.add(presentation)
     await sql_session.commit()
     await sql_session.refresh(stored_slide)
     return stored_slide
+
+
+@PRESENTATION_ROUTER.patch("/{id}/quality", response_model=PresentationWithSlides)
+async def update_presentation_quality(
+    id: uuid.UUID,
+    update: PresentationQualityUpdate,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    presentation = await sql_session.get(PresentationModel, id)
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    if update.status is QualityStatus.PASSED and not update.report:
+        raise HTTPException(status_code=422, detail="Passed quality requires a report")
+
+    presentation.quality_status = update.status
+    presentation.quality_report = update.report
+    sql_session.add(presentation)
+    await sql_session.commit()
+    slides = list(
+        await sql_session.scalars(
+            select(SlideModel)
+            .where(
+                SlideModel.presentation == id,
+                SlideModel.owner_id == get_current_owner_id(),
+            )
+            .order_by(SlideModel.index)
+        )
+    )
+    return PresentationWithSlides(
+        **_presentation_response_data(presentation),
+        slides=slides,
+    )
+
+
+@PRESENTATION_ROUTER.get("/{id}/asset-costs", response_model=AssetCostReport)
+async def get_presentation_asset_costs(
+    id: uuid.UUID,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    presentation = await sql_session.get(PresentationModel, id)
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    traces = list(
+        await sql_session.scalars(
+            select(AssetGenerationTrace)
+            .where(
+                AssetGenerationTrace.presentation_id == id,
+                AssetGenerationTrace.owner_id == get_current_owner_id(),
+            )
+            .order_by(AssetGenerationTrace.created_at)
+        )
+    )
+    return AssetCostReport(
+        presentation_id=id,
+        call_count=len(traces),
+        succeeded_calls=sum(trace.status == "succeeded" for trace in traces),
+        failed_calls=sum(trace.status == "failed" for trace in traces),
+        known_cost=sum(trace.cost for trace in traces if trace.cost is not None),
+        calls_without_authoritative_cost=sum(
+            trace.cost is None for trace in traces
+        ),
+        output_count=sum(trace.output_count for trace in traces),
+        consumer_slot_count=sum(trace.consumer_slot_count for trace in traces),
+        reused_consumer_slot_count=sum(
+            trace.reused_consumer_slot_count for trace in traces
+        ),
+    )
 
 
 async def check_if_api_request_is_valid(
@@ -2334,6 +2421,9 @@ async def generate_presentation_handler(
                 async_status.data = _presentation_task_progress_data(
                     created_slides=0,
                     remaining_slides=_requested_slide_count(request),
+                    previous=async_status.data,
+                    stage="generating_outlines",
+                    presentation_id=presentation_id,
                 )
                 async_status.updated_at = datetime.now()
                 sql_session.add(async_status)
@@ -2466,6 +2556,14 @@ async def generate_presentation_handler(
         # Updating async status
         if async_status:
             async_status.message = "Selecting layout for each slide"
+            async_status.data = _presentation_task_progress_data(
+                created_slides=0,
+                remaining_slides=total_outlines,
+                previous=async_status.data,
+                stage="selecting_layouts",
+                presentation_id=presentation_id,
+                outlines=presentation_outlines.model_dump(mode="json"),
+            )
             async_status.updated_at = datetime.now()
             sql_session.add(async_status)
             await sql_session.commit()
@@ -2490,31 +2588,34 @@ async def generate_presentation_handler(
             layout_model.ordered,
             layout_model.icon_weight,
         )
-        total_slide_layouts = len(layout_model.slides)
-
-        # Generate Structure
-        if layout_model.ordered:
-            presentation_structure = layout_model.to_presentation_structure()
-        else:
-            presentation_structure: PresentationStructureModel = (
-                await generate_presentation_structure(
+        try:
+            layout_candidates = get_layout_candidates(
+                layout_model, request.image_policy
+            )
+            if layout_candidates.layout.ordered:
+                selected_structure = layout_candidates.layout.to_presentation_structure()
+            else:
+                selected_structure = await generate_presentation_structure(
                     presentation_outline=presentation_outlines,
-                    presentation_layout=layout_model,
+                    presentation_layout=layout_candidates.layout,
                     instructions=request.instructions,
                     using_slides_markdown=using_slides_markdown,
                     source_content=request.content,
                     disconnect_checker=disconnect_checker,
                 )
+            presentation_structure = remap_and_validate_structure(
+                selected_structure,
+                layout_candidates,
+                total_outlines,
             )
-
-        presentation_structure.slides = presentation_structure.slides[:total_outlines]
-        for index in range(total_outlines):
-            random_slide_index = random.randint(0, total_slide_layouts - 1)
-            if index >= total_outlines:
-                presentation_structure.slides.append(random_slide_index)
-                continue
-            if presentation_structure.slides[index] >= total_slide_layouts:
-                presentation_structure.slides[index] = random_slide_index
+        except LayoutCompatibilityError as exc:
+            error = HTTPException(status_code=422, detail=str(exc))
+            error.code = "LAYOUT_CONTRACT_UNSATISFIED"
+            error.stage = "selecting_layouts"
+            error.slide_number = exc.slide_number
+            error.incurred_cost = not using_slides_markdown
+            error.retryable = False
+            raise error from exc
 
         should_include_toc = (
             request.include_table_of_contents and not using_slides_markdown
@@ -2525,7 +2626,14 @@ async def generate_presentation_handler(
                 title_slide=request.include_title_slide,
                 target_total_slides=request.n_slides,
             )
-            toc_slide_layout_index = select_toc_or_list_slide_layout_index(layout_model)
+            candidate_toc_index = select_toc_or_list_slide_layout_index(
+                layout_candidates.layout
+            )
+            toc_slide_layout_index = (
+                layout_candidates.original_indices[candidate_toc_index]
+                if candidate_toc_index != -1
+                else -1
+            )
             _insert_toc_layouts(
                 presentation_structure,
                 n_toc_slides,
@@ -2560,7 +2668,14 @@ async def generate_presentation_handler(
             verbosity=request.verbosity.value,
             instructions=request.instructions,
             fonts=template_fonts,
+            image_policy=request.image_policy,
         )
+
+        # Persist the deck before any paid asset call. Asset traces reference
+        # this row and failed generation remains inspectable instead of losing
+        # the cost/audit trail with the request transaction.
+        sql_session.add(presentation)
+        await sql_session.commit()
 
         # Updating async status
         if async_status:
@@ -2568,14 +2683,15 @@ async def generate_presentation_handler(
             async_status.data = _presentation_task_progress_data(
                 created_slides=0,
                 remaining_slides=final_n_slides or 0,
+                previous=async_status.data,
+                stage="generating_slide_content",
+                presentation_id=presentation_id,
             )
             async_status.updated_at = datetime.now()
             sql_session.add(async_status)
             await sql_session.commit()
 
         image_generation_service = ImageGenerationService(get_images_directory())
-        async_assets_generation_tasks = []
-        image_warnings: List[dict] = []
 
         # 7. Generate slide content concurrently (batched), then build slides and fetch assets
         slides: List[SlideModel] = []
@@ -2609,7 +2725,6 @@ async def generate_presentation_handler(
             batch_contents: List[dict] = await asyncio.gather(*content_tasks)
 
             # Build slides for this batch
-            batch_slides: List[SlideModel] = []
             for offset, slide_content in enumerate(batch_contents):
                 i = start + offset
                 slide_layout = slide_layouts[i]
@@ -2623,61 +2738,58 @@ async def generate_presentation_handler(
                     ui=_template_slide_ui(layout_payload, slide_layout.id),
                 )
                 slides.append(slide)
-                batch_slides.append(slide)
 
             if async_status:
                 async_status.data = _presentation_task_progress_data(
                     created_slides=len(slides),
                     remaining_slides=total_slides_to_create - len(slides),
+                    previous=async_status.data,
+                    stage="generating_slide_content",
+                    presentation_id=presentation_id,
                 )
                 async_status.updated_at = datetime.now()
                 sql_session.add(async_status)
                 await sql_session.commit()
-
-            if using_slides_markdown:
-                image_urls_for_batch = get_images_for_slides_from_outline(
-                    presentation_outlines.slides[start:end]
-                )
-            else:
-                image_urls_for_batch = [[] for _ in batch_slides]
-
-            # Start asset fetch tasks immediately so they run in parallel with next batch's LLM calls
-            asset_tasks = [
-                asyncio.create_task(
-                    process_slide_and_fetch_assets(
-                        image_generation_service,
-                        slide,
-                        outline_image_urls=image_urls_for_batch[offset],
-                        icon_weight=layout_model.icon_weight,
-                        allow_image_fallback=True,
-                        image_warnings=image_warnings,
-                    )
-                )
-                for offset, slide in enumerate(batch_slides)
-            ]
-            async_assets_generation_tasks.extend(asset_tasks)
 
         if async_status:
             async_status.message = "Fetching assets for slides"
             async_status.data = _presentation_task_progress_data(
                 created_slides=len(slides),
                 remaining_slides=0,
+                previous=async_status.data,
+                stage="resolving_assets",
+                presentation_id=presentation_id,
             )
             async_status.updated_at = datetime.now()
             sql_session.add(async_status)
             await sql_session.commit()
 
-        # Run all asset tasks concurrently while batches may still be generating content
-        generated_assets_list = await asyncio.gather(*async_assets_generation_tasks)
-        generated_assets = []
-        for assets_list in generated_assets_list:
-            generated_assets.extend(assets_list)
-        for warning in image_warnings:
-            logger.warning(
-                "Slide image generation warning: presentation_id=%s detail=%s",
-                presentation_id,
-                warning.get("detail"),
+        generated_assets: list[ImageAsset] = []
+        if using_slides_markdown:
+            provided_urls = get_images_for_slides_from_outline(
+                presentation_outlines.slides
             )
+            for slide, urls in zip(slides, provided_urls):
+                apply_provided_image_urls(slide, urls)
+        if request.image_policy is not ImagePolicy.DISABLED:
+            generated_assets, _asset_plan = await process_presentation_assets(
+                image_generation_service,
+                slides,
+                presentation_id=presentation_id,
+            )
+        icon_asset_lists = await asyncio.gather(
+            *[
+                process_slide_and_fetch_assets(
+                    image_generation_service,
+                    slide,
+                    icon_weight=layout_model.icon_weight,
+                    process_images=False,
+                )
+                for slide in slides
+            ]
+        )
+        for assets in icon_asset_lists:
+            generated_assets.extend(assets)
 
         for slide in slides:
             _hydrate_template_slide_ui(slide, layout_payload)
@@ -2712,6 +2824,9 @@ async def generate_presentation_handler(
             async_status.data = _presentation_task_progress_data(
                 created_slides=len(slides),
                 remaining_slides=0,
+                previous=async_status.data,
+                stage="completed",
+                presentation_id=presentation_id,
             )
             async_status.updated_at = datetime.now()
             sql_session.add(async_status)
@@ -2797,6 +2912,9 @@ async def _run_generate_presentation_task(
         async_status.data = _presentation_task_progress_data(
             created_slides=0,
             remaining_slides=_requested_slide_count(request),
+            previous=async_status.data,
+            stage="starting",
+            presentation_id=presentation_id,
         )
         async_status.updated_at = datetime.now()
         sql_session.add(async_status)
@@ -2828,6 +2946,8 @@ async def generate_presentation_async(
             data=_presentation_task_progress_data(
                 created_slides=0,
                 remaining_slides=_requested_slide_count(request),
+                stage="queued",
+                presentation_id=presentation_id,
             ),
         )
         sql_session.add(async_status)

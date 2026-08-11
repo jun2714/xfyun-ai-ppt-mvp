@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from models.layout_metadata import LayoutMetadata
 from .elements import Position, SlideElement
 
 
@@ -63,6 +64,7 @@ class SlideLayout(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     description: str = Field(min_length=10, max_length=300)
     components: list[Component]
+    metadata: LayoutMetadata | None = None
 
     @model_validator(mode="after")
     def _component_ids_must_be_unique(self) -> "SlideLayout":

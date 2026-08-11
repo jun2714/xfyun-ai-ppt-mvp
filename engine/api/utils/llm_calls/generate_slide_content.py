@@ -1,3 +1,4 @@
+import copy
 import json
 from datetime import datetime
 from typing import Optional
@@ -71,6 +72,13 @@ SLIDE_CONTENT_USER_PROMPT = """
 
 # Icon Query And Image Prompt Language:
 English
+
+# Image Prompt Contract:
+- Image prompt language and slide visible language are independent.
+- Image prompts describe visuals only. Never request visible text, letters, numbers,
+  labels, captions, answers, logos, watermarks, signatures, or pseudo-text.
+- Put every audience-facing title, label, option, answer, and annotation in editable
+  slide text fields supplied by the response schema, never inside an image prompt.
 
 # Slide Language:
 {language}
@@ -198,11 +206,45 @@ def _schema_has_content_fields(response_schema: Optional[dict]) -> bool:
     return isinstance(properties, dict) and bool(properties)
 
 
-def _prepare_response_schema(json_schema: Optional[dict]) -> Optional[dict]:
+def _uses_cjk_typography(language: Optional[str]) -> bool:
+    normalized = str(language or "").strip().casefold()
+    return any(
+        token in normalized
+        for token in ("chinese", "中文", "简体", "繁体", "japanese", "日文", "korean", "韩文")
+    )
+
+
+def _apply_language_text_limits(value, use_cjk_limits: bool):
+    if isinstance(value, list):
+        return [_apply_language_text_limits(item, use_cjk_limits) for item in value]
+    if not isinstance(value, dict):
+        return value
+    result = {
+        key: _apply_language_text_limits(child, use_cjk_limits)
+        for key, child in value.items()
+        if key != "x-cjk-max-length"
+    }
+    cjk_limit = value.get("x-cjk-max-length")
+    if use_cjk_limits and isinstance(cjk_limit, int) and cjk_limit > 0:
+        current = result.get("maxLength")
+        result["maxLength"] = min(current, cjk_limit) if isinstance(current, int) else cjk_limit
+        if isinstance(result.get("minLength"), int):
+            result["minLength"] = min(result["minLength"], result["maxLength"])
+    return result
+
+
+def _prepare_response_schema(
+    json_schema: Optional[dict], language: Optional[str] = None
+) -> Optional[dict]:
     if not isinstance(json_schema, dict):
         return None
 
-    response_schema = remove_fields_from_schema(json_schema, ASSET_ONLY_FIELDS)
+    response_schema = remove_fields_from_schema(
+        copy.deepcopy(json_schema), ASSET_ONLY_FIELDS
+    )
+    response_schema = _apply_language_text_limits(
+        response_schema, _uses_cjk_typography(language)
+    )
     if not _schema_has_content_fields(response_schema):
         return None
 
@@ -235,7 +277,7 @@ async def get_slide_content_from_type_and_outline(
     slide_number: Optional[int] = None,
     disconnect_checker: Optional[DisconnectChecker] = None,
 ):
-    response_schema = _prepare_response_schema(slide_layout.json_schema)
+    response_schema = _prepare_response_schema(slide_layout.json_schema, language)
     if response_schema is None:
         return {}
 

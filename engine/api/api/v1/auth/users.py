@@ -22,6 +22,7 @@ from api.v1.auth.config import (
     get_or_create_auth_secret,
     verify_legacy_password_hash,
 )
+from utils.get_env import is_disable_auth_enabled
 
 
 class LegacyAwarePasswordHelper(PasswordHelperProtocol):
@@ -201,6 +202,11 @@ async def read_user_from_cookie(
     request: Request,
     user_manager: UserManager = Depends(get_user_manager),
 ) -> User | None:
+    # Local single-user mode must not construct a JWT strategy. Constructing it
+    # reads or creates USER_CONFIG_PATH, which is intentionally absent when
+    # authentication is disabled for the bundled desktop development runtime.
+    if is_disable_auth_enabled():
+        return None
     return await get_jwt_strategy().read_token(
         request.cookies.get(SESSION_COOKIE_NAME), user_manager
     )

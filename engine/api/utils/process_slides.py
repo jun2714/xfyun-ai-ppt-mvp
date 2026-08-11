@@ -92,6 +92,27 @@ def _asset_dicts_with_prompt(
     return assets
 
 
+def apply_provided_image_urls(
+    slide: SlideModel,
+    image_urls: Optional[List[str]],
+) -> None:
+    if not image_urls:
+        return
+    template = _uses_template_asset_fields(slide)
+    for index, (path, parent, _prompt) in enumerate(
+        _asset_dicts_with_prompt(slide.content, IMAGE_PROMPT_KEYS)
+    ):
+        if index >= len(image_urls) or not image_urls[index]:
+            continue
+        _set_asset_url(
+            parent,
+            "image",
+            normalize_slide_asset_url(image_urls[index]),
+            template=template,
+        )
+        set_dict_at_path(slide.content, path, parent)
+
+
 async def process_slide_and_fetch_assets(
     image_generation_service: ImageGenerationService,
     slide: SlideModel,
@@ -99,6 +120,7 @@ async def process_slide_and_fetch_assets(
     icon_weight: str = DEFAULT_ICON_WEIGHT,
     allow_image_fallback: bool = False,
     image_warnings: Optional[List[dict]] = None,
+    process_images: bool = True,
 ) -> List[ImageAsset]:
 
     async_tasks = []
@@ -106,7 +128,11 @@ async def process_slide_and_fetch_assets(
     resolved_icon_weight = normalize_icon_weight(icon_weight)
     template = _uses_template_asset_fields(slide)
 
-    image_assets = _asset_dicts_with_prompt(slide.content, IMAGE_PROMPT_KEYS)
+    image_assets = (
+        _asset_dicts_with_prompt(slide.content, IMAGE_PROMPT_KEYS)
+        if process_images
+        else []
+    )
     icon_assets = _asset_dicts_with_prompt(slide.content, ICON_QUERY_KEYS)
 
     for image_index, (image_path, image_parent, image_prompt) in enumerate(
@@ -338,6 +364,13 @@ def process_slide_add_placeholder_assets(slide: SlideModel):
 
     for image_path in image_paths:
         image_dict = get_dict_at_path(slide.content, image_path)
+        existing_url = _get_asset_url(image_dict, "image", template=template)
+        if (
+            isinstance(existing_url, str)
+            and existing_url.strip()
+            and "placeholder" not in existing_url.casefold()
+        ):
+            continue
         # Use FastAPI static path for placeholder image
         _set_asset_url(
             image_dict,

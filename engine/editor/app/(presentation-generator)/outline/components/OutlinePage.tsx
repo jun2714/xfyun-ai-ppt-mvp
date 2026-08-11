@@ -13,6 +13,7 @@ import {
   clearOutlines,
   setOutlines,
   setPresentationId,
+  type OutlineItem,
 } from "@/store/slices/presentationGeneration";
 import { setPptGenUploadState } from "@/store/slices/presentationGenUpload";
 import {
@@ -76,7 +77,7 @@ const getDocumentPaths = (files: unknown): string[] => {
     .filter((filePath): filePath is string => typeof filePath === "string");
 };
 
-const getOutlinesFromResponse = (outline: unknown): { content: string }[] => {
+const getOutlinesFromResponse = (outline: unknown): OutlineItem[] => {
   if (!outline || typeof outline !== "object") {
     return [];
   }
@@ -88,13 +89,22 @@ const getOutlinesFromResponse = (outline: unknown): { content: string }[] => {
 
   return limitOutlines(
     slides.map((slide) => {
-      const content =
+      const slideRecord =
         slide && typeof slide === "object"
-          ? (slide as { content?: unknown }).content
+          ? (slide as { content?: unknown; content_contract?: unknown })
           : null;
+      const content = slideRecord?.content;
 
       if (typeof content === "string") {
-        return { content };
+        return {
+          content,
+          ...(slideRecord?.content_contract
+            ? {
+                content_contract:
+                  slideRecord.content_contract as OutlineItem["content_contract"],
+              }
+            : {}),
+        };
       }
       if (content == null) {
         return { content: "" };
@@ -320,6 +330,9 @@ const OutlinePage: React.FC = () => {
     updatedOutlines[slideIndex] = {
       ...updatedOutlines[slideIndex],
       content: limitedContent,
+      // The structural contract came from the previous text. Removing it
+      // prevents a manual edit from silently reusing stale capacity metadata.
+      content_contract: undefined,
     };
     dispatch(setOutlines(updatedOutlines));
   };

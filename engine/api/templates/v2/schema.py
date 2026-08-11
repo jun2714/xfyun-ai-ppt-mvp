@@ -44,6 +44,33 @@ COMPONENT_SCHEMA_METADATA_KEYS = {
 }
 
 
+def _cjk_text_capacity(element: dict[str, Any], *, list_item: bool = False) -> int | None:
+    size = element.get("size") if isinstance(element.get("size"), dict) else {}
+    font = element.get("font") if isinstance(element.get("font"), dict) else {}
+    width = size.get("width")
+    height = size.get("height")
+    font_size = font.get("size")
+    if not all(isinstance(value, (int, float)) and value > 0 for value in (width, height, font_size)):
+        return None
+    line_height = font.get("line_height", 1.2)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.2
+    characters_per_line = max(1, int(float(width) / (float(font_size) * 1.05)))
+    visible_lines = max(1, int(float(height) / (float(font_size) * float(line_height))))
+    element_name = str(element.get("name") or "").casefold()
+    if any(token in element_name for token in ("title", "headline", "heading")):
+        # Presentation titles are a single visual unit. Allowing their tall box
+        # to count as multiple CJK lines causes font-substitution metrics in
+        # PowerPoint/WPS to spill past the horizontal canvas.
+        visible_lines = 1
+    capacity = max(1, int(characters_per_line * visible_lines * 0.9))
+    if list_item:
+        maximum_items = element.get("max_items")
+        if isinstance(maximum_items, int) and maximum_items > 0:
+            capacity = max(1, capacity // maximum_items)
+    return capacity
+
+
 def _is_editable_element(element: dict[str, Any]) -> bool:
     return element.get("decorative") is False
 
@@ -192,6 +219,7 @@ def _content_schema_for_element(element: dict[str, Any]) -> dict[str, Any]:
                 "type": "string",
                 "minLength": 1 if element.get("min_length") else None,
                 "maxLength": element.get("max_length"),
+                "x-cjk-max-length": _cjk_text_capacity(element),
             }
         )
 
@@ -210,6 +238,9 @@ def _content_schema_for_element(element: dict[str, Any]) -> dict[str, Any]:
                         "type": "string",
                         "minLength": 1 if element.get("min_item_length") else None,
                         "maxLength": element.get("max_item_length"),
+                        "x-cjk-max-length": _cjk_text_capacity(
+                            element, list_item=True
+                        ),
                     }
                 ),
             }
@@ -867,6 +898,7 @@ def _component_content_field_schema(field: dict[str, Any]) -> dict[str, Any]:
             "type": "string",
             "minLength": 1 if element.get("min_length") else None,
             "maxLength": element.get("max_length"),
+            "x-cjk-max-length": _cjk_text_capacity(element),
         }
     elif element_type == "image":
         prompt_key = _component_image_prompt_key(element)
@@ -888,6 +920,9 @@ def _component_content_field_schema(field: dict[str, Any]) -> dict[str, Any]:
                 "type": "string",
                 "minLength": 1 if element.get("min_item_length") else None,
                 "maxLength": element.get("max_item_length"),
+                "x-cjk-max-length": _cjk_text_capacity(
+                    element, list_item=True
+                ),
             },
             "minItems": element.get("min_items"),
             "maxItems": element.get("max_items"),
@@ -1027,4 +1062,9 @@ def _component_image_prompt_key(element: dict[str, Any]) -> str:
 def _component_image_prompt_description(element: dict[str, Any]) -> str:
     if element.get("is_icon") is True:
         return "Search query for the replacement icon."
-    return "Prompt for the replacement image."
+    return (
+        "Prompt describing only the visual scene or subject for the replacement "
+        "image. Do not request visible text, letters, numbers, labels, captions, "
+        "answers, logos, watermarks, signatures, or pseudo-text; all audience-facing "
+        "words must remain editable slide text."
+    )

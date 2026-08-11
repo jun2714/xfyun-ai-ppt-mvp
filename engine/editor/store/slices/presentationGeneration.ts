@@ -23,6 +23,30 @@ export interface PresentationData {
   structure?: any;
 }
 
+export interface OutlineContentContract {
+  relationship:
+    | "single"
+    | "multi-item"
+    | "comparison"
+    | "sequence"
+    | "classification"
+    | "matching"
+    | "question"
+    | "reveal"
+    | "story"
+    | "data"
+    | "unknown";
+  item_count: number;
+  requires_images: boolean;
+  media_role: "none" | "background" | "framed-image" | "cutout" | "mixed";
+  visible_characters: number;
+}
+
+export interface OutlineItem {
+  content: string;
+  content_contract?: OutlineContentContract | null;
+}
+
 export interface ChatHtmlSelection {
   slideId?: string | null;
   slideIndex: number;
@@ -37,7 +61,7 @@ interface PresentationGenerationState {
   presentation_id: string | null;
   isLoading: boolean;
   isStreaming: boolean | null;
-  outlines: { content: string }[];
+  outlines: OutlineItem[];
   error: string | null;
   presentationData: PresentationData | null;
   isSlidesRendered: boolean;
@@ -99,7 +123,7 @@ const presentationGenerationSlice = createSlice({
       state.outlines = [];
     },
     // Set outlines
-    setOutlines: (state, action: PayloadAction<{ content: string }[]>) => {
+    setOutlines: (state, action: PayloadAction<OutlineItem[]>) => {
       state.outlines = limitOutlines(action.payload);
     },
     // Set presentation data

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "presenton-bundled",
+      "sourceUrl": "https://github.com/presenton/presenton",
+      "license": "Apache-2.0",
+      "attribution": "Presenton contributors",
+      "usage": "bundled-engine-baseline",
+      "status": "accepted"
+    }
+  ]
+}

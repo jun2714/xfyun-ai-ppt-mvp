@@ -93,6 +93,27 @@ class ImageGenerationService:
     def is_stock_provider_selected(self):
         return is_pixels_selected() or is_pixabay_selected()
 
+    def configured_model_name(self) -> str:
+        if is_gemini_flash_selected():
+            return os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+        if is_nanobanana_pro_selected():
+            return "gemini-3-pro-image-preview"
+        if is_dalle3_selected():
+            return "dall-e-3"
+        if is_gpt_image_1_5_selected():
+            return "gpt-image-1.5"
+        if is_openai_compatible_selected():
+            return get_openai_compat_image_model_env() or "openai-compatible"
+        if is_pixels_selected():
+            return "pexels"
+        if is_pixabay_selected():
+            return "pixabay"
+        if is_comfyui_selected():
+            return "comfyui"
+        if is_open_webui_selected():
+            return "open-webui"
+        return "disabled"
+
     async def generate_image(self, prompt: ImagePrompt) -> str | ImageAsset:
         """
         Generates an image based on the provided prompt.

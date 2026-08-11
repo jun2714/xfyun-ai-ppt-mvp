@@ -1,8 +1,58 @@
-from typing import List
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from constants.presentation import MAX_NUMBER_OF_SLIDES, MAX_OUTLINE_CONTENT_WORDS
 from utils.outline_limits import normalize_outline_content
+
+
+class SlideContentContract(BaseModel):
+    relationship: Literal[
+        "single",
+        "multi-item",
+        "comparison",
+        "sequence",
+        "classification",
+        "matching",
+        "question",
+        "reveal",
+        "story",
+        "data",
+        "unknown",
+    ] = "unknown"
+    item_count: int = Field(default=0, ge=0, le=12)
+    requires_images: bool = False
+    media_role: Literal[
+        "none", "background", "framed-image", "cutout", "mixed"
+    ] = "none"
+    visible_characters: int = Field(default=0, ge=0)
+
+    @field_validator("relationship", mode="before")
+    @classmethod
+    def normalize_unrecognized_relationship(cls, value):
+        """Keep provider vocabulary drift from invalidating a paid outline.
+
+        Relationships are a closed machine contract, not business-page roles.
+        We deliberately do not maintain a growing synonym map: a provider value
+        outside the contract loses its semantic hint and is selected only by
+        the remaining capacity and media constraints.
+        """
+        if not isinstance(value, str):
+            return "unknown"
+        normalized = value.strip().casefold().replace("_", "-")
+        allowed = {
+            "single",
+            "multi-item",
+            "comparison",
+            "sequence",
+            "classification",
+            "matching",
+            "question",
+            "reveal",
+            "story",
+            "data",
+            "unknown",
+        }
+        return normalized if normalized in allowed else "unknown"
 
 
 class SlideOutlineModel(BaseModel):
@@ -12,6 +62,13 @@ class SlideOutlineModel(BaseModel):
             "Audience-facing Markdown content and data for the finished slide; never "
             "slide-creation commands, visual/layout configuration, styling notes, or "
             f"model instructions. Maximum {MAX_OUTLINE_CONTENT_WORDS} words."
+        ),
+    )
+    content_contract: Optional[SlideContentContract] = Field(
+        default=None,
+        description=(
+            "Machine-readable structure of this slide's audience-facing content. "
+            "It is selection metadata, not visible slide text."
         ),
     )
 

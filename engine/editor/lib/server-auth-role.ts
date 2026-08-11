@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthDisabled } from "@/utils/auth";
 
 export type ServerAuthStatus = {
   configured: boolean;
@@ -19,6 +20,16 @@ function fastApiBase(): string {
 export async function authStatusForRequest(
   request: Request
 ): Promise<ServerAuthStatus> {
+  if (isAuthDisabled()) {
+    return {
+      configured: true,
+      authenticated: true,
+      username: "local",
+      user_id: null,
+      role: "admin",
+    };
+  }
+
   const cookie = request.headers.get("cookie") || "";
   try {
     const response = await fetch(`${fastApiBase()}/api/v1/auth/status`, {

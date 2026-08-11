@@ -26,6 +26,9 @@ from utils.schema_utils import get_schema_validation_errors
 
 LOGGER = logging.getLogger(__name__)
 CLIENT_DISCONNECT_POLL_SECONDS = 0.1
+LLM_CALL_TIMEOUT_SECONDS = max(
+    1.0, float(os.getenv("ENGINE_LLM_TIMEOUT_SECONDS", "120"))
+)
 DisconnectChecker = Callable[[], Awaitable[bool]]
 TextChunkCallback = Callable[[str], Awaitable[None]]
 
@@ -73,7 +76,22 @@ async def _generate_structured_content(
     **kwargs: Any,
 ) -> Optional[dict]:
     if disconnect_checker is None and text_chunk_callback is None:
-        response = await asyncio.to_thread(client.generate, **kwargs)
+        # OpenAI-compatible gateways can finish billing a response while their
+        # local client adapter still waits for the request to close. Without a
+        # boundary here, one stalled adapter blocks every later slide forever.
+        try:
+            response = await asyncio.wait_for(
+                asyncio.to_thread(client.generate, **kwargs),
+                timeout=LLM_CALL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            raise HTTPException(
+                status_code=504,
+                detail=(
+                    "Text model call timed out after "
+                    f"{LLM_CALL_TIMEOUT_SECONDS:g} seconds"
+                ),
+            ) from exc
         return extract_structured_content(response.content)
 
     completion_content: Any = None

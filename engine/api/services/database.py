@@ -16,6 +16,7 @@ from models.sql.async_presentation_generation_status import (
 from models.sql.chat_history_message import ChatHistoryMessageModel
 from models.sql.font_upload import FontUpload
 from models.sql.image_asset import ImageAsset
+from models.sql.asset_generation_trace import AssetGenerationTrace
 from models.sql.key_value import KeyValueSqlModel
 from models.sql.ollama_pull_status import OllamaPullStatus
 from models.sql.presentation_layout_code import PresentationLayoutCodeModel
@@ -62,6 +63,7 @@ _STRICT_OWNER_MODELS = (
     TemplateModel,
     ChatHistoryMessageModel,
     ImageAsset,
+    AssetGenerationTrace,
     TemplateCreateInfoModel,
     AsyncTaskModel,
     AsyncPresentationGenerationTaskModel,
@@ -133,6 +135,7 @@ async def create_db_and_tables():
                         TemplateV2.__table__,
                         ChatHistoryMessageModel.__table__,
                         ImageAsset.__table__,
+                        AssetGenerationTrace.__table__,
                         FontUpload.__table__,
                         PresentationLayoutCodeModel.__table__,
                         TemplateCreateInfoModel.__table__,

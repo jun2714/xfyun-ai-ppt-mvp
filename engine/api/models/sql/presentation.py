@@ -11,6 +11,8 @@ from models.presentation_structure_model import PresentationStructureModel
 from models.presentation_layout import PresentationLayoutModel
 from utils.datetime_utils import get_current_utc_datetime
 from api.v1.auth.context import get_current_owner_id
+from models.image_policy import ImagePolicy
+from models.quality_status import QualityStatus
 
 
 class PresentationVersion(str, Enum):
@@ -79,6 +81,35 @@ class PresentationModel(SQLModel, table=True):
     community_design_ids: Optional[List[int]] = Field(
         sa_column=Column(JSON), default=None
     )
+    image_policy: ImagePolicy = Field(
+        sa_column=Column(
+            SAEnum(
+                ImagePolicy,
+                values_callable=lambda enum: [item.value for item in enum],
+                name="image_policy",
+                native_enum=False,
+                create_constraint=True,
+            ),
+            nullable=False,
+            default=ImagePolicy.STANDARD.value,
+        ),
+        default=ImagePolicy.STANDARD,
+    )
+    quality_status: QualityStatus = Field(
+        sa_column=Column(
+            SAEnum(
+                QualityStatus,
+                values_callable=lambda enum: [item.value for item in enum],
+                name="quality_status",
+                native_enum=False,
+                create_constraint=True,
+            ),
+            nullable=False,
+            default=QualityStatus.PENDING.value,
+        ),
+        default=QualityStatus.PENDING,
+    )
+    quality_report: Optional[dict] = Field(sa_column=Column(JSON), default=None)
 
     def get_new_presentation(self):
         return PresentationModel(
@@ -103,6 +134,9 @@ class PresentationModel(SQLModel, table=True):
             fonts=copy.deepcopy(self.fonts),
             generation_mode=self.generation_mode,
             community_design_ids=copy.deepcopy(self.community_design_ids),
+            image_policy=self.image_policy,
+            quality_status=QualityStatus.PENDING,
+            quality_report=None,
         )
 
     def get_presentation_outline(self):

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { api, consumeStream } from "../../api/client";
+import { api, consumeStream, localizeError, localizeStatus } from "../../api/client";
 import type { Presentation, PresentationOutline, StreamEvent, TemplateItem, TemplateList } from "../../entities/types";
 import { OutlineEditor } from "../outline/OutlineEditor";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="app-shell">
-    <header className="topbar"><a className="brand" href="/"><span className="brand-mark">S</span>SparkDeck</a><nav><a href="/">工作台</a><span>AI 生成可编辑 PPT</span></nav></header>
+    <header className="topbar"><a className="brand" href="/"><img className="brand-logo" src="/teachnova-logo.png" alt="Teachnova" /><span>幼教PPT</span></a></header>
     {children}
   </div>;
 }
@@ -24,7 +24,7 @@ export function CreatePage() {
 
   useEffect(() => {
     void api<Presentation[]>("/presentation/all?include_slides=true&version=v2-standard")
-      .then(setPresentations).catch((cause: Error) => setError(cause.message));
+      .then(setPresentations).catch((cause: Error) => setError(localizeError(cause)));
   }, []);
 
   const create = async (event: React.FormEvent) => {
@@ -56,35 +56,32 @@ export function CreatePage() {
       });
       location.href = `/presentations/${created.id}/outline`;
     } catch (cause) {
-      setError((cause as Error).message); setBusy(false);
+      setError(localizeError(cause)); setBusy(false);
     }
   };
 
-  return <Shell><main className="home-layout">
-    <aside className="side-nav"><b>演示文稿</b><a className="active" href="/">＋ 新建演示</a><span>最近项目</span></aside>
-    <section className="home-main">
-      <div className="hero-copy"><p>AI PRESENTATION</p><h1>从一个想法，生成完整 PPT</h1><span>先确认大纲，再生成可编辑页面。页数、内容和布局都由你的需求决定。</span></div>
+  return <Shell><main className="home-main">
+      <div className="hero-copy"><span>智能生成可编辑演示文稿</span><h1>把你的想法，变成一套好看的 PPT</h1></div>
       <form className="prompt-workspace" onSubmit={(event) => void create(event)}>
-        <textarea required value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="描述演示主题、需要讲清的内容和希望达到的效果" />
+        <div className="prompt-main"><span className="prompt-symbol">✦</span><textarea required value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="例如：为幼儿园中班制作一套认识海洋动物的互动课件" /></div>
         <div className="brief-row">
-          <label>观众<input required value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="填写主要观众" /></label>
-          <label>年龄 / 班级<input value={age} onChange={(event) => setAge(event.target.value)} placeholder="按实际情况填写" /></label>
-          <label>场景<input required value={scene} onChange={(event) => setScene(event.target.value)} placeholder="填写使用场景" /></label>
-          <label>页数<input type="number" min="1" max="50" value={slideCount} onChange={(event) => setSlideCount(event.target.value)} placeholder="AI 决定" /></label>
+          <label><span>观众</span><input required value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="幼儿、家长或教师" /></label>
+          <label><span>年龄或班级</span><input value={age} onChange={(event) => setAge(event.target.value)} placeholder="如：中班 4—5 岁" /></label>
+          <label><span>使用场景</span><input required value={scene} onChange={(event) => setScene(event.target.value)} placeholder="如：集体教学" /></label>
+          <label><span>页数</span><input type="number" min="1" max="50" value={slideCount} onChange={(event) => setSlideCount(event.target.value)} placeholder="自动" /></label>
         </div>
-        <div className="brief-row secondary-fields">
-          <label>目标<input value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="希望观众理解或完成什么" /></label>
-          <label>风格<input value={style} onChange={(event) => setStyle(event.target.value)} placeholder="描述期望的视觉感受" /></label>
-        </div>
+        <details className="more-options"><summary>补充要求</summary><div className="secondary-fields">
+          <label><span>演示目标</span><input value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="希望观众理解或完成什么" /></label>
+          <label><span>视觉风格</span><input value={style} onChange={(event) => setStyle(event.target.value)} placeholder="如：明亮、童趣、自然" /></label>
+        </div></details>
         {error && <div className="error-line">{error}</div>}
-        <footer><span>费用仅在后台记录，不打断生成流程</span><button className="primary" disabled={busy}>{busy ? "正在创建…" : "生成大纲"}<i>→</i></button></footer>
+        <footer><span>下一步可逐页修改大纲</span><button className="primary" disabled={busy}>{busy ? "正在创建…" : "生成大纲"}<i>→</i></button></footer>
       </form>
-      <section className="recent-list"><header><h2>最近演示</h2><span>{presentations.length} 个项目</span></header>
-        {presentations.length === 0 ? <p className="empty-line">还没有演示文稿，从上方输入一个主题开始。</p> : presentations.map((item) => <a key={item.id} href={item.slides.length ? `/presentations/${item.id}/edit` : `/presentations/${item.id}/outline`}>
-          <span className="file-icon">P</span><b>{item.title || item.content.split("\n")[0]?.replace("主题：", "") || "未命名演示"}</b><small>{item.n_slides || "AI"} 页 · {new Date(item.updated_at).toLocaleDateString("zh-CN")}</small><i>→</i>
+      {presentations.length > 0 && <section className="recent-list"><header><h2>最近项目</h2><span>{presentations.length} 个</span></header>
+        {presentations.map((item) => <a key={item.id} href={item.slides.length ? `/presentations/${item.id}/edit` : `/presentations/${item.id}/outline`}>
+          <span className="file-icon">稿</span><b>{item.title || item.content.split("\n")[0]?.replace("主题：", "") || "未命名演示"}</b><small>{item.n_slides || "自动"} 页 · {new Date(item.updated_at).toLocaleDateString("zh-CN")}</small><i>→</i>
         </a>)}
-      </section>
-    </section>
+      </section>}
   </main></Shell>;
 }
 
@@ -110,17 +107,17 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         if (existingOutline.slides.length) { setOutline(existingOutline); setStatus(""); return; }
         setStatus("AI 正在组织大纲");
         await consumeStream(`/outlines/stream/${presentationId}`, (event) => {
-          if (event.type === "status") setStatus(event.status);
+          if (event.type === "status") setStatus(localizeStatus(event.status));
         });
         setOutline(await api<PresentationOutline>(`/outlines/${presentationId}`));
         setPresentation(await api<Presentation>(`/presentation/${presentationId}`));
         setStatus("");
-      } catch (cause) { setError((cause as Error).message); setStatus(""); }
+      } catch (cause) { setError(localizeError(cause)); setStatus(""); }
     })();
   }, [presentationId]);
 
-  if (error) return <Shell><main className="center-state"><h1>大纲生成失败</h1><p>{error}</p><a href="/">返回工作台</a></main></Shell>;
-  if (!outline || !presentation) return <Shell><main className="center-state running"><span className="spinner"/><h1>{status}</h1><p>只调用一次文本模型，完成后即可逐页修改。</p></main></Shell>;
+  if (error) return <Shell><main className="center-state"><h1>大纲生成失败</h1><p>{error}</p><a href="/">返回首页</a></main></Shell>;
+  if (!outline || !presentation) return <Shell><main className="center-state running"><span className="spinner"/><h1>{status}</h1></main></Shell>;
   return <Shell><OutlineEditor presentation={presentation} initial={outline} templates={templates} /></Shell>;
 }
 
@@ -139,20 +136,20 @@ export function GenerationPage({ presentationId }: { presentationId: string }) {
         const current = await api<Presentation>(`/presentation/${presentationId}`);
         setPresentation(current);
         await consumeStream(`/presentation/stream/${presentationId}`, (event: StreamEvent) => {
-          if (event.type === "status") setStatus(event.status);
+          if (event.type === "status") setStatus(localizeStatus(event.status));
           if (event.type === "chunk" && /\"index\"\s*:/.test(event.chunk)) setCompleted((value) => value + 1);
           if (event.type === "slide_assets") setStatus(`正在处理第 ${event.slide_index + 1} 页素材`);
           if (event.type === "complete") setStatus("页面生成完成");
         });
         location.href = `/presentations/${presentationId}/edit`;
-      } catch (cause) { setError((cause as Error).message); }
+      } catch (cause) { setError(localizeError(cause)); }
     })();
   }, [presentationId]);
 
   const total = presentation?.n_slides || 1;
   const progress = Math.min(96, Math.round((completed / total) * 88) + 8);
-  return <Shell><main className="center-state running"><span className="spinner"/><h1>{error ? "生成失败" : "正在生成完整 PPT"}</h1><p>{error || status}</p>
+  return <Shell><main className="center-state running"><span className="spinner"/><h1>{error ? "生成失败" : "正在生成 PPT"}</h1><p>{error || status}</p>
     {!error && <div className="flat-progress"><span style={{ width: `${progress}%` }}/><b>{Math.min(completed, total)} / {total} 页</b></div>}
-    {error && <><button className="primary" onClick={() => location.reload()}>重试当前生成</button><a href={`/presentations/${presentationId}/outline`}>返回大纲</a></>}
+    {error && <><button className="primary" onClick={() => location.reload()}>重新生成</button><a href={`/presentations/${presentationId}/outline`}>修改大纲</a></>}
   </main></Shell>;
 }

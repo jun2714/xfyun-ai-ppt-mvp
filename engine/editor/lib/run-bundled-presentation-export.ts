@@ -63,6 +63,9 @@ function bundledConverterPath(exportRoot: string): string {
       return path.join(exportRoot, "py", "convert-linux-arm64");
     }
   }
+  if (process.platform === "win32" && process.arch === "x64") {
+    return path.join(exportRoot, "py", "convert-win32-x64.exe");
+  }
   throw new Error(
     `No bundled export converter for ${process.platform}/${process.arch}. Set BUILT_PYTHON_MODULE_PATH.`
   );

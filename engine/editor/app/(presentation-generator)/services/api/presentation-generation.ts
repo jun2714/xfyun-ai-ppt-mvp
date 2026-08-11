@@ -84,6 +84,7 @@ export class PresentationGenerationApi {
     web_search,
     generation_mode = "standard",
     community_design_ids,
+    image_policy = "standard",
 
   }: {
     content: string;
@@ -99,6 +100,7 @@ export class PresentationGenerationApi {
     web_search?: boolean;
     generation_mode?: "standard" | "smart";
     community_design_ids?: number[];
+    image_policy?: "disabled" | "minimal" | "standard";
   }) {
     try {
       const limitedSlideCount =
@@ -124,6 +126,7 @@ export class PresentationGenerationApi {
             web_search,
             generation_mode,
             community_design_ids,
+            image_policy,
           }),
           cache: "no-cache",
         }
@@ -274,8 +277,8 @@ export class PresentationGenerationApi {
 
   static async updateOutlines(
     presentationId: string,
-    outlines: { content: string }[]
-  ): Promise<{ slides: { content: string }[] }> {
+    outlines: { content: string; content_contract?: unknown }[]
+  ): Promise<{ slides: { content: string; content_contract?: unknown }[] }> {
     try {
       const response = await fetch(
         getApiUrl(`/api/v1/ppt/outlines/${presentationId}`),

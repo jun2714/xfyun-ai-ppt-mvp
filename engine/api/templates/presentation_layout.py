@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field, model_validator
 
 from models.presentation_structure_model import PresentationStructureModel
+from models.layout_metadata import LayoutMetadata
 from utils.icon_weights import DEFAULT_ICON_TYPE, extract_icon_type_from_settings
 
 
@@ -13,6 +14,7 @@ class SlideLayoutModel(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     json_schema: dict
+    metadata: Optional[LayoutMetadata] = None
 
 
 class PresentationLayoutModel(BaseModel):
@@ -52,6 +54,12 @@ class PresentationLayoutModel(BaseModel):
             message += f"### Slide Layout: {index}\n"
             message += f"- Name: {slide.name or slide.json_schema.get('title')}\n"
             message += f"- Description: {slide.description}\n"
+            if slide.metadata:
+                metadata_text = json.dumps(
+                    slide.metadata.model_dump(mode="json", by_alias=True),
+                    ensure_ascii=False,
+                )
+                message += f"- Capability Metadata: {metadata_text}\n"
             if with_schema:
                 try:
                     schema_text = json.dumps(slide.json_schema, ensure_ascii=False)

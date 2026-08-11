@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthDisabled } from "@/utils/auth";
 
 function getFastApiBaseUrl(): string {
   const internal = process.env.FAST_API_INTERNAL_URL?.trim();
@@ -27,7 +28,7 @@ export async function GET(
   }
 
   const exportCookie = request.headers.get("x-export-cookie")?.trim();
-  if (!exportCookie) {
+  if (!exportCookie && !isAuthDisabled()) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
@@ -36,9 +37,7 @@ export async function GET(
   try {
     const response = await fetch(presentationUrl, {
       method: "GET",
-      headers: {
-        Cookie: exportCookie,
-      },
+      headers: exportCookie ? { Cookie: exportCookie } : undefined,
       cache: "no-store",
     });
 
