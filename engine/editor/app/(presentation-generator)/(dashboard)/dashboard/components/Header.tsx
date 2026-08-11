@@ -28,10 +28,10 @@ const Header = () => {
 
   const backHref = backToUpload ? "/upload" : backToTemplates ? "/templates" : "/dashboard";
   const backLabel = backToUpload
-    ? "BACK"
+    ? "返回新建演示"
     : backToTemplates
-      ? "BACK"
-      : "BACK";
+      ? "返回模板"
+      : "返回项目";
 
   return (
     <div className="w-full   sticky top-0 z-50 py-7 "
@@ -43,12 +43,13 @@ const Header = () => {
       <Wrapper className="px-5 sm:px-10 lg:px-20">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" onClick={() => trackEvent(MixpanelEvent.Navigation, { from: pathname, to: "/dashboard" })}>
+            <Link className="flex items-center gap-3" href="/dashboard" onClick={() => trackEvent(MixpanelEvent.Navigation, { from: pathname, to: "/dashboard" })}>
               <img
-                src="/logo-with-bg.png"
-                alt="Presentation logo"
-                className="h-[40px] w-[40px]"
+                src="/teachnova-logo.png"
+                alt="Teachnova"
+                className="h-10 w-auto max-w-[190px] object-contain"
               />
+              <span className="hidden text-sm font-semibold text-[#101323] sm:inline">幼教PPT</span>
             </Link>
           </div>
           <div className="flex items-center">

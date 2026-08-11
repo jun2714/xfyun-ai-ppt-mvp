@@ -34,6 +34,8 @@ const resolveStaticIconsRoot = async (): Promise<string> => {
     const candidates = [
         ...(appRoot
             ? [
+                  // The product keeps Presenton's services under engine/.
+                  path.join(appRoot, "engine", "api", "static", "icons"),
                   path.join(appRoot, "servers", "fastapi", "static", "icons"),
                   path.join(appRoot, "resources", "fastapi", "static", "icons"),
                   path.resolve(

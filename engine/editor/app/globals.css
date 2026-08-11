@@ -787,3 +787,7 @@ thead {
     clip-path: circle(71vmax at 50% 50%);
   }
 }
+html,
+body {
+  font-family: var(--font-noto-sans-sc), var(--font-inter), "Microsoft YaHei", sans-serif;
+}

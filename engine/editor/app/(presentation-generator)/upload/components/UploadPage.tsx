@@ -144,12 +144,14 @@ const UploadPage = () => {
   const llmConfig = useSelector((state: RootState) => state.userConfig.llm_config);
 
   const [files, setFiles] = useState<File[]>([]);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("smart");
+  // Template mode is the default product path because it exposes outline
+  // confirmation plus built-in and custom template selection.
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("standard");
   const [communityReference, setCommunityReference] =
     useState<CommunityPresentation | null>(null);
   const [config, setConfig] = useState<PresentationConfig>({
     slides: null,
-    language: LanguageType.Auto,
+    language: LanguageType.ChineseSimplified,
     prompt: "",
     tone: ToneType.Default,
     verbosity: VerbosityType.Standard,
@@ -296,13 +298,13 @@ const UploadPage = () => {
   const validateConfiguration = (): boolean => {
     if (!config.language) {
       trackUploadValidationFailure("language_missing");
-      notify.warning("Language required", "Please select a language.");
+      notify.warning("请选择语言", "请选择演示文稿语言。" );
       return false;
     }
 
     if (files.length > 0 && config.language === LanguageType.Auto) {
       trackUploadValidationFailure("language_auto_with_documents");
-      notify.warning("Language required", "Please choose a language before processing uploaded documents.");
+      notify.warning("请选择语言", "处理上传文档前，请先选择演示文稿语言。" );
       return false;
     }
 
@@ -313,8 +315,8 @@ const UploadPage = () => {
     ) {
       trackUploadValidationFailure("prompt_or_document_missing");
       notify.warning(
-        "Input required",
-        "Provide a prompt, upload a document, or select a community reference."
+          "请输入内容",
+          "请输入主题、上传文档或选择一个社区设计。"
       );
       return false;
     }
@@ -355,10 +357,10 @@ const UploadPage = () => {
   const handleDocumentProcessing = async () => {
     setLoadingState({
       isLoading: true,
-      message: "Processing documents...",
+        message: "正在处理文档…",
       showProgress: true,
       duration: 90,
-      extra_info: files.length > 0 ? "It might take a few minutes for large documents." : "",
+        extra_info: files.length > 0 ? "较大的文档可能需要几分钟。" : "",
     });
 
     let documents = [];
@@ -387,8 +389,8 @@ const UploadPage = () => {
       isLoading: true,
       message:
         generationMode === "smart"
-          ? "Starting Smart presentation..."
-          : "Generating presentation outline...",
+          ? "正在开始智能演示…"
+          : "正在生成演示大纲…",
       showProgress: true,
       duration: 40,
       extra_info: "",
@@ -451,8 +453,8 @@ const UploadPage = () => {
       isLoading: true,
       message:
         generationMode === "smart"
-          ? "Starting Smart presentation..."
-          : "Preparing outline generation...",
+          ? "正在开始智能演示…"
+          : "正在准备生成大纲…",
       showProgress: true,
       duration: 30,
     });
@@ -511,8 +513,8 @@ const UploadPage = () => {
       showProgress: false,
     });
     notify.error(
-      "Generation failed",
-      error.message || "Something went wrong while starting your presentation."
+        "生成失败",
+        error.message || "启动演示文稿生成时发生错误。"
     );
   };
 
@@ -531,7 +533,7 @@ const UploadPage = () => {
             <div
               className="inline-flex items-center rounded-lg border border-[#EDEEEF] bg-white p-1 font-syne"
               role="tablist"
-              aria-label="Generation mode"
+              aria-label="生成模式"
             >
               {(["smart", "standard"] as GenerationMode[]).map((mode) => (
                 <button
@@ -544,7 +546,7 @@ const UploadPage = () => {
                     generationMode === mode ? "bg-[#F6F6F9]" : "hover:bg-[#FAFAFC]"
                   }`}
                 >
-                  {mode}
+                  {mode === "smart" ? "智能创作" : "模板创作"}
                 </button>
               ))}
             </div>
@@ -562,7 +564,7 @@ const UploadPage = () => {
           variant={generationMode}
           references={
             generationMode === "smart" && communityReference
-              ? [{ id: String(communityReference.id), label: communityReference.title || "Community design" }]
+              ? [{ id: String(communityReference.id), label: communityReference.title || "社区设计" }]
               : []
           }
           onRemoveReference={() => setCommunityReference(null)}

@@ -195,7 +195,7 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
           if (!runtime.configured) {
             notify.error(
               "模型尚未配置",
-              "请先在服务端配置文本和图片模型。"
+              "请打开“设置”，配置文本和图片模型。"
             );
             setIsLoading(false);
             return;

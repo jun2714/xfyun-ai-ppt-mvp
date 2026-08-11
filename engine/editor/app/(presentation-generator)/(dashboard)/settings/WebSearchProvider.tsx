@@ -105,16 +105,16 @@ const WebSearchProvider = ({
                           <span className="truncate text-sm font-medium text-gray-900">
                             {selected
                               ? WEB_SEARCH_PROVIDERS[selected]?.label || selected
-                              : "Select web search provider"}
+          : "选择搜索服务"}
                           </span>
                           <ChevronUp className="h-4 w-4 text-gray-500" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="p-0" align="start" style={{ width: "320px" }}>
                         <Command>
-                          <CommandInput placeholder="Search provider..." />
+          <CommandInput placeholder="搜索服务商…" />
                           <CommandList>
-                            <CommandEmpty>No provider found.</CommandEmpty>
+          <CommandEmpty>没有找到服务商。</CommandEmpty>
                             <CommandGroup>
                               {WEB_SEARCH_PROVIDER_OPTIONS.map((option) => (
                                 <CommandItem

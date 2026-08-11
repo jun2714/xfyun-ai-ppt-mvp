@@ -110,7 +110,7 @@ const SlideCountSelect: React.FC<{
     }
   };
 
-  const displayLabel = value ? `${value} slides` : "Auto slides";
+  const displayLabel = value ? `${value} 页` : "自动页数";
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -223,7 +223,7 @@ const SlideCountSelect: React.FC<{
               placeholder="--"
               className="h-8 w-16 px-2 text-sm min-[1800px]:h-9 min-[1800px]:w-20 min-[1800px]:text-base"
             />
-            <span className="text-sm font-medium min-[1800px]:text-base">slides</span>
+            <span className="text-sm font-medium min-[1800px]:text-base">页</span>
           </div>
         </div>
         <Command>
@@ -314,7 +314,7 @@ const LanguageSelect: React.FC<{
                 : "text-xs font-medium min-[1800px]:text-sm min-[2200px]:text-base"
             )}
           >
-            {value || "Select language"}
+          {value || "选择语言"}
           </span>
           {compact && (
             <ChevronRight
@@ -336,11 +336,11 @@ const LanguageSelect: React.FC<{
     >
       <Command>
         <CommandInput
-          placeholder="Search language..."
+          placeholder="搜索语言…"
           className="font-instrument_sans"
         />
         <CommandList>
-          <CommandEmpty>No language found.</CommandEmpty>
+        <CommandEmpty>没有找到语言。</CommandEmpty>
           <CommandGroup>
             {Object.values(LanguageType).map((language) => (
               <CommandItem

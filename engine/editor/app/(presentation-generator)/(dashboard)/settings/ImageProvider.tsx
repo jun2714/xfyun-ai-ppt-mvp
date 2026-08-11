@@ -118,7 +118,7 @@ const ImageProvider = ({ llmConfig, setLlmConfig }: { llmConfig: LLMConfig, setL
         <div className="space-y-6 bg-[#F9F8F8] p-7 rounded-[12px] ">
             {/* API Key Input */}
             <div className="mb-4  bg-white p-10 pt-5 rounded-[12px]">
-                <ToolTip content="Enable/Disable Image Generation" className='flex justify-end items-center'>
+        <ToolTip content="开启或关闭图片生成" className='flex justify-end items-center'>
                     <div className='flex justify-end items-center'>
                         <Switch
                             checked={!isImageGenerationDisabled}
@@ -137,7 +137,7 @@ const ImageProvider = ({ llmConfig, setLlmConfig }: { llmConfig: LLMConfig, setL
                         >
                             <img src="/image-markup.svg" className='w-full h-full object-cover' alt='image-markup' />
                         </div>
-                        <h3 className="text-xl font-normal text-[#191919] py-2.5">Image Generation Settings</h3>
+                        <h3 className="text-xl font-normal text-[#191919] py-2.5">图片生成设置</h3>
                         <p className=" text-sm  text-gray-500">
                             Choosing where images come from
                         </p>
@@ -169,7 +169,7 @@ const ImageProvider = ({ llmConfig, setLlmConfig }: { llmConfig: LLMConfig, setL
                                                             <span className="text-sm font-medium text-gray-900">
                                                                 {llmConfig.IMAGE_PROVIDER
                                                                     ? IMAGE_PROVIDERS[llmConfig.IMAGE_PROVIDER]?.label || llmConfig.IMAGE_PROVIDER
-                                                                    : "Select image provider"}
+                                : "选择图片模型服务"}
                                                             </span>
                                                         </div>
                                                         <ChevronUp className="w-4 h-4 text-gray-500" />
@@ -181,9 +181,9 @@ const ImageProvider = ({ llmConfig, setLlmConfig }: { llmConfig: LLMConfig, setL
                                                     style={{ width: "300px" }}
                                                 >
                                                     <Command>
-                                                        <CommandInput placeholder="Search provider..." />
+                            <CommandInput placeholder="搜索服务商…" />
                                                         <CommandList>
-                                                            <CommandEmpty>No provider found.</CommandEmpty>
+                            <CommandEmpty>没有找到服务商。</CommandEmpty>
                                                             <CommandGroup>
                                                                 {Object.values(IMAGE_PROVIDERS).map((provider) => (
                                                                     <CommandItem
@@ -433,7 +433,7 @@ const ImageProvider = ({ llmConfig, setLlmConfig }: { llmConfig: LLMConfig, setL
             {/* <div className="bg-white flex justify-between items-center p-10 rounded-[12px]">
                 <div className=' max-w-[290px]'>
 
-                    <h4 className="text-xl font-normal text-[#191919]">Advanced</h4>
+                    <h4 className="text-xl font-normal text-[#191919]">高级设置</h4>
                     <p className="mt-2.5 text-sm  text-gray-500">
                         Configure advanced AI features.
                     </p>

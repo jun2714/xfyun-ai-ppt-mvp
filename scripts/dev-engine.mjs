@@ -27,7 +27,9 @@ const shared = {
   APP_DATA_DIRECTORY: dataDirectory,
   TEMP_DIRECTORY: tempDirectory,
   DISABLE_AUTH: "true",
-  CAN_CHANGE_KEYS: "false",
+  // Local development runs as the administrator, so the built-in settings
+  // page is the single place to configure text and image providers.
+  CAN_CHANGE_KEYS: source.CAN_CHANGE_KEYS || "true",
   LLM: "custom",
   CUSTOM_LLM_URL: source.DMX_API_BASE_URL || "https://www.dmxapi.cn/v1",
   CUSTOM_LLM_API_KEY: source.DMX_API_KEY || "",
@@ -44,6 +46,7 @@ const shared = {
   NEXT_PUBLIC_FAST_API: "http://127.0.0.1:8000",
   FAST_API_INTERNAL_URL: "http://127.0.0.1:8000",
   NEXT_PUBLIC_URL: "http://127.0.0.1:5001",
+  PRESENTON_APP_ROOT: root,
   EXPORT_PACKAGE_ROOT: resolve(root, "engine/export/runtime"),
   NODE_PATH: resolve(root, "engine/editor/node_modules"),
   PYTHON_EXECUTABLE: resolve(root, "engine/api/.venv/Scripts/python.exe"),
@@ -58,7 +61,7 @@ if (localBrowser) {
 
 const children = [
   spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "false"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),
-  spawn("npm", ["run", "dev", "--", "-p", "5001"], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
+  spawn("npm", ["run", "dev", "--", "-p", "5173"], { cwd: resolve(root, "engine/editor"), env: { ...shared, NEXT_PUBLIC_URL: "http://127.0.0.1:5173" }, stdio: "inherit", shell: process.platform === "win32" })
 ];
 
 const stop = () => children.forEach((child) => child.kill());

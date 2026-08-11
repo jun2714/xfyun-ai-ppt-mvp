@@ -76,7 +76,7 @@ export function PromptInput({
         </span>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm font-normal leading-normal text-[#333333]">
-            {isCommunityStart ? "Create from community" : "Write prompt"}
+          {isCommunityStart ? "基于社区设计创作" : "描述演示内容"}
           </p>
           <Textarea
             value={value}
@@ -86,8 +86,8 @@ export function PromptInput({
             onKeyDown={handleKeyDown}
             placeholder={
               isCommunityStart
-                ? "Choose a design, then tell AI how to turn it into your deck."
-                : "Start with your idea... we'll handle the slides"
+            ? "选择一个设计，再告诉 AI 需要生成什么内容。"
+            : "例如：为幼儿园中班制作一套认识海洋动物的互动课件"
             }
             data-testid="prompt-input"
             className={cn(

@@ -3,8 +3,8 @@ import { Metadata } from "next";
 import OutlinePage from "./components/OutlinePage";
 
 export const metadata: Metadata = {
-  title: "Outline Presentation",
-  description: "Customize and organize your presentation outline. Drag and drop slides, add charts, and generate your presentation with ease.",
+  title: "确认大纲 | Teachnova 幼教PPT",
+  description: "编辑页面大纲并选择演示模板。",
   alternates: {
     canonical: "https://presenton.ai/create"
   },

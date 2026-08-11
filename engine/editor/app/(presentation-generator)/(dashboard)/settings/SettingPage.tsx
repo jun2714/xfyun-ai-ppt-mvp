@@ -55,7 +55,7 @@ const SettingsPage = () => {
   const [buttonState, setButtonState] = useState<ButtonState>({
     isLoading: false,
     isDisabled: false,
-    text: "Save Configuration",
+    text: "保存配置",
     showProgress: false,
   });
 
@@ -122,7 +122,7 @@ const SettingsPage = () => {
       return true;
     } catch (error: any) {
       notify.error(
-        "Cannot save settings",
+        "无法保存设置",
         error?.message ||
         `Unable to reach ${provider} with the provided API key. Please verify your settings and try again.`
       );
@@ -164,7 +164,7 @@ const SettingsPage = () => {
     });
     const validationError = getLLMConfigValidationError(llmConfig);
     if (validationError) {
-      notify.warning("Cannot save settings", validationError);
+      notify.warning("无法保存设置", validationError);
       if (
         selectedProvider === "image-provider" &&
         ((llmConfig.LLM === "openai" && !String(llmConfig.OPENAI_MODEL || "").trim()) ||
@@ -185,7 +185,7 @@ const SettingsPage = () => {
         ...prev,
         isLoading: true,
         isDisabled: true,
-        text: "Saving Configuration...",
+        text: "正在保存配置…",
       }));
       trackEvent(MixpanelEvent.Settings_SaveConfiguration_API_Call);
       if (
@@ -202,26 +202,26 @@ const SettingsPage = () => {
       }
       await handleSaveLLMConfig(llmConfig);
       notify.success(
-        "Settings saved",
-        "Your configuration was saved successfully."
+        "设置已保存",
+        "模型配置保存成功。"
       );
       setButtonState((prev) => ({
         ...prev,
         isLoading: false,
         isDisabled: false,
-        text: "Save Configuration",
+        text: "保存配置",
       }));
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Something went wrong while saving.";
-      notify.error("Could not save settings", message);
+          : "保存设置时发生错误。";
+      notify.error("无法保存设置", message);
       setButtonState((prev) => ({
         ...prev,
         isLoading: false,
         isDisabled: false,
-        text: "Save Configuration",
+        text: "保存配置",
       }));
     }
   };
@@ -278,15 +278,15 @@ const SettingsPage = () => {
     : textProviderLabel;
 
   const imageSummary = llmConfig.DISABLE_IMAGE_GENERATION
-    ? "Image generation disabled"
+    ? "图片生成已关闭"
     : llmConfig.IMAGE_PROVIDER
       ? IMAGE_PROVIDERS[llmConfig.IMAGE_PROVIDER]?.label ||
       llmConfig.IMAGE_PROVIDER
-      : "No image provider";
+      : "未配置图片模型";
   const webSearchProviderKey = (llmConfig.WEB_SEARCH_PROVIDER || "").toLowerCase();
   const webSearchSummary = llmConfig.WEB_GROUNDING
     ? `Web: ${WEB_SEARCH_PROVIDERS[webSearchProviderKey]?.label || "No provider"}`
-    : "Web search disabled";
+    : "联网搜索已关闭";
 
 
   useEffect(() => {
@@ -376,7 +376,7 @@ const SettingsPage = () => {
           <div className="sticky top-0 right-0 z-50 py-[28px]   backdrop-blur mb-4 ">
             <div className="flex  gap-3 items-center ">
               <h3 className=" text-[28px] tracking-[-0.84px] font-unbounded font-normal text-black flex items-center gap-2">
-                Settings
+            模型与系统设置
               </h3>
               <p className="text-[10px] px-2.5 py-0.5 rounded-[50px] text-[#7A5AF8] border border-[#EDEEEF]  font-medium ">
                 {textSummary} · {imageSummary} · {webSearchSummary}
@@ -395,13 +395,13 @@ const SettingsPage = () => {
           {selectedProvider === "session" && (
             <div className="w-full max-w-lg space-y-5 rounded-[20px] border border-[#EDEEEF] bg-white p-7">
               <div>
-                <h4 className="font-unbounded text-lg font-normal text-black">Sign out</h4>
+            <h4 className="font-unbounded text-lg font-normal text-black">退出登录</h4>
                 <p className="mt-2 font-syne text-sm leading-relaxed text-[#494A4D]">
                   End your session on this deployment. You will need to sign in again to use the app and access the API.
                 </p>
               </div>
               <LogoutButton
-                label="Sign out"
+              label="退出登录"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-[58px] border border-[#EDEEEF] bg-[#7C51F8] px-5 py-3 font-syne text-xs font-semibold text-white transition hover:bg-[#6d46e6] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>

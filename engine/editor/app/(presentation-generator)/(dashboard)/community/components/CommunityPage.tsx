@@ -146,13 +146,13 @@ export default function CommunityPage() {
     <div className="min-h-screen font-manrope">
       <header className="sticky right-0 top-0 z-40 ml-7 mr-[9px] flex min-h-[105px] items-center justify-between border-b border-[#EDEEEF] bg-white px-1">
         <h1 className="font-syne text-[22px] font-medium tracking-[-0.66px] text-[#101323]">
-          Community
+          社区模板
         </h1>
         <Link
           href="/upload"
           className="inline-flex h-10 items-center gap-2 rounded-full bg-[linear-gradient(270deg,#D5CAFC_2.4%,#E3D2EB_27.88%,#F4DCD3_69.23%,#FDE4C2_100%)] px-4 font-syne text-sm font-medium text-[#191919] shadow-sm transition hover:shadow-md"
         >
-          New presentation
+          新建演示
           <ChevronRight className="h-4 w-4" />
         </Link>
       </header>
@@ -161,10 +161,10 @@ export default function CommunityPage() {
         <div className="flex min-h-10 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-base font-medium text-[#191919]">
-              Pick community designs or prompts
+              选择社区设计或提示词
             </h2>
             <p className="mt-1 text-xs text-[#808080]">
-              Preview shared decks, then use their design or prompt in Smart mode.
+              预览社区共享的演示文稿，然后复用设计或提示词。
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
@@ -195,7 +195,7 @@ export default function CommunityPage() {
         ) : error ? (
           <div className="mt-5 rounded-xl border border-dashed border-[#D9D9DE] bg-[#FAFAFC] px-6 py-12 text-center">
             <h3 className="text-sm font-semibold text-[#191919]">
-              Could not load community presentations
+              无法加载社区演示文稿
             </h3>
             <p className="mt-1 text-xs text-[#808080]">{error}</p>
             <button
@@ -203,7 +203,7 @@ export default function CommunityPage() {
               onClick={() => setRetryVersion((current) => current + 1)}
               className="mt-4 rounded-full border border-[#E0DDFC] bg-white px-4 py-2 text-xs font-medium text-[#6847F4] transition hover:bg-[#F8F7FF]"
             >
-              Try again
+              重试
             </button>
           </div>
         ) : filteredPresentations.length > 0 ? (
@@ -223,13 +223,13 @@ export default function CommunityPage() {
             <Search className="mx-auto h-5 w-5 text-[#808080]" />
             <h3 className="mt-3 text-sm font-semibold text-[#191919]">
               {query.trim() || hasActiveFilters
-                ? "No matching community presentations"
-                : "No community presentations yet"}
+                ? "没有匹配的社区演示文稿"
+                : "暂无社区演示文稿"}
             </h3>
             <p className="mt-1 text-xs text-[#808080]">
               {query.trim() || hasActiveFilters
-                ? "Try another search or clear your filters."
-                : "Shared presentations will appear here."}
+                ? "请更换关键词或清除筛选条件。"
+                : "共享演示文稿将在这里显示。"}
             </p>
           </div>
         )}
@@ -243,10 +243,10 @@ export default function CommunityPage() {
               className="inline-flex h-9 items-center gap-1 rounded-full border border-[#EDEEEF] bg-white px-3 text-[#191919] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
+              上一页
             </button>
             <span>
-              Page {page} of {totalPages}
+              第 {page} / {totalPages} 页
             </span>
             <button
               type="button"
@@ -256,7 +256,7 @@ export default function CommunityPage() {
               disabled={page >= totalPages}
               className="inline-flex h-9 items-center gap-1 rounded-full border border-[#EDEEEF] bg-white px-3 text-[#191919] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Next
+              下一页
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

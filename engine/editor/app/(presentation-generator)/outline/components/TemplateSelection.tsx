@@ -67,7 +67,7 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
     if (customTemplates.length === 0) {
       return (
         <div className="mb-8">
-          <TemplateListSection label="Templates" selectionPage>
+          <TemplateListSection label="选择模板" selectionPage>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <CreateCustomTemplate
                 selectionPage
@@ -84,7 +84,7 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
 
     return (
       <div className="mb-8 space-y-[30px]">
-        <TemplateListSection label="Custom" selectionPage>
+        <TemplateListSection label="自定义模板" selectionPage>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <CreateCustomTemplate
               selectionPage
@@ -96,9 +96,9 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
           </div>
         </TemplateListSection>
 
-        <TemplateListSection label="Built-In" selectionPage>
+        <TemplateListSection label="内置模板" selectionPage>
           {defaultTemplates.length === 0 ? (
-            <TemplateListEmptyState message="No built-in templates available." />
+            <TemplateListEmptyState message="暂无可用的内置模板。" />
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {defaultTemplates.map((template, index) =>

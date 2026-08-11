@@ -8,16 +8,16 @@ import Link from "next/link";
 
 
 export const defaultNavItems = [
-    { key: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
-    { key: "templates" as const, label: "Standard", icon: Star },
-    { key: "designs" as const, label: "Smart", icon: Brain },
-    { key: "community" as const, label: "Community", icon: UsersRound },
+    { key: "dashboard" as const, label: "项目", icon: LayoutDashboard },
+    { key: "templates" as const, label: "模板", icon: Star },
+    { key: "designs" as const, label: "智能设计", icon: Brain },
+    { key: "community" as const, label: "社区", icon: UsersRound },
 
 
 
 ];
 export const BelongingNavItems = [
-    { key: "settings" as const, label: "Settings", icon: Settings },
+    { key: "settings" as const, label: "设置", icon: Settings },
 ]
 
 const DashboardSidebar = () => {
@@ -32,7 +32,7 @@ const DashboardSidebar = () => {
 
                 <Link href={`/dashboard`} className="flex items-center  pb-6 border-b border-[#E1E1E5]   gap-2    ">
                     <div className="bg-[#7C51F8] rounded-full cursor-pointer p-1 flex justify-center items-center mx-auto">
-                        <img src="/logo-with-bg.png" alt="Presenton logo" className="h-[40px] object-contain w-full" />
+                        <img src="/teachnova-logo.png" alt="Teachnova" className="h-[40px] object-contain w-full" />
                     </div>
                 </Link>
                 <nav className="pt-6 font-syne" aria-label="Dashboard sections">
@@ -50,7 +50,7 @@ const DashboardSidebar = () => {
                             title="Dashboard"
                         >
                             <LayoutDashboard className={["h-4 w-4", pathname === "/dashboard" ? "text-[#5146E5]" : "text-slate-600"].join(" ")} />
-                            <span className="text-[11px] text-slate-800">Dashboard</span>
+                            <span className="text-[11px] text-slate-800">项目</span>
                         </Link>
                         <Link
                             prefetch={false}
@@ -64,7 +64,7 @@ const DashboardSidebar = () => {
                         >
                             <div className="flex flex-col cursor-pointer tex-center items-center gap-2  transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={`${pathname === "/templates" ? "#5146E5" : "#475569"}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M4 14h6" /><path d="M4 2h10" /><rect x="4" y="18" width="16" height="4" rx="1" /><rect x="4" y="6" width="16" height="4" rx="1" /></svg>
-                                <span className="text-[11px] text-slate-800">Templates</span>
+                                <span className="text-[11px] text-slate-800">模板</span>
                             </div>
                         </Link>
                         <Link
@@ -75,7 +75,7 @@ const DashboardSidebar = () => {
                             title="Community"
                         >
                             <UsersRound className={`h-4 w-4 ${pathname === "/community" ? "text-[#5146E5]" : "text-slate-600"}`} />
-                            <span className="text-[11px] text-slate-800">Community</span>
+                            <span className="text-[11px] text-slate-800">社区</span>
                         </Link>
                         {/* <Link
                             prefetch={false}
@@ -103,7 +103,7 @@ const DashboardSidebar = () => {
                     className="flex flex-col items-center gap-2 transition-colors"
                 >
                     <HelpCircle className="h-4 w-4" />
-                    <span className="text-[11px] text-slate-800">Help</span>
+                    <span className="text-[11px] text-slate-800">帮助</span>
                 </Link>
             </div>
 
