@@ -7,6 +7,8 @@ const nextConfig = {
   reactStrictMode: false,
   distDir: ".next-build",
   output: "standalone",
+  // 产品通过 iframe 嵌入编辑器，开发提示浮层不应暴露给最终用户。
+  devIndicators: false,
   turbopack: {
     root: nextjsRoot,
   },

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, consumeStream, localizeError, localizeStatus } from "../../api/client";
-import type { Presentation, PresentationOutline, StreamEvent, TemplateItem, TemplateList } from "../../entities/types";
+import type { Presentation, PresentationOutline, TemplateItem, TemplateList } from "../../entities/types";
 import { OutlineEditor } from "../outline/OutlineEditor";
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -122,34 +122,8 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
 }
 
 export function GenerationPage({ presentationId }: { presentationId: string }) {
-  const [presentation, setPresentation] = useState<Presentation>();
-  const [status, setStatus] = useState("准备生成页面");
-  const [completed, setCompleted] = useState(0);
-  const [error, setError] = useState("");
-  const started = useRef(false);
-
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    void (async () => {
-      try {
-        const current = await api<Presentation>(`/presentation/${presentationId}`);
-        setPresentation(current);
-        await consumeStream(`/presentation/stream/${presentationId}`, (event: StreamEvent) => {
-          if (event.type === "status") setStatus(localizeStatus(event.status));
-          if (event.type === "chunk" && /\"index\"\s*:/.test(event.chunk)) setCompleted((value) => value + 1);
-          if (event.type === "slide_assets") setStatus(`正在处理第 ${event.slide_index + 1} 页素材`);
-          if (event.type === "complete") setStatus("页面生成完成");
-        });
-        location.href = `/presentations/${presentationId}/edit`;
-      } catch (cause) { setError(localizeError(cause)); }
-    })();
+    location.replace(`/presentations/${presentationId}/edit?stream=true`);
   }, [presentationId]);
-
-  const total = presentation?.n_slides || 1;
-  const progress = Math.min(96, Math.round((completed / total) * 88) + 8);
-  return <Shell><main className="center-state running"><span className="spinner"/><h1>{error ? "生成失败" : "正在生成 PPT"}</h1><p>{error || status}</p>
-    {!error && <div className="flat-progress"><span style={{ width: `${progress}%` }}/><b>{Math.min(completed, total)} / {total} 页</b></div>}
-    {error && <><button className="primary" onClick={() => location.reload()}>重新生成</button><a href={`/presentations/${presentationId}/outline`}>修改大纲</a></>}
-  </main></Shell>;
+  return <Shell><main className="center-state running"><span className="spinner"/><h1>正在打开编辑器</h1><p>页面将在编辑器中逐页生成</p></main></Shell>;
 }

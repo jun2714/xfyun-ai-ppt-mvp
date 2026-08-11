@@ -194,8 +194,8 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
           dispatch(setLLMConfig(runtimeConfig));
           if (!runtime.configured) {
             notify.error(
-              "Instance not configured",
-              "Ask the administrator to configure the AI providers in Settings."
+              "模型尚未配置",
+              "请先在服务端配置文本和图片模型。"
             );
             setIsLoading(false);
             return;

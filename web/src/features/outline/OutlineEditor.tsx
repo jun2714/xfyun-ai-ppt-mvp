@@ -47,7 +47,9 @@ export function OutlineEditor({ presentation, initial, templates }: { presentati
         layout: template,
         title,
       }) });
-      location.href = `/presentations/${presentation.id}/generate`;
+      // Presenton already owns streaming, partial-slide rendering and asset updates.
+      // Entering it directly avoids maintaining a second, lossy SSE state machine here.
+      location.href = `/presentations/${presentation.id}/edit?stream=true`;
     } catch (cause) { setError(localizeError(cause)); setSaving(false); }
   };
 

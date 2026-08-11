@@ -197,8 +197,8 @@ const NewSlideV1 = ({
     (sampleData: any, id: string) => {
       if (slideCount >= MAX_NUMBER_OF_SLIDES) {
         notify.warning(
-          "Slide limit reached",
-          `You can have up to ${MAX_NUMBER_OF_SLIDES} slides.`
+          "已达到页数上限",
+          `最多可添加 ${MAX_NUMBER_OF_SLIDES} 页。`
         );
         return;
       }
@@ -234,7 +234,7 @@ const NewSlideV1 = ({
         setShowNewSlideSelection(false);
       } catch (error: any) {
         console.error(error);
-        notify.error("Could not add slide", "Something went wrong while adding the new slide.");
+        notify.error("无法添加页面", "添加新页面时出现错误，请重试。");
       }
     },
     [

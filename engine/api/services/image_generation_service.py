@@ -896,11 +896,22 @@ class ImageGenerationService:
 
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
+        # The asset planner already expands prompts. Disable paid rewriting for
+        # Z-Image, and explicitly disable Seedream watermarks for slide assets.
+        extra_body = (
+            {"prompt_extend": False}
+            if model == "z-image-turbo"
+            else {"watermark": False}
+            if model == "doubao-seedream-4-0-250828"
+            else None
+        )
+        size = "1K" if model == "doubao-seedream-4-0-250828" else "1024x1024"
         response = await client.images.generate(
             model=model,
             prompt=prompt,
             n=1,
-            size="1024x1024",
+            size=size,
+            extra_body=extra_body,
         )
 
         item = response.data[0]

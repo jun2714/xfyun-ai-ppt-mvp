@@ -105,7 +105,7 @@ type SlideAddedOptions = {
 
 const DEFAULT_LOADING_STATE: LoadingState = {
   isLoading: true,
-  message: "Loading presentation",
+  message: "正在加载演示文稿",
   showProgress: false,
   duration: 0,
   extra_info: "",
@@ -113,10 +113,10 @@ const DEFAULT_LOADING_STATE: LoadingState = {
 
 const STREAM_LOADING_STATE: LoadingState = {
   isLoading: true,
-  message: "Creating your presentation",
+  message: "正在生成演示文稿",
   showProgress: true,
   duration: 90,
-  extra_info: "This can take a few minutes depending on slide count.",
+  extra_info: "生成时间取决于页面数量，请稍候。",
 };
 
 const IDLE_LOADING_STATE: LoadingState = {
@@ -622,13 +622,13 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-100 font-syne">
         <div
-          className="bg-white border border-red-300 text-red-700 px-6 py-8 rounded-lg shadow-lg flex flex-col items-center"
+          className="bg-white border border-red-300 text-red-700 px-6 py-8 flex flex-col items-center"
           role="alert"
         >
           <AlertCircle className="w-16 h-16 mb-4 text-red-500" />
-          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+          <h2 className="text-xl font-semibold mb-2">页面加载失败</h2>
           <p className="text-center mb-4">
-            We couldn't load your presentation. Please try again.
+            无法加载演示文稿，请重试。
           </p>
           <div className="flex gap-2 justify-center items-center">
             <Button
@@ -640,7 +640,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
                 window.location.reload();
               }}
             >
-              Refresh Page
+              刷新页面
             </Button>
             <Button
               onClick={() => {
@@ -651,7 +651,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
                 router.push("/upload");
               }}
             >
-              Go to Upload
+              返回导入页
             </Button>
           </div>
         </div>
@@ -773,12 +773,12 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
             }}
           >
             <Sparkles className="h-4 w-4 text-[#7A5AF8]" aria-hidden="true" />
-            AI Assistant
+            AI 助手
           </button>
 
           <button
             type="button"
-            aria-label="Close AI Assistant"
+            aria-label="关闭 AI 助手"
             onClick={closeMobileAssistant}
             className={cn(
               "inset-0 z-[60] bg-black/35 xl:hidden",
@@ -789,7 +789,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
           <div
             id="presentation-mobile-assistant"
             role={isMobileAssistantOpen ? "dialog" : undefined}
-            aria-label={isMobileAssistantOpen ? "AI Assistant" : undefined}
+            aria-label={isMobileAssistantOpen ? "AI 助手" : undefined}
             aria-modal={isMobileAssistantOpen ? true : undefined}
             className={cn(
               "h-screen w-[calc(100vw-16px)] max-w-[375px] shrink-0 flex-col bg-white shadow-[-12px_0_32px_rgba(16,24,40,0.18)] xl:static xl:z-auto xl:flex xl:h-full xl:w-[375px] xl:max-w-none xl:self-start xl:shadow-none",
@@ -801,12 +801,12 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#EDEEEF] px-4 xl:hidden">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#101323]">
                 <Sparkles className="h-4 w-4 text-[#7A5AF8]" aria-hidden="true" />
-                AI Assistant
+                AI 助手
               </div>
               <button
                 ref={mobileAssistantCloseRef}
                 type="button"
-                aria-label="Close AI Assistant"
+                aria-label="关闭 AI 助手"
                 onClick={closeMobileAssistant}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[#667085] transition hover:bg-[#F6F6F9] hover:text-[#101323] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]"
               >

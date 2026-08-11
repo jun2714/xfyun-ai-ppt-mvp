@@ -72,9 +72,11 @@ export async function consumeStream(path: string, onEvent: (event: StreamEvent) 
   }
 }
 
-export const editorUrl = (presentationId: string) => {
+export const editorUrl = (presentationId: string, stream = false) => {
   const base = import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
-  return `${base}/presentation?id=${encodeURIComponent(presentationId)}&type=standard`;
+  const params = new URLSearchParams({ id: presentationId, type: "standard" });
+  if (stream) params.set("stream", "true");
+  return `${base}/presentation?${params.toString()}`;
 };
 
 export function localizeStatus(status: string) {

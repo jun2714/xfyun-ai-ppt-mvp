@@ -215,8 +215,8 @@ const PresentationHeader = ({
     let exportToastId: string | number | undefined;
     try {
       exportToastId = notify.loading(
-        "Exporting PPTX",
-        "Your presentation is being exported. This may take a moment."
+        "正在导出 PPTX",
+        "正在生成文件，请稍候。"
       );
       setIsExporting(true);
       const safePptxFileName = buildSafeExportFileName(
@@ -250,15 +250,15 @@ const PresentationHeader = ({
         downloadLink(pptxPath, safePptxFileName);
       }
       notify.success(
-        "Export complete",
-        "Your PPTX file has been downloaded.",
+        "导出完成",
+        "PPTX 文件已下载。",
         { id: exportToastId }
       );
     } catch (error) {
       console.error("Export failed:", error);
       notify.error(
-        "Export failed",
-        "We are having trouble exporting your presentation. Please try again.",
+        "导出失败",
+        "暂时无法导出演示文稿，请重试。",
         exportToastId !== undefined ? { id: exportToastId } : undefined
       );
     } finally {
@@ -272,8 +272,8 @@ const PresentationHeader = ({
     let exportToastId: string | number | undefined;
     try {
       exportToastId = notify.loading(
-        "Exporting PDF",
-        "Your presentation is being exported. This may take a moment."
+        "正在导出 PDF",
+        "正在生成文件，请稍候。"
       );
       setIsExporting(true);
       const safePdfFileName = buildSafeExportFileName(
@@ -306,15 +306,15 @@ const PresentationHeader = ({
         }
       }
       notify.success(
-        "Export complete",
-        "Your PDF file has been downloaded.",
+        "导出完成",
+        "PDF 文件已下载。",
         { id: exportToastId }
       );
     } catch (err) {
       console.error(err);
       notify.error(
-        "Export failed",
-        "We are having trouble exporting your presentation. Please try again.",
+        "导出失败",
+        "暂时无法导出演示文稿，请重试。",
         exportToastId !== undefined ? { id: exportToastId } : undefined
       );
     } finally {
@@ -363,7 +363,7 @@ const PresentationHeader = ({
     <div
       className={` rounded-[18px] max-md:mt-4 ${mobile ? "" : "bg-white"}  p-5`}
     >
-      <p className="text-sm font-medium text-[#19001F]">Export as</p>
+      <p className="text-sm font-medium text-[#19001F]">导出为</p>
       <div className="my-[18px] h-[1px] bg-[#E8E8E8]" />
       <div className="space-y-3">
         <Button
@@ -598,10 +598,10 @@ const PresentationHeader = ({
           </div>
 
         {generationMode === "standard" && (
-          <ToolTip content="Keyboard shortcuts (?)">
+          <ToolTip content="键盘快捷键 (?)">
             <button
               type="button"
-              aria-label="Keyboard shortcuts"
+              aria-label="键盘快捷键"
               aria-haspopup="dialog"
               aria-expanded={shortcutsDialogOpen}
               aria-keyshortcuts="?"
@@ -630,7 +630,7 @@ const PresentationHeader = ({
                 {isExporting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  "Export"
+                  "导出"
                 )}{" "}
                 <ArrowRightFromLine className="w-3.5 h-3.5" />
               </button>

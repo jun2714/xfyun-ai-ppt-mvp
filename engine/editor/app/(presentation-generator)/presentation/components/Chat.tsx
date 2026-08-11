@@ -2333,7 +2333,7 @@ const Chat = ({
                   fill="#7A5AF8"
                 />
               </svg>
-              AI Assistant
+              AI 助手
             </h4>
             {isSending && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F3FF] px-2 py-0.5 text-[10px] font-medium text-[#6941C6]">

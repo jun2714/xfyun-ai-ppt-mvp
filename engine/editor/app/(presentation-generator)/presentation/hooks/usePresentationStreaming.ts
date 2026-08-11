@@ -22,8 +22,22 @@ import {
 } from "../utils/streamAssetMerge";
 import { isTemplateV2Slide } from "../../_shared/blank-slide";
 
-const MAX_STREAM_RETRIES = 3;
+// A retry repeats paid slide-content calls, so allow only one automatic retry.
+const MAX_STREAM_RETRIES = 1;
 const STREAM_RETRY_DELAY_MS = 1_000;
+
+// 后端错误可能来自不同模型供应商；界面只显示稳定、可理解的中文提示。
+function localizeStreamError(message: string): string {
+  if (/image generation|openai image/i.test(message)) {
+    return "图片生成失败，请重试。";
+  }
+  if (/network|connection|connect|timeout/i.test(message)) {
+    return "生成服务连接失败，请检查网络后重试。";
+  }
+  return /[\u3400-\u9fff]/.test(message)
+    ? message
+    : "生成过程中出现错误，请重试。";
+}
 
 function mergePresentationPreservingTemplateData(
   incoming: PresentationData
@@ -150,7 +164,7 @@ export const usePresentationStreaming = (
       dispatch(setStreaming(false));
       setError(true);
       if (options.showToast !== false) {
-        notify.error("Presentation streaming failed", description);
+        notify.error("生成失败", localizeStreamError(description));
       }
     };
 
@@ -397,7 +411,7 @@ export const usePresentationStreaming = (
                   continue;
                 }
                 shownAssetWarnings.add(detail);
-                notify.warning("Some images could not be generated", detail, {
+                notify.warning("部分图片生成失败", localizeStreamError(detail), {
                   duration: 12_000,
                 });
               }

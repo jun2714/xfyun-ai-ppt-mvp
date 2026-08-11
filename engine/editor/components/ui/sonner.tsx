@@ -64,7 +64,7 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
     info: <NeutralToastIcon />,
     warning: <TriangleAlert aria-hidden="true" />,
     loading: <Loader2 aria-hidden="true" className="animate-spin" />,
-    close: <span aria-hidden="true">Got it!</span>,
+    close: <span aria-hidden="true">知道了</span>,
   }
 
   return (
@@ -319,11 +319,12 @@ const Toaster = ({ icons, ...props }: ToasterProps) => {
       <Sonner
         style={{ zIndex: 999999999 }}
         className="toaster group z-50 bg-transparent"
+        containerAriaLabel="通知"
         icons={{ ...defaultIcons, ...(icons ?? {}) }}
         closeButton
         toastOptions={{
           closeButton: true,
-          closeButtonAriaLabel: "Dismiss notification",
+          closeButtonAriaLabel: "关闭通知",
           classNames: {
             toast: "group toast",
             description: "group-[.toast]:text-muted-foreground",
