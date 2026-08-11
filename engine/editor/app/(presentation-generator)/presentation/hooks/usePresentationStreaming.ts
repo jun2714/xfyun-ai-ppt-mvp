@@ -26,6 +26,32 @@ import { isTemplateV2Slide } from "../../_shared/blank-slide";
 const MAX_STREAM_RETRIES = 1;
 const STREAM_RETRY_DELAY_MS = 1_000;
 
+function settleStreamUrl(
+  presentationId: string,
+  status: "completed" | "failed"
+) {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("stream");
+  window.history.replaceState({}, "", cleanUrl.toString());
+
+  if (window.parent === window) return;
+  let targetOrigin = "*";
+  try {
+    if (document.referrer) targetOrigin = new URL(document.referrer).origin;
+  } catch {
+    // The message contains no deck content or credentials. The outer shell
+    // still validates both the sender origin and presentation id.
+  }
+  window.parent.postMessage(
+    {
+      type: "presenton:stream-settled",
+      presentationId,
+      status,
+    },
+    targetOrigin
+  );
+}
+
 // 后端错误可能来自不同模型供应商；界面只显示稳定、可理解的中文提示。
 function localizeStreamError(message: string): string {
   if (/image generation|openai image/i.test(message)) {
@@ -163,6 +189,7 @@ export const usePresentationStreaming = (
       setLoading(false);
       dispatch(setStreaming(false));
       setError(true);
+      settleStreamUrl(presentationId, "failed");
       if (options.showToast !== false) {
         notify.error("生成失败", localizeStreamError(description));
       }
@@ -436,10 +463,7 @@ export const usePresentationStreaming = (
               clearRetryTimer();
               retryCount = 0;
 
-              // Remove stream parameter from URL
-              const newUrl = new URL(window.location.href);
-              newUrl.searchParams.delete("stream");
-              window.history.replaceState({}, "", newUrl.toString());
+              settleStreamUrl(presentationId, "completed");
             } catch {
               if (!scheduleRetry("failed to parse complete payload")) {
                 finalizeFailure("Failed to parse final presentation payload.");
@@ -464,10 +488,7 @@ export const usePresentationStreaming = (
             clearRetryTimer();
             retryCount = 0;
 
-            // Remove stream parameter from URL
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete("stream");
-            window.history.replaceState({}, "", newUrl.toString());
+            settleStreamUrl(presentationId, "completed");
             break;
           case "error":
             if (isChatGptAuthRequiredMessage(data.detail)) {

@@ -78,10 +78,10 @@ type StudioStep = 1 | 2 | 3 | 4;
 
 
 const studioSteps: { id: StudioStep; label: string }[] = [
-  { id: 1, label: "Upload" },
-  { id: 2, label: "Analyze" },
-  { id: 3, label: "Preview" },
-  { id: 4, label: "Review" },
+  { id: 1, label: "上传" },
+  { id: 2, label: "分析" },
+  { id: 3, label: "预览" },
+  { id: 4, label: "确认" },
 ];
 
 const pillGradient =
@@ -107,22 +107,17 @@ function activeStudioStep(step: TemplateCreationStep): StudioStep {
   return 1;
 }
 
-function StudioTopBar({ activeStep }: { activeStep: StudioStep }) {
+function StudioTopBar({ activeStep, embedded = false }: { activeStep: StudioStep; embedded?: boolean }) {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[72px] sm:h-[80px] 2xl:h-[96px] bg-gradient-to-b from-white via-white to-white/0">
       <div className="relative mx-auto flex h-full max-w-[1280px] 2xl:max-w-[1536px] items-center justify-between px-5 sm:px-8 2xl:px-[90px]">
-        <a
+        {embedded ? <span className="w-8 shrink-0" /> : <a
           href="/dashboard"
           className="pointer-events-auto block h-8 w-8 sm:h-[34px] sm:w-[34px] 2xl:h-[44px] 2xl:w-[44px] shrink-0"
-          aria-label="Dashboard"
+          aria-label="返回控制台"
         >
-          <img
-            src="/logo-with-bg.png"
-            alt="Presenton"
-            className="h-full w-full"
-            draggable={false}
-          />
-        </a>
+          <img src="/logo-with-bg.png" alt="Presenton" className="h-full w-full" draggable={false} />
+        </a>}
 
         <nav
           className="pointer-events-auto flex items-center"
@@ -208,11 +203,10 @@ function TemplateStudioTitle({ compact = false }: { compact?: boolean }) {
       className={`px-4 text-center ${compact ? "pt-[88px] sm:pt-[96px] 2xl:pt-[112px]" : "pt-[96px] sm:pt-[108px] 2xl:pt-[128px]"}`}
     >
       <h1 className="font-unbounded text-[36px] font-normal leading-none tracking-[-1.2px] text-[#101323] sm:text-[48px] sm:tracking-[-1.4px] md:text-[56px] 2xl:text-[68px] 2xl:tracking-[-1.8px]">
-        Template Studio
+        制作自己的模板
       </h1>
       <p className="mx-auto mt-3 max-w-[480px] text-center font-syne text-[15px] font-normal leading-[1.4] text-[#101323CC] sm:mt-4 sm:max-w-[520px] sm:text-[16px] 2xl:mt-5 2xl:max-w-[600px] 2xl:text-[18px]">
-        Upload your PPTX file to extract slides and convert them to a template
-        which you can use to generate AI presentations.
+        上传一份 PPTX，系统会提取其中的页面设计并转换为可复用模板。
       </p>
     </div>
   );
@@ -254,16 +248,16 @@ function UploadPanel({
     <main className="flex min-h-screen flex-col items-center bg-white font-syne">
       <TemplateStudioTitle />
 
-      <section className="mt-8 w-full max-w-[640px] px-4 sm:mt-10 sm:max-w-[700px] 2xl:mt-12 2xl:max-w-[820px]">
+      <section className="mt-8 w-full max-w-[720px] px-4 sm:mt-10 2xl:mt-12 2xl:max-w-[860px]">
         <div className="group relative">
-          <div className="relative z-10 ml-8 2xl:ml-10 w-max rounded-t-[28px] 2xl:rounded-t-[32px] border border-b-0 border-[#EDEEF4] bg-white px-3 2xl:px-4 pb-2.5 2xl:pb-3 pt-2 2xl:pt-2.5">
+          <div className="relative z-10 flex items-center justify-between border border-b-0 border-[#E3E0EA] bg-[#F9F8FC] px-4 py-3">
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex h-[34px] 2xl:h-[42px] items-center gap-1.5 2xl:gap-2 rounded-[80px] bg-white px-3.5 2xl:px-4 text-[12px] 2xl:text-sm font-semibold text-black shadow-[0_0_4px_rgba(0,0,0,0.06)]"
+              className="flex h-[34px] 2xl:h-[42px] items-center gap-1.5 2xl:gap-2 border border-[#DDD9E7] bg-white px-3.5 2xl:px-4 text-[12px] 2xl:text-sm font-semibold text-black"
             >
               <Upload className="h-3.5 w-3.5 2xl:h-4 2xl:w-4 text-[#7A5AF8]" />
-              Upload PPTX File
+              选择 PPTX 文件
             </button>
             <input
               ref={inputRef}
@@ -274,9 +268,9 @@ function UploadPanel({
             />
           </div>
 
-          <div className="relative -mt-px rounded-[28px] 2xl:rounded-[32px] border border-[#EDEEF4] bg-white p-2.5 2xl:p-3 shadow-[0_0_16px_rgba(80,71,230,0.08)] transition-shadow duration-200 ">
+          <div className="relative -mt-px border border-[#E3E0EA] bg-white p-4 2xl:p-5">
             <div
-              className={`relative h-[120px] 2xl:h-[150px] overflow-hidden rounded-[18px] 2xl:rounded-[22px] border border-[#E8E8EF] bg-white ${selectedFile ? "" : "cursor-pointer"
+                className={`relative h-[150px] 2xl:h-[170px] overflow-hidden border border-dashed border-[#CFC9DD] bg-[#FBFAFD] ${selectedFile ? "" : "cursor-pointer"
                 }`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
@@ -295,7 +289,7 @@ function UploadPanel({
               {selectedFile ? (
                 <div className="relative flex h-full items-center ">
                   <div
-                    className="flex  flex-1 h-full min-w-0 items-center rounded-[14px] bg-[#F6F6FA] px-5 transition-[width] duration-300"
+                    className="flex flex-1 h-full min-w-0 items-center bg-[#F6F6FA] px-5 transition-[width] duration-300"
 
                   >
                     <div className="min-w-0">
@@ -304,12 +298,12 @@ function UploadPanel({
                       </p>
                       <p className="mt-2 2xl:mt-2.5 text-sm 2xl:text-base text-[#777985]">
                         {isProcessing ? (
-                          "Processing..."
+                          "正在处理…"
                         ) : (
                           <>
                             {formatFileSize(selectedFile.size)}
                             <span className="px-2">•</span>
-                            Ready
+                            已就绪
                           </>
                         )}
                       </p>
@@ -324,8 +318,8 @@ function UploadPanel({
                         onRemove();
                       }}
                       disabled={isProcessing}
-                      className="w-[36px] h-[36px] 2xl:w-[44px] 2xl:h-[44px] top-1/2 z-20 flex items-center justify-center rounded-full border border-[#E8E8EF] bg-[#EFF0F4] text-black disabled:opacity-50"
-                      aria-label="Remove file"
+                      className="w-[36px] h-[36px] 2xl:w-[44px] 2xl:h-[44px] top-1/2 z-20 flex items-center justify-center border border-[#E8E8EF] bg-[#EFF0F4] text-black disabled:opacity-50"
+                      aria-label="移除文件"
                     >
                       <X className="h-3.5 w-3.5 2xl:h-4 2xl:w-4" />
                     </button>
@@ -340,7 +334,7 @@ function UploadPanel({
                     draggable={false}
                   />
                   <p className="mt-3 2xl:mt-4 text-sm 2xl:text-base font-normal text-[#808080]">
-                    Drag &amp; Drop your files here
+                    将 PPTX 拖到这里，或点击选择文件
                   </p>
                 </div>
               )}
@@ -352,7 +346,7 @@ function UploadPanel({
                 disabled={isProcessing}
                 className="h-9 px-5 text-xs font-semibold"
               >
-                {isProcessing ? "Processing" : "Get Started"}
+                {isProcessing ? "正在处理" : "开始制作"}
                 {isProcessing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
@@ -364,7 +358,7 @@ function UploadPanel({
         </div>
 
         <ul className="mx-auto mt-6 2xl:mt-8 flex max-w-[480px] 2xl:max-w-[600px] items-center justify-between gap-5 2xl:gap-8">
-          {["Test in Real Time", "Max 100MB", "5min Generation"].map((item) => (
+          {["实时预览", "最大 100MB", "通常约 5 分钟"].map((item) => (
             <li key={item} className="flex items-center gap-2 2xl:gap-2.5">
               <span className="h-2.5 w-2.5 2xl:h-3 2xl:w-3 rounded-full bg-[#EBE9FE]" />
               <span className="text-[13px] 2xl:text-[15px] font-normal text-[#3A3A3A]">{item}</span>
@@ -379,9 +373,7 @@ function UploadPanel({
             i
           </span>
           <p>
-            Presenton sends each slide as a screenshot and HTML reference. Use a
-            vision-enabled model for accurate layouts. Text-only models may produce
-            poor results or fail.
+            系统会分析每一页的截图和版式结构。复杂模板需要视觉模型才能准确识别，处理期间请不要关闭页面。
           </p>
         </div>
       </div>
@@ -390,7 +382,7 @@ function UploadPanel({
 }
 
 function chipLabel(font: FontItem): string {
-  return font.name || font.family_name || font.original_name || "Unknown font";
+  return font.name || font.family_name || font.original_name || "未知字体";
 }
 
 function uniqueFontChips(fontsData: FontData): FontItem[] {
@@ -525,12 +517,12 @@ function FontFallbackPicker({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          aria-label={`Fallback font for ${fontName}`}
+          aria-label={`${fontName} 的替代字体`}
           disabled={disabled}
           className="h-11 w-full justify-between rounded-lg border-[#DADDE6] bg-white px-3 font-syne text-sm font-medium text-[#282A32] shadow-none hover:border-[#B8BCC8] hover:bg-white"
         >
           <span className="min-w-0 truncate">
-            {selectedOption?.family ?? "Choose fallback"}
+            {selectedOption?.family ?? "选择替代字体"}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-[#61646F]" />
         </Button>
@@ -543,7 +535,7 @@ function FontFallbackPicker({
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="Search fonts"
+            placeholder="搜索字体"
             className="font-syne text-sm"
           />
           <CommandList
@@ -554,7 +546,7 @@ function FontFallbackPicker({
           >
             {filteredOptions.length === 0 ? (
               <CommandEmpty>
-                {options.length === 0 ? "Loading fonts..." : "No fonts found"}
+                {options.length === 0 ? "正在加载字体…" : "没有找到字体"}
               </CommandEmpty>
             ) : (
               <CommandGroup
@@ -638,20 +630,19 @@ function AnalyzePanel({
     ? allFontsAvailable
       ? {
         tone: "success",
-        title: "All fonts are available",
-        description: "Preparing the slide preview automatically.",
+        title: "字体均可正常使用",
+        description: "正在自动准备页面预览。",
       }
       : allMissingFontsResolved
         ? {
           tone: "success",
-          title: "Missing fonts resolved",
-          description: "All required font files are attached. Continue to preview.",
+          title: "缺失字体已处理",
+          description: "所需字体文件已经补齐，可以继续预览。",
         }
         : {
           tone: "warning",
-          title: `${pendingMissingCount} font${pendingMissingCount === 1 ? "" : "s"} need attention`,
-          description:
-            "Upload exact font files or keep the selected fallback fonts before continuing.",
+          title: `${pendingMissingCount} 个字体需要处理`,
+          description: "上传原字体文件，或者保留系统选中的替代字体。",
         }
     : null;
 
@@ -687,7 +678,7 @@ function AnalyzePanel({
             className="flex h-[34px] 2xl:h-[42px] items-center gap-1.5 2xl:gap-2 rounded-[80px] bg-white px-3.5 2xl:px-4 text-[12px] 2xl:text-sm font-semibold text-black shadow-[0_0_4px_rgba(0,0,0,0.06)]"
           >
             <Upload className="h-3.5 w-3.5 2xl:h-4 2xl:w-4 text-[#7A5AF8]" />
-            Fonts Upload
+            处理缺失字体
           </button>
         </div>
 
@@ -773,7 +764,7 @@ function AnalyzePanel({
               })
             ) : (
               <div className="col-span-full flex min-h-[140px] items-center justify-center rounded-xl border border-[#E8EAF0] bg-white text-sm font-medium text-[#686C78]">
-                No fonts detected
+                未检测到字体
               </div>
             )}
           </div>
@@ -787,11 +778,11 @@ function AnalyzePanel({
               {isUploading || isAutoContinuing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {isAutoContinuing ? "Preparing..." : "Creating..."}
+                  {isAutoContinuing ? "正在准备…" : "正在处理…"}
                 </>
               ) : (
                 <>
-                  Continue
+                  继续
                   <ChevronRight className="h-4 w-4" />
                 </>
               )}
@@ -805,7 +796,7 @@ function AnalyzePanel({
               <button
                 type="button"
                 onClick={() => setResolvingFont(null)}
-                aria-label="Close"
+                aria-label="关闭"
                 className="absolute -right-14 top-0 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#20222B] shadow-sm"
               >
                 <X className="h-6 w-6" />
@@ -814,10 +805,10 @@ function AnalyzePanel({
               <div className="flex items-center justify-between gap-4 border-b border-[#EEF0F5] px-5 py-4">
                 <div className="min-w-0">
                   <h3 className=" text-lg font-semibold text-[#191919]">
-                    Resolve Missing Font
+                    处理缺失字体
                   </h3>
                   <p className="mt-1 text-xs text-[#808080]">
-                    {resolvingFontName} is missing.
+                    未找到 {resolvingFontName}
                   </p>
                 </div>
                 <button
@@ -826,14 +817,14 @@ function AnalyzePanel({
                   className="h-9 rounded-full px-5 text-sm font-medium text-black"
                   style={{ background: pillGradient }}
                 >
-                  Save
+                  保存
                 </button>
               </div>
 
               <div className="space-y-4 px-5 py-4">
                 <div>
                   <p className="mb-2 text-xs font-semibold text-[#30323A]">
-                    Upload original font file
+                    上传原字体文件
                   </p>
                   <input
                     ref={(node) => {
@@ -857,19 +848,19 @@ function AnalyzePanel({
                         <Upload className="h-4 w-4" />
                       )}
                     </span>
-                    {resolvingFontUploaded ? "Font file uploaded" : "Upload .ttf / .otf"}
+                    {resolvingFontUploaded ? "字体文件已上传" : "上传 .ttf / .otf 文件"}
                   </button>
                 </div>
 
                 <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
                   <span className="h-px bg-[#EEF0F5]" />
-                  <span className="text-xs font-medium text-[#686C78]">or</span>
+                  <span className="text-xs font-medium text-[#686C78]">或者</span>
                   <span className="h-px bg-[#EEF0F5]" />
                 </div>
 
                 <div>
                   <p className="mb-2 text-xs font-semibold text-[#30323A]">
-                    Fallback font
+                    使用替代字体
                   </p>
                   <FontFallbackPicker
                     fontName={resolvingFontName}
@@ -895,8 +886,7 @@ function AnalyzePanel({
             i
           </span>
           <p>
-            Exact font files maintain typography and spacing. Fallback fonts may
-            slightly change the layout and text wrapping.
+            使用原字体最能保持文字排版；替代字体可能轻微改变换行和间距。
           </p>
         </div>
       </div>
@@ -1015,7 +1005,7 @@ function GeneratingSlidesOverlay() {
         <span aria-hidden className="generating-slides-background absolute" />
         <span className="relative z-10 flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[#9034EA]" />
-          Updating slides...
+          正在更新页面…
         </span>
       </span>
     </div>
@@ -1140,7 +1130,7 @@ function ThumbnailStrip({
         <button
           type="button"
           onClick={() => scrollThumbnails(-1)}
-          aria-label="Scroll thumbnails left"
+          aria-label="向左滚动缩略图"
           className={`absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#E6E7ED] bg-white/95 text-black shadow-[0_2px_10px_rgba(16,24,40,0.14)] transition sm:h-9 sm:w-9 ${canScrollLeft ? "opacity-100" : "pointer-events-none opacity-0"}`}
         >
           <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1186,7 +1176,7 @@ function ThumbnailStrip({
         <button
           type="button"
           onClick={() => scrollThumbnails(1)}
-          aria-label="Scroll thumbnails right"
+          aria-label="向右滚动缩略图"
           className={`absolute right-0 top-1/2 z-10 flex h-8 w-8 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#E6E7ED] bg-white/95 text-black shadow-[0_2px_10px_rgba(16,24,40,0.14)] transition sm:h-9 sm:w-9 ${canScrollRight ? "opacity-100" : "pointer-events-none opacity-0"}`}
         >
           <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1245,7 +1235,7 @@ function ReviewSlideCanvas({
   return (
     <ResponsiveSlideViewport className="border border-[#E8E8EF] bg-[#F7F7FA]">
       <div className="flex h-full w-full items-center justify-center text-sm text-[#777985] 2xl:text-base">
-        {slide.processing ? "Generating slide..." : "Slide unavailable"}
+        {slide.processing ? "正在生成页面…" : "页面暂不可用"}
       </div>
     </ResponsiveSlideViewport>
   );
@@ -1299,7 +1289,7 @@ function PreviewPanel({
             bottomReserve={176}
           >
             <div className="flex h-full w-full items-center justify-center text-sm text-[#777985] 2xl:text-base">
-              Preview unavailable
+              暂无预览
             </div>
           </ResponsiveSlideViewport>
         )}
@@ -1357,7 +1347,7 @@ function ReviewPanel({
                     disabled={!selectedSlide || selectedSlide.processing}
                     className="h-8 rounded-[4px] px-2.5 text-[12px] font-medium text-black transition hover:bg-[#F6F6F9] disabled:cursor-not-allowed disabled:opacity-50 2xl:h-9 2xl:px-3 2xl:text-sm"
                   >
-                    Re-Construct
+                    重新识别
                   </button>
                   <span className="h-6 w-px bg-[#E8E8EE] 2xl:h-7" />
                   <button
@@ -1365,7 +1355,7 @@ function ReviewPanel({
                     onClick={handleDelete}
                     disabled={!isReady}
                     className="flex h-8 w-8 items-center justify-center rounded-[4px] text-black transition hover:bg-[#F6F6F9] disabled:cursor-not-allowed disabled:opacity-50 2xl:h-9 2xl:w-9"
-                    aria-label="Delete slide"
+                    aria-label="删除页面"
                   >
                     <Trash2 className="h-4 w-4 2xl:h-[18px] 2xl:w-[18px]" />
                   </button>
@@ -1396,9 +1386,9 @@ function SaveTemplateModal({
   isOpen,
   defaultName,
   isSaving,
-  title = "Save Template",
-  subtitle = "Give your template a name.",
-  submitLabel = "Save",
+  title = "保存模板",
+  subtitle = "为这套模板填写名称。",
+  submitLabel = "保存",
   onClose,
   onSave,
 }: {
@@ -1436,7 +1426,7 @@ function SaveTemplateModal({
           type="button"
           onClick={onClose}
           disabled={isSaving}
-          aria-label="Close"
+          aria-label="关闭"
           className="absolute -right-[54px] 2xl:-right-[62px] top-0 flex h-[46px] w-[46px] 2xl:h-[52px] 2xl:w-[52px] items-center justify-center rounded-full bg-white text-black shadow-sm disabled:opacity-50"
         >
           <X className="h-6 w-6 2xl:h-7 2xl:w-7" />
@@ -1460,25 +1450,25 @@ function SaveTemplateModal({
         <div className="space-y-4 2xl:space-y-5 px-[18px] 2xl:px-6 pb-[18px] 2xl:pb-6 pt-5 2xl:pt-6">
           <label className="block">
             <span className="mb-2 2xl:mb-2.5 block text-[12px] 2xl:text-sm font-medium text-[#25272F]">
-              Template Name
+              模板名称
             </span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               disabled={isSaving}
-              placeholder="e.g. Modern Tech Pitch Deck"
+              placeholder="例如：明亮童趣课堂"
               className="h-9 2xl:h-10 w-full rounded-[5px] border border-[#E1E2E8] bg-white px-3 2xl:px-4 text-[13px] 2xl:text-[15px] text-black outline-none placeholder:text-[#8C8E96] focus:border-[#B9ABFF]"
             />
           </label>
           <label className="block">
             <span className="mb-2 2xl:mb-2.5 block text-[12px] 2xl:text-sm font-medium text-[#25272F]">
-              Description
+              使用说明
             </span>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               disabled={isSaving}
-              placeholder="Briefly describe when or how this template should be used."
+              placeholder="简要说明这套模板适合什么场景。"
               rows={4}
               className="h-[86px] 2xl:h-[100px] w-full resize-none rounded-[5px] border border-[#E1E2E8] bg-white px-3 2xl:px-4 py-3 2xl:py-3.5 text-[13px] 2xl:text-[15px] text-black outline-none placeholder:text-[#8C8E96] focus:border-[#B9ABFF]"
             />
@@ -1491,6 +1481,7 @@ function SaveTemplateModal({
 
 const CustomTemplatePage = () => {
   const router = useRouter();
+  const [embedded, setEmbedded] = useState(false);
   const llmConfig = useSelector((state: RootState) => state.userConfig.llm_config);
   const [reviewSlideIndex, setReviewSlideIndex] = useState(0);
   const [templateModalMode, setTemplateModalMode] = useState<"create" | "save" | null>(null);
@@ -1503,6 +1494,10 @@ const CustomTemplatePage = () => {
   const [isAutoPreviewQueued, setIsAutoPreviewQueued] = useState(false);
   const googleFontLoadStartedRef = useRef(false);
   const autoPreviewStartedRef = useRef(false);
+
+  useEffect(() => {
+    setEmbedded(new URLSearchParams(window.location.search).get("embed") === "teachnova");
+  }, []);
 
   const {
     selectedFile,
@@ -1704,15 +1699,15 @@ const CustomTemplatePage = () => {
     const unavailableFontCount = data.unavailable_fonts?.length ?? 0;
     if (unavailableFontCount === 0) {
       notify.success(
-        "All fonts available",
-        "Preparing the slide preview automatically.",
+        "字体均可正常使用",
+        "正在自动准备页面预览。",
       );
       return;
     }
 
     notify.warning(
-      "Fonts need attention",
-      `${unavailableFontCount} font${unavailableFontCount === 1 ? "" : "s"} are unavailable. Upload exact font files or use the selected fallback fonts before continuing.`,
+      "部分字体需要处理",
+      `有 ${unavailableFontCount} 个字体不可用，请上传原字体文件或使用系统选择的替代字体。`,
     );
   }, [checkFonts, selectedFile]);
 
@@ -1720,8 +1715,8 @@ const CustomTemplatePage = () => {
     if (!selectedFile) return;
     if (hasPendingMissingFonts) {
       notify.warning(
-        "Missing fonts",
-        "Continuing without uploaded font files. Selected Google replacements will be applied.",
+        "将使用替代字体",
+        "未上传的字体会使用当前选择的替代字体。",
       );
     }
     const data = await fontUploadAndPreview(
@@ -1779,7 +1774,7 @@ const CustomTemplatePage = () => {
   const handleCreateTemplate = useCallback(
     async (name: string, description: string) => {
       if (!state.previewData) {
-        notify.error("Preview unavailable", "Create the slide preview before continuing.");
+        notify.error("预览不可用", "请先生成页面预览。",);
         return;
       }
 
@@ -1800,27 +1795,31 @@ const CustomTemplatePage = () => {
           description: description || null,
         });
         notify.success(
-          "Template generation started",
-          "You can track the template status from the Templates page.",
+          "模板已开始生成",
+          "可以在模板库中查看生成状态。",
         );
         setTemplateModalMode(null);
-        router.push("/templates?tab=custom");
+        if (embedded && document.referrer) {
+          window.top?.location.assign(new URL("/templates", document.referrer).toString());
+        } else {
+          router.push("/templates?tab=custom");
+        }
       } catch (error) {
         notify.error(
-          "Failed to create template",
-          error instanceof Error ? error.message : "An unexpected error occurred",
+          "模板创建失败",
+          error instanceof Error ? error.message : "发生了未知错误",
         );
       } finally {
         setIsSubmittingTemplate(false);
       }
     },
-    [router, selectedGoogleFontAssets, state.previewData],
+    [embedded, router, selectedGoogleFontAssets, state.previewData],
   );
 
   const handleSaveTemplate = useCallback(
     async (name: string, description: string) => {
       if (!state.templateId) {
-        notify.error("Template unavailable", "Generate the template before saving.");
+        notify.error("模板不可用", "请先完成模板生成。",);
         return;
       }
 
@@ -1830,13 +1829,13 @@ const CustomTemplatePage = () => {
           name,
           description: description || null,
         });
-        notify.success("Template saved", "The template was saved successfully.");
+        notify.success("模板已保存", "这套模板已经保存成功。",);
         setTemplateModalMode(null);
         router.push(`/template-preview?templateV2Id=${encodeURIComponent(state.templateId)}`);
       } catch (error) {
         notify.error(
-          "Failed to save template",
-          error instanceof Error ? error.message : "An unexpected error occurred",
+          "模板保存失败",
+          error instanceof Error ? error.message : "发生了未知错误",
         );
       } finally {
         setIsSubmittingTemplate(false);
@@ -1868,7 +1867,7 @@ const CustomTemplatePage = () => {
           disabled={state.isLoading || isSubmittingTemplate}
           fullWidth
         >
-          {isSubmittingTemplate ? "Creating Template..." : "Create Template"}
+          {isSubmittingTemplate ? "正在创建模板…" : "创建模板"}
         </GradientPillButton>
       );
     }
@@ -1880,7 +1879,7 @@ const CustomTemplatePage = () => {
           disabled={!generatedSlidesReady || state.isLoading || isSubmittingTemplate}
           fullWidth
         >
-          {generatedSlidesReady ? "Save as Template" : "Generating Template"}
+          {generatedSlidesReady ? "保存为模板" : "正在生成模板"}
         </GradientPillButton>
       );
     }
@@ -1898,7 +1897,7 @@ const CustomTemplatePage = () => {
   return (
     <div className="relative min-h-screen bg-white">
       <div className={""}>
-        <StudioTopBar activeStep={activeStep} />
+        <StudioTopBar activeStep={activeStep} embedded={embedded} />
 
         {showUpload ? (
           <UploadPanel
@@ -1954,13 +1953,13 @@ const CustomTemplatePage = () => {
         isOpen={isTemplateModalOpen}
         defaultName={defaultTemplateName}
         isSaving={isSubmittingTemplate}
-        title={isCreateTemplateModal ? "Create Template" : "Save Template"}
+        title={isCreateTemplateModal ? "创建模板" : "保存模板"}
         subtitle={
           isCreateTemplateModal
-            ? "Name this template before generation starts."
-            : "Give your template a name."
+            ? "开始生成前，请先为模板命名。"
+            : "为这套模板填写名称。"
         }
-        submitLabel={isCreateTemplateModal ? "Create" : "Save"}
+        submitLabel={isCreateTemplateModal ? "创建" : "保存"}
         onClose={() => {
           if (!isSubmittingTemplate) setTemplateModalMode(null);
         }}

@@ -12,8 +12,9 @@ from services.sprite_sheet_service import (
     crop_to_aspect_ratio,
 )
 from services.asset_trace_service import record_asset_generation_trace
+# Kept as a module export for compatibility with existing validation tests and
+# optional callers. The interactive generation path no longer blocks on OCR.
 from services.image_quality_service import materialize_and_validate_no_text
-from services.local_ocr_service import LocalOcrService
 from utils.asset_directory_utils import filesystem_image_path_to_app_data_url, normalize_slide_asset_url
 from utils.dict_utils import get_dict_at_path, set_dict_at_path
 from utils.process_slides import _set_asset_url, _uses_template_asset_fields
@@ -78,7 +79,6 @@ async def process_presentation_assets(
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
     generated_assets: list[ImageAsset] = []
-    ocr_service = LocalOcrService()
 
     for item in plan:
         last_error: Exception | None = None
@@ -92,11 +92,6 @@ async def process_presentation_assets(
             try:
                 result = await image_generation_service.generate_image(
                     ImagePrompt(prompt=_request_prompt(item))
-                )
-                result = await materialize_and_validate_no_text(
-                    result,
-                    image_generation_service.output_directory,
-                    ocr_service,
                 )
                 source_asset = result if isinstance(result, ImageAsset) else None
                 if item.generation_mode == "sprite-sheet":

@@ -1948,6 +1948,53 @@ async def stream_presentation(
         raise HTTPException(status_code=404, detail="Presentation not found")
     if presentation.generation_mode == "smart":
         return await _stream_smart_presentation(presentation, sql_session)
+
+    existing_slides = list(
+        await sql_session.scalars(
+            select(SlideModel)
+            .where(SlideModel.presentation == id)
+            .order_by(SlideModel.index)
+        )
+    )
+    if existing_slides:
+        # The stream URL starts paid generation. A browser refresh can replay
+        # that GET, so an already persisted deck must be treated as complete.
+        # Explicit regeneration belongs to a separate command, never refresh.
+        async def replay_existing_slides():
+            yield SSEResponse(
+                event="response",
+                data=json.dumps({"type": "chunk", "chunk": '{ "slides": [ '}),
+            ).to_string()
+            for index, slide in enumerate(existing_slides):
+                prefix = "," if index else ""
+                yield SSEResponse(
+                    event="response",
+                    data=json.dumps(
+                        {"type": "chunk", "chunk": prefix + slide.model_dump_json()}
+                    ),
+                ).to_string()
+            yield SSEResponse(
+                event="response",
+                data=json.dumps({"type": "chunk", "chunk": " ] }"}),
+            ).to_string()
+            response = PresentationWithSlides(
+                **_presentation_response_data(presentation),
+                slides=existing_slides,
+            )
+            yield SSECompleteResponse(
+                key="presentation",
+                value=response.model_dump(mode="json"),
+            ).to_string()
+
+        return StreamingResponse(
+            safe_sse_stream(
+                replay_existing_slides(),
+                logger=logger,
+                error_detail="Failed to load the saved presentation.",
+            ),
+            media_type="text/event-stream",
+        )
+
     if not presentation.structure:
         raise HTTPException(
             status_code=400,

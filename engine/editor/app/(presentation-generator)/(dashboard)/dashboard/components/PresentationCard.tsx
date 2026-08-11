@@ -48,8 +48,8 @@ export const PresentationCard = ({
     e.preventDefault();
     if (isUnsupported) {
       notify.warning(
-        "Unsupported presentation",
-        "This deck was created in an older Presenton version. Downgrade to a compatible version to open it."
+        "不支持的演示文稿",
+        "该演示文稿由旧版本创建，当前版本无法打开。"
       );
       return;
     }
@@ -75,13 +75,13 @@ export const PresentationCard = ({
         presentation_id: id,
         slide_count: presentation?.slides?.length || 0,
       });
-      notify.success("Presentation deleted", "The presentation was removed from your dashboard.");
+      notify.success("演示文稿已删除", "已从项目列表中移除。" );
       setShowDeleteDialog(false);
       if (onDeleted) {
         onDeleted(id);
       }
     } else {
-      notify.error("Could not delete presentation", response?.message || "Something went wrong while deleting the presentation.");
+      notify.error("无法删除演示文稿", response?.message || "删除演示文稿时发生错误。" );
     }
     setIsDeleting(false);
   };
@@ -97,12 +97,12 @@ export const PresentationCard = ({
         duplicate_presentation_id: duplicated?.id,
         slide_count: presentation?.slides?.length || 0,
       });
-      notify.success("Presentation duplicated", "A copy was added to your dashboard.");
+      notify.success("演示文稿已复制", "副本已加入项目列表。" );
       onDuplicated?.(duplicated);
     } catch (error) {
       notify.error(
-        "Could not duplicate presentation",
-        error instanceof Error ? error.message : "Something went wrong while duplicating the presentation."
+        "无法复制演示文稿",
+        error instanceof Error ? error.message : "复制演示文稿时发生错误。"
       );
     } finally {
       setIsDuplicating(false);
@@ -147,7 +147,7 @@ export const PresentationCard = ({
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F3FF] text-[#7A5AF8]">
                 <Archive className="h-[18px] w-[18px]" aria-hidden="true" />
               </span>
-              <p className="text-xs font-medium">Preview unavailable</p>
+              <p className="text-xs font-medium">暂无预览</p>
             </div>
           ) : useTemplateV2HtmlPreview ? (
             <TemplateV2HtmlSlidePreview
@@ -201,7 +201,7 @@ export const PresentationCard = ({
                       void handleDuplicate();
                     }}
                   >
-                    <p>{isDuplicating ? "Duplicating..." : "Duplicate"}</p>
+                    <p>{isDuplicating ? "正在复制…" : "复制"}</p>
                     {isDuplicating ? (
                       <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                     ) : (
@@ -217,7 +217,7 @@ export const PresentationCard = ({
                     setShowDeleteDialog(true);
                   }}
                 >
-                  <p>Delete</p>
+                  <p>删除</p>
                   <Trash className="w- h-4 text-red-500" />
                 </button>
               </PopoverContent>
@@ -249,12 +249,12 @@ export const PresentationCard = ({
                 <AlertTriangle className="h-6 w-6 text-red-500" />
               </div>
               <h3 className="mb-2 text-lg font-semibold text-[#191919]">
-                Delete Presentation?
+                删除演示文稿？
               </h3>
               <p className="text-sm leading-relaxed text-gray-500">
-                You are about to delete{" "}
+                即将删除{" "}
                 <span className="font-medium text-gray-700">&quot;{title}&quot;</span>.
-                This action cannot be undone.
+                此操作无法撤销。
               </p>
             </div>
             <div className="flex border-t border-gray-100">
@@ -263,7 +263,7 @@ export const PresentationCard = ({
                 disabled={isDeleting}
                 className="flex-1 px-4 py-3.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                取消
               </button>
               <button
                 onClick={() => void handleDelete()}
@@ -273,10 +273,10 @@ export const PresentationCard = ({
                 {isDeleting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Deleting...
+                    正在删除…
                   </>
                 ) : (
-                  "Delete"
+                  "删除"
                 )}
               </button>
             </div>

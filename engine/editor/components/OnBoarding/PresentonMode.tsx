@@ -1019,23 +1019,23 @@ const PresentonMode = ({
 
     return (
         <div className='w-full max-w-[660px] font-syne pb-10'>
-            <p className='px-2.5 py-0.5 w-fit text-[#7A5AF8] rounded-[50px]  border border-[#EDEEEF] text-[10px] font-medium mb-5 font-syne'>PRESENTON</p>
+            <p className='px-2.5 py-0.5 w-fit text-[#7A5AF8] rounded-[50px] border border-[#EDEEEF] text-[10px] font-medium mb-5 font-syne'>TEACHNOVA 幼教PPT</p>
             <div className=''>
 
                 <h2 className='mb-4 text-black text-[26px] font-normal font-unbounded '>
-                    {providerStep === 1 ? "Choose your text provider" : providerStep === 2 ? "Choose your image provider" : "Configure web search"}
+                    {providerStep === 1 ? "选择文本模型" : providerStep === 2 ? "选择图片模型" : "配置联网搜索"}
                 </h2>
                 <p className='text-[#000000CC] text-xl font-normal font-syne'>
                     {providerStep === 1
-                        ? "Start with ChatGPT, run a local model, or connect another AI provider."
+                        ? "选择用于生成大纲和页面内容的模型。"
                         : providerStep === 2
-                            ? "Choose how Presenton creates visuals, or continue without image generation."
-                            : "Add current web context to presentations, or continue with web search disabled."}
+                            ? "选择图片生成方式，也可以暂时关闭图片生成。"
+                            : "需要最新资料时启用联网搜索，也可以保持关闭。"}
                 </p>
             </div>
             <div className='flex items-center gap-2 bg-[#F0F3F9B2] rounded-[8px]  px-6 py-2.5 my-[54px]'>
                 <Info className='w-4 h-4 fill-[#003399] stroke-white' />
-                <p className='text-sm text-[#5F6062] font-medium'>Runs locally on your device. Your API keys and generation setup stay on your machine.</p>
+                <p className='text-sm text-[#5F6062] font-medium'>配置保存在本机，密钥不会暴露给浏览器外的第三方页面。</p>
             </div>
 
             {providerStep === 1 && <>
@@ -1053,9 +1053,9 @@ const PresentonMode = ({
                     </div>
                     <div className='w-full'>
 
-                        <h3 className="text-xl font-normal text-[#191919] pb-1.5">Text Generation Settings</h3>
+                        <h3 className="text-xl font-normal text-[#191919] pb-1.5">文本生成设置</h3>
                         <p className=" text-sm  text-gray-500">
-                            Choosing where text content comes from
+                            配置大纲和幻灯片文字所使用的模型
                         </p>
                     </div>
                 </div>
@@ -1071,11 +1071,11 @@ const PresentonMode = ({
                         </TabsTrigger>
                         <TabsTrigger value="local" className="h-12 gap-2 rounded-[8px] border border-transparent px-4 text-sm font-semibold text-[#5F6062] transition-all hover:text-[#191919] data-[state=active]:border-[#D9D6FE] data-[state=active]:bg-white data-[state=active]:text-[#191919] data-[state=active]:shadow-[0_8px_24px_rgba(16,19,35,0.08)]">
                             <Laptop className="h-4 w-4" />
-                            Local
+                            本地模型
                         </TabsTrigger>
                         <TabsTrigger value="other" className="h-12 gap-2 rounded-[8px] border border-transparent px-4 text-sm font-semibold text-[#5F6062] transition-all hover:text-[#191919] data-[state=active]:border-[#D9D6FE] data-[state=active]:bg-white data-[state=active]:text-[#191919] data-[state=active]:shadow-[0_8px_24px_rgba(16,19,35,0.08)]">
                             <Blocks className="h-4 w-4" />
-                            AI Providers
+                            其他模型
                         </TabsTrigger>
                     </TabsList>
                     <p className="mt-3 text-xs leading-relaxed text-gray-500">
@@ -1154,7 +1154,7 @@ const PresentonMode = ({
                     <div className="flex w-full flex-col justify-start">
 
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Select Text Provider
+                            选择文本服务
                         </label>
                         <Popover
                             open={openProviderSelect}
@@ -1186,7 +1186,7 @@ const PresentonMode = ({
                                 <Command>
                                     <CommandInput placeholder="Search provider..." />
                                     <CommandList className='hide-scrollbar'>
-                                        <CommandEmpty>No provider found.</CommandEmpty>
+                                        <CommandEmpty>未找到服务商</CommandEmpty>
                                         <CommandGroup >
                                             {OTHER_PROVIDERS.map(
                                                 (provider, index) => (
@@ -1263,7 +1263,7 @@ const PresentonMode = ({
                                         <label className="block text-sm font-medium capitalize text-gray-700 ">
                                             {providerApiKeyLabel}
                                         </label>
-                                        {llmConfig.LLM && LLM_PROVIDERS[llmConfig.LLM!]?.getApiKeyUrl && <a href={LLM_PROVIDERS[llmConfig.LLM!]?.getApiKeyUrl || ""} target='_blank' className='text-[#666666] text-xs font-normal flex items-center gap-1'>Get API Key <ArrowUpRight className='w-3.5 h-3.5' /></a>}
+                                        {llmConfig.LLM && LLM_PROVIDERS[llmConfig.LLM!]?.getApiKeyUrl && <a href={LLM_PROVIDERS[llmConfig.LLM!]?.getApiKeyUrl || ""} target='_blank' className='text-[#666666] text-xs font-normal flex items-center gap-1'>获取 API 密钥 <ArrowUpRight className='w-3.5 h-3.5' /></a>}
                                     </div>
 
                                     <div className="relative">
@@ -1310,7 +1310,7 @@ const PresentonMode = ({
                                             type="button"
                                             className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-gray-200 bg-[#F9F9FA] px-3 py-2.5 text-left text-sm font-medium text-gray-800 transition-colors hover:bg-gray-100"
                                         >
-                                            <span>Advanced settings</span>
+                                            <span>高级设置</span>
                                             <ChevronDown
                                                 className={cn(
                                                     "h-4 w-4 shrink-0 text-gray-600 transition-transform duration-200",
@@ -1507,9 +1507,9 @@ const PresentonMode = ({
                                             style={{ width: "var(--radix-popover-trigger-width)" }}
                                         >
                                             <Command>
-                                                <CommandInput placeholder="Search models..." />
+                                                <CommandInput placeholder="搜索模型" />
                                                 <CommandList>
-                                                    <CommandEmpty>No model found.</CommandEmpty>
+                                                    <CommandEmpty>未找到模型</CommandEmpty>
                                                     <CommandGroup>
                                                         {availableModels.map((model, index) => (
                                                             <CommandItem
@@ -1591,9 +1591,9 @@ const PresentonMode = ({
                     </div>
                     <div>
 
-                        <h3 className="text-xl font-normal text-[#191919] ">Image Generation Settings</h3>
+                        <h3 className="text-xl font-normal text-[#191919] ">图片生成设置</h3>
                         <p className=" text-sm  text-gray-500">
-                            Choosing where images come from
+                            配置幻灯片图片所使用的模型
                         </p>
                     </div>
                 </div>
@@ -1602,7 +1602,7 @@ const PresentonMode = ({
                         {/* Image Provider Selection */}
                         <div className="w-full">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Select Image Provider
+                                选择图片服务
                             </label>
                             <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
                                 {imageProviderRows.map((row, rowIndex) => (
@@ -1675,8 +1675,8 @@ const PresentonMode = ({
                             <Search className="h-9 w-9 text-[#5146E5]" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-normal text-[#191919]">Web Search Settings</h3>
-                            <p className="text-sm text-gray-500">Bring current information into generated presentations</p>
+                            <h3 className="text-xl font-normal text-[#191919]">联网搜索设置</h3>
+                            <p className="text-sm text-gray-500">为演示文稿补充最新公开资料</p>
                         </div>
                     </div>
                     {llmConfig.WEB_GROUNDING && <div className="space-y-4">
@@ -1744,10 +1744,10 @@ const PresentonMode = ({
                     onClick={handleContinue}
                     className='border font-syne border-[#EDEEEF] bg-[#7C51F8]  rounded-[58px] px-5 py-2.5 text-white text-xs  font-semibold'>
                     {providerStep === 1
-                        ? "Continue to image provider"
+                        ? "下一步：图片模型"
                         : providerStep === 2
-                            ? llmConfig.DISABLE_IMAGE_GENERATION ? "Disable image generation & Continue" : "Continue to web search"
-                            : llmConfig.WEB_GROUNDING ? "Save & Finish" : "Disable web search & Finish"}
+                            ? llmConfig.DISABLE_IMAGE_GENERATION ? "关闭图片生成并继续" : "下一步：联网搜索"
+                            : llmConfig.WEB_GROUNDING ? "保存并完成" : "关闭联网搜索并完成"}
                 </button>
             </div>
         </div>

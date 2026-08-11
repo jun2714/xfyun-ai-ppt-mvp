@@ -65,7 +65,7 @@ export function EditorActionBar({
         title="Add blank slide"
         type="button"
       >
-        <span>Blank</span>
+        <span>空白页</span>
         <Plus className="h-4 w-4 shrink-0" />
       </button>
       <div className="h-[20px] w-0 shrink-0 border-l border-[#EDEEEF]" />

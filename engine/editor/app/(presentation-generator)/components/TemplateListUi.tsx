@@ -105,7 +105,7 @@ export const TemplateListCard = memo(function TemplateListCard({
       role="button"
       tabIndex={0}
       aria-pressed={isSelected}
-      aria-label={`${showArrow ? "Open" : "Select"} ${template.name} template`}
+      aria-label={`${showArrow ? "打开" : "选择"}${template.name}模板`}
       className={cn(
         "group relative overflow-hidden border bg-white shadow-none outline-none transition-all duration-200",
         selectionPage ? "rounded-[12px]" : "rounded-[22px]",
@@ -210,7 +210,7 @@ export const ProcessingTemplateListCard = memo(
   }: {
     task: TemplateCreateTaskResponse;
   }) {
-    const templateName = task.data?.name?.trim() || "New template";
+  const templateName = task.data?.name?.trim() || "新模板";
     const createdLayouts = task.data?.created_layouts ?? 0;
     const remainingLayouts = task.data?.remaining_layouts ?? 0;
     const totalLayouts = createdLayouts + remainingLayouts;
@@ -229,7 +229,7 @@ export const ProcessingTemplateListCard = memo(
     const progressLabel =
       totalLayouts > 0
         ? `${createdLayouts} of ${totalLayouts} layouts`
-        : "Preparing layouts";
+      : "正在准备布局";
 
     return (
       <Card
@@ -353,7 +353,7 @@ export function TemplateTabSwitcher({
   );
 }
 
-export function TemplateListLoadingState({ message = "Loading templates..." }: { message?: string }) {
+export function TemplateListLoadingState({ message = "正在加载模板…" }: { message?: string }) {
   return (
     <div className="flex items-center justify-center py-12 font-syne">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -362,7 +362,7 @@ export function TemplateListLoadingState({ message = "Loading templates..." }: {
   );
 }
 
-export function TemplateListEmptyState({ message = "No templates available." }: { message?: string }) {
+export function TemplateListEmptyState({ message = "暂无可用模板。" }: { message?: string }) {
   return (
     <div className="flex items-center justify-center py-12 font-syne text-gray-600">
       {message}

@@ -181,7 +181,7 @@ function DashboardHeader() {
     <header className="sticky top-0 z-50 ml-7 mr-[9px] flex h-[105px] items-center justify-between border-b border-[#EDEEEF] bg-white px-1 max-lg:h-auto max-lg:min-h-[105px] max-lg:flex-col max-lg:items-start max-lg:gap-4 max-lg:py-5">
       <div className="flex w-[504.392px] max-w-full shrink-0 items-center gap-3.5 max-xl:w-auto">
         <h1 className="whitespace-nowrap font-syne text-[22px] font-medium leading-normal tracking-[-0.66px] text-[#101323]">
-          Dashboard
+          项目
         </h1>
       </div>
 
@@ -223,64 +223,9 @@ function DashboardHeader() {
                 ))}
               </span>
               <span className="font-syne text-sm font-medium leading-[17.6px] tracking-[0.56px]">
-                Settings
+                模型设置
               </span>
             </Link>
-
-            <DashboardHeaderDivider />
-
-
-
-            <Link
-              href={DISCORD_INVITE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={`${dashboardHeaderPill} h-[29.6px] gap-[8.8px] p-1.5`}
-              onClick={() =>
-                trackEvent(MixpanelEvent.Navigation, {
-                  from: pathname,
-                  to: DISCORD_INVITE_URL,
-                  source: "dashboard_header_discord",
-                })
-              }
-            >
-              <Image
-                src={dashboardHeaderAsset("discord.svg")}
-                alt=""
-                aria-hidden="true"
-                width={18}
-                height={18}
-                className="h-[17.6px] w-[17.6px] shrink-0"
-              />
-              <span className="font-syne text-sm font-normal leading-normal tracking-[-0.14px] text-[#191919]">
-                Join Discord
-              </span>
-            </Link>
-            <DashboardHeaderDivider />
-            <Link
-              href={GITHUB_REPOSITORY_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={`${dashboardHeaderPill} h-[29.6px] gap-[8.8px] p-1.5`}
-              onClick={() =>
-                trackEvent(MixpanelEvent.Navigation, {
-                  from: pathname,
-                  to: GITHUB_REPOSITORY_URL,
-                  source: "dashboard_header_github",
-                })
-              }
-            >
-              <Image
-                src={dashboardHeaderAsset("github.svg")}
-                alt=""
-                aria-hidden="true"
-                width={18}
-                height={18}
-                className="h-[17.6px] w-[17.6px] shrink-0"
-              />
-
-            </Link>
-
 
           </div>
 
@@ -406,12 +351,12 @@ const DashboardPage: React.FC = () => {
       const message =
         creationError instanceof Error
           ? creationError.message
-          : "Something went wrong while creating the presentation.";
+          : "创建演示文稿时发生错误。";
       trackEvent(MixpanelEvent.Dashboard_Blank_Presentation_Create_Failed, {
         pathname,
         error_message: sanitizeAnalyticsError(creationError),
       });
-      notify.error("Could not create blank presentation", message);
+      notify.error("无法创建空白演示文稿", message);
     } finally {
       blankPresentationRequestInFlight.current = false;
       setIsCreatingBlankPresentation(false);
@@ -437,7 +382,7 @@ const DashboardPage: React.FC = () => {
       <DashboardHeader />
       <section className="relative z-10 overflow-visible pb-0 pl-3 pr-3 pt-[17px] sm:pl-6 sm:pr-[9px]">
         <h2 className="w-full font-syne text-[16px] font-medium leading-[normal] text-[#191919]">
-          Actions
+          快捷操作
         </h2>
         <div className="mt-[18px] flex flex-wrap items-start gap-4">
           <Link
@@ -449,7 +394,7 @@ const DashboardPage: React.FC = () => {
               })
             }
             className="group/action relative z-50 block w-[304.5px] max-w-full cursor-pointer overflow-visible rounded-[10.8px] bg-white outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8] focus-visible:ring-offset-4"
-            aria-label="Create presentation"
+            aria-label="创建演示文稿"
           >
             <FloatingActionCards />
 
@@ -459,7 +404,7 @@ const DashboardPage: React.FC = () => {
               className="relative z-10 h-[89.983px] w-[304.5px] max-w-full rounded-[10.8px] bg-white object-cover"
             />
             <span className="absolute inset-0 z-20 flex items-center justify-center text-center font-syne text-sm font-medium text-[#191919]">
-              Create Presentation
+              创建演示文稿
             </span>
           </Link>
 
@@ -469,18 +414,18 @@ const DashboardPage: React.FC = () => {
             disabled={isCreatingBlankPresentation}
             aria-busy={isCreatingBlankPresentation}
             className="group relative z-50 flex h-[89.983px] w-[304.5px] max-w-full items-center overflow-hidden rounded-[10.8px] border border-[#EDEEEF] bg-[linear-gradient(135deg,#FAFAFF_0%,#F3F0FF_100%)] px-5 text-left outline-none transition hover:border-[#CFC7FF] hover:shadow-[0_8px_22px_rgba(81,70,229,0.12)] focus-visible:ring-2 focus-visible:ring-[#7A5AF8] focus-visible:ring-offset-4 disabled:cursor-not-allowed disabled:opacity-70"
-            aria-label="Create blank presentation"
+            aria-label="创建空白演示文稿"
           >
             <span className="flex min-w-0 flex-col pr-3">
               <span className="font-syne text-sm font-medium text-[#191919]">
                 {isCreatingBlankPresentation
-                  ? "Creating presentation"
-                  : "Blank Presentation"}
+                  ? "正在创建演示"
+                  : "空白演示文稿"}
               </span>
               <span className="mt-1 text-[11px] leading-[14px] text-[#777387]">
                 {isCreatingBlankPresentation
-                  ? "Preparing your canvas"
-                  : "Start from scratch"}
+                  ? "正在准备画布"
+                  : "从空白页面开始"}
               </span>
             </span>
             <BlankPresentationGraphic loading={isCreatingBlankPresentation} />
@@ -490,14 +435,14 @@ const DashboardPage: React.FC = () => {
       <section className="relative z-10 mt-[46px] pl-3 pr-3 sm:pl-6 sm:pr-[9px]">
         <div className="mb-[14px] flex items-center justify-between gap-4">
           <h2 className="font-syne text-[16px] font-medium leading-[normal] text-[#191919]">
-            Decks
+            演示文稿
           </h2>
           <div className="flex items-center gap-[17px]">
             <div className="flex items-center rounded-[4px] border border-[#EDEEEF] p-1">
               <button
                 type="button"
                 onClick={() => setDeckViewMode("grid")}
-                aria-label="Grid view"
+                aria-label="网格视图"
                 aria-pressed={deckViewMode === "grid"}
                 className={`flex items-center rounded px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8] ${deckViewMode === "grid" ? "bg-[#F6F6F9]" : "hover:bg-[#FAFAFC]"}`}
               >
@@ -506,7 +451,7 @@ const DashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeckViewMode("list")}
-                aria-label="List view"
+                aria-label="列表视图"
                 aria-pressed={deckViewMode === "list"}
                 className={`flex items-center rounded px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8] ${deckViewMode === "list" ? "bg-[#F6F6F9]" : "hover:bg-[#FAFAFC]"}`}
               >

@@ -6,10 +6,11 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:web": "pnpm --filter @sparkdeck/web dev",
     "dev:engine": "node scripts/dev-engine.mjs",
     "setup:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-engine.ps1",
-    "build": "npm --prefix engine/editor run build",
-    "typecheck": "npm --prefix engine/editor exec -- tsc --noEmit",
+    "build": "pnpm --filter @sparkdeck/web build && npm --prefix engine/editor run build",
+    "typecheck": "pnpm --filter @sparkdeck/web typecheck && npx --prefix engine/editor tsc --noEmit -p engine/editor/tsconfig.json",
     "verify": "pnpm build && pnpm typecheck && pnpm test",
     "test": "npm --prefix engine/editor test"
   },

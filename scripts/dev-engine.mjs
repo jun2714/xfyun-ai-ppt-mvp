@@ -27,9 +27,9 @@ const shared = {
   APP_DATA_DIRECTORY: dataDirectory,
   TEMP_DIRECTORY: tempDirectory,
   DISABLE_AUTH: "true",
-  // Local development runs as the administrator, so the built-in settings
-  // page is the single place to configure text and image providers.
-  CAN_CHANGE_KEYS: source.CAN_CHANGE_KEYS || "true",
+  // Provider credentials are owned by the server-side .env. The embedded
+  // editor must never expose or rewrite them in the browser.
+  CAN_CHANGE_KEYS: "false",
   LLM: "custom",
   CUSTOM_LLM_URL: source.DMX_API_BASE_URL || "https://www.dmxapi.cn/v1",
   CUSTOM_LLM_API_KEY: source.DMX_API_KEY || "",
@@ -42,6 +42,10 @@ const shared = {
   OPENAI_COMPAT_IMAGE_API_KEY: source.DMX_API_KEY || "",
   OPENAI_COMPAT_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "",
   ENGINE_MAX_SCHEMA_RETRIES: source.ENGINE_MAX_SCHEMA_RETRIES || "1",
+  // DMX/OpenAI-compatible gateways do not all emit identical structured
+  // streaming events. Non-streaming structured calls preserve the same JSON
+  // schema contract and avoid losing a paid response after HTTP 200.
+  ENGINE_FORCE_NON_STREAM_STRUCTURED: source.ENGINE_FORCE_NON_STREAM_STRUCTURED || "true",
   MIGRATE_DATABASE_ON_STARTUP: source.MIGRATE_DATABASE_ON_STARTUP || "true",
   NEXT_PUBLIC_FAST_API: "http://127.0.0.1:8000",
   FAST_API_INTERNAL_URL: "http://127.0.0.1:8000",
@@ -61,7 +65,7 @@ if (localBrowser) {
 
 const children = [
   spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "false"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),
-  spawn("npm", ["run", "dev", "--", "-p", "5173"], { cwd: resolve(root, "engine/editor"), env: { ...shared, NEXT_PUBLIC_URL: "http://127.0.0.1:5173" }, stdio: "inherit", shell: process.platform === "win32" })
+  spawn("npm", ["run", "dev", "--", "-p", "5001"], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
 ];
 
 const stop = () => children.forEach((child) => child.kill());

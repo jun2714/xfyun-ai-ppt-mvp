@@ -29,6 +29,9 @@ CLIENT_DISCONNECT_POLL_SECONDS = 0.1
 LLM_CALL_TIMEOUT_SECONDS = max(
     1.0, float(os.getenv("ENGINE_LLM_TIMEOUT_SECONDS", "120"))
 )
+FORCE_NON_STREAM_STRUCTURED = (
+    os.getenv("ENGINE_FORCE_NON_STREAM_STRUCTURED", "false").lower() == "true"
+)
 DisconnectChecker = Callable[[], Awaitable[bool]]
 TextChunkCallback = Callable[[str], Awaitable[None]]
 
@@ -75,7 +78,9 @@ async def _generate_structured_content(
     text_chunk_callback: Optional[TextChunkCallback] = None,
     **kwargs: Any,
 ) -> Optional[dict]:
-    if disconnect_checker is None and text_chunk_callback is None:
+    if FORCE_NON_STREAM_STRUCTURED or (
+        disconnect_checker is None and text_chunk_callback is None
+    ):
         # OpenAI-compatible gateways can finish billing a response while their
         # local client adapter still waits for the request to close. Without a
         # boundary here, one stalled adapter blocks every later slide forever.

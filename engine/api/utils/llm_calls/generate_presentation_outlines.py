@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+import json
 import logging
 from typing import Optional
 
@@ -22,6 +23,7 @@ from utils.llm_config import get_llm_config
 from utils.llm_provider import get_model
 from utils.llm_utils import (
     DisconnectChecker,
+    generate_structured_with_schema_retries,
     get_generate_kwargs,
     serialize_structured_content,
     stream_generate_events,
@@ -364,38 +366,53 @@ async def generate_ppt_outline(
             json_schema=outline_schema,
             strict=False,
         )
-        emitted_content = False
-        async for event in stream_generate_events(
-            client,
-            disconnect_checker=disconnect_checker,
-            **get_generate_kwargs(
-                model=model,
-                messages=get_messages(
-                    content,
-                    n_slides,
-                    language,
-                    additional_context,
-                    tone,
-                    verbosity,
-                    instructions,
-                    include_title_slide,
-                    include_table_of_contents,
+        messages = get_messages(
+            content,
+            n_slides,
+            language,
+            additional_context,
+            tone,
+            verbosity,
+            instructions,
+            include_title_slide,
+            include_table_of_contents,
+        )
+        if use_search_tool:
+            emitted_content = False
+            async for event in stream_generate_events(
+                client,
+                disconnect_checker=disconnect_checker,
+                **get_generate_kwargs(
+                    model=model,
+                    messages=messages,
+                    response_format=response_format,
+                    tools=[WebSearchTool()],
+                    stream=True,
                 ),
-                response_format=response_format,
-                tools=([WebSearchTool()] if use_search_tool else None),
-                stream=True,
-            ),
-        ):
-            if getattr(event, "type", None) == "content":
-                chunk = getattr(event, "chunk", None)
-                if chunk:
-                    emitted_content = True
-                    yield chunk
-            elif (
-                isinstance(event, ResponseStreamCompletionChunk) and not emitted_content
             ):
-                final_content = serialize_structured_content(event.content)
-                if final_content:
-                    yield final_content
+                if getattr(event, "type", None) == "content":
+                    chunk = getattr(event, "chunk", None)
+                    if chunk:
+                        emitted_content = True
+                        yield chunk
+                elif (
+                    isinstance(event, ResponseStreamCompletionChunk)
+                    and not emitted_content
+                ):
+                    final_content = serialize_structured_content(event.content)
+                    if final_content:
+                        yield final_content
+        else:
+            structured_content = await generate_structured_with_schema_retries(
+                client,
+                model,
+                messages=messages,
+                response_format=response_format,
+                json_schema=outline_schema,
+                strict=False,
+                validate_schema=True,
+                disconnect_checker=disconnect_checker,
+            )
+            yield json.dumps(structured_content, ensure_ascii=False)
     except Exception as e:
         yield handle_llm_client_exceptions(e)
