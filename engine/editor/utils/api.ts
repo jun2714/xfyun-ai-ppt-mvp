@@ -84,6 +84,14 @@ function shouldUseDirectFastApiOriginInBrowser(): boolean {
   );
 }
 
+function normalizeFastApiOrigin(raw: string): string {
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+}
+
 function resolveBackendPathForRuntime(path: string): string {
   const normalizedPath = withLeadingSlash(path);
 
@@ -100,7 +108,8 @@ function resolveBackendPathForRuntime(path: string): string {
 
 // Utility to get the backend base URL.
 // - Browser web/docker: same origin (nginx proxy).
-// - Browser electron or query override: direct FastAPI origin.
+// - Browser electron, local web with NEXT_PUBLIC_FAST_API, or query override:
+//   direct FastAPI origin (avoids Next.js proxy timeouts on large PPTX imports).
 // - Server-side: configured FastAPI origin fallback.
 export function getFastAPIUrl(): string {
   const queryFastApiUrl = getFastApiUrlFromQuery();
@@ -109,13 +118,17 @@ export function getFastAPIUrl(): string {
   }
 
   if (typeof window !== "undefined") {
-    if (isElectronRuntime()) {
-      return getConfiguredFastApiUrl() || window.location.origin;
+    if (isElectronRuntime() || shouldUseConfiguredFastApiInLocalWeb()) {
+      const configured = getConfiguredFastApiUrl();
+      if (configured) {
+        return normalizeFastApiOrigin(configured);
+      }
     }
     return window.location.origin;
   }
 
-  return getConfiguredFastApiUrl() || "http://127.0.0.1:5001";
+  const configured = getConfiguredFastApiUrl();
+  return configured ? normalizeFastApiOrigin(configured) : "http://127.0.0.1:5001";
 }
 
 // Utility to construct API URL for Docker/web runtime.
