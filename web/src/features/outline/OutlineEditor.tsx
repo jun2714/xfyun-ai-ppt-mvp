@@ -1,73 +1,151 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, localizeError } from "../../api/client";
 import type { Presentation, PresentationOutline, TemplateItem } from "../../entities/types";
 import { ArrowLeftIcon, PlusIcon, SparklesIcon } from "../../components/Icons";
+import {
+  outlineTitle,
+  toEditableOutlineContent,
+  toStoredOutlineContent,
+} from "./outlineFormat";
 
-function outlineTitle(content: string) {
-  return content.split("\n").find((line) => line.trim())?.replace(/^#+\s*/, "").trim() || "未命名页面";
-}
+const DEFAULT_TEMPLATE_ID = "general";
 
-function templateName(template: TemplateItem) {
-  const names: Record<string, string> = {
-    general: "自动匹配",
-    swift: "简洁明快",
-    standard: "标准清晰",
-    momentum: "活力节奏",
-    modern: "现代简约",
-    executive: "清晰专业",
-    dynamic: "灵动多彩",
-  };
-  return names[template.id] ?? (/\?{2,}|�/.test(template.name) ? "通用模板" : template.name);
-}
-
-export function OutlineEditor({ presentation, initial, templates }: { presentation: Presentation; initial: PresentationOutline; templates: TemplateItem[] }) {
+export function OutlineEditor({
+  presentation,
+  initial,
+  templates: _templates,
+  streaming = false,
+  status = "",
+  activeSlideIndex = null,
+}: {
+  presentation: Presentation;
+  initial: PresentationOutline;
+  templates: TemplateItem[];
+  streaming?: boolean;
+  status?: string;
+  activeSlideIndex?: number | null;
+}) {
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
-  const [template, setTemplate] = useState("general");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const current = outline.slides[selected] ?? { content: "" };
-  const title = useMemo(() => outlineTitle(outline.slides[0]?.content ?? presentation.title ?? "演示文稿"), [outline, presentation.title]);
 
-  const updateCurrent = (content: string) => setOutline((value) => ({
-    slides: value.slides.map((slide, index) => index === selected ? { content } : slide),
-  }));
-  const addSlide = () => setOutline((value) => ({ slides: [...value.slides, { content: "## 新页面\n\n在这里填写面向观众的内容。" }] }));
+  useEffect(() => {
+    setOutline(initial);
+    if (streaming && typeof activeSlideIndex === "number") {
+      setSelected(activeSlideIndex);
+    }
+  }, [initial, streaming, activeSlideIndex]);
+
+  const slides = outline.slides;
+  const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
+  const current = slides[selectedSafe] ?? { content: "" };
+  const editableContent = toEditableOutlineContent(current.content);
+  const title = useMemo(
+    () => outlineTitle(slides[0]?.content ?? presentation.title ?? "演示文稿"),
+    [slides, presentation.title],
+  );
+
+  const updateCurrent = (content: string) => {
+    if (streaming) return;
+    setOutline((value) => ({
+      slides: value.slides.map((slide, index) =>
+        index === selectedSafe ? { content: toStoredOutlineContent(content) } : slide,
+      ),
+    }));
+  };
+
+  const addSlide = () => {
+    if (streaming) return;
+    setOutline((value) => ({
+      slides: [...value.slides, { content: "## 新页面\n\n在这里填写面向观众的内容。" }],
+    }));
+  };
+
   const removeSlide = () => {
-    if (outline.slides.length <= 1) return;
-    setOutline((value) => ({ slides: value.slides.filter((_, index) => index !== selected) }));
+    if (streaming || outline.slides.length <= 1) return;
+    setOutline((value) => ({ slides: value.slides.filter((_, index) => index !== selectedSafe) }));
     setSelected((value) => Math.max(0, value - 1));
   };
+
   const confirm = async () => {
+    if (streaming) return;
     setSaving(true); setError("");
     try {
-      const saved = await api<PresentationOutline>(`/outlines/${presentation.id}`, { method: "PUT", body: JSON.stringify(outline) });
-      await api("/presentation/prepare", { method: "POST", body: JSON.stringify({
-        presentation_id: presentation.id,
-        outlines: saved.slides,
-        layout: template,
-        title,
-      }) });
-      // Presenton already owns streaming, partial-slide rendering and asset updates.
-      // Entering it directly avoids maintaining a second, lossy SSE state machine here.
+      const stored: PresentationOutline = {
+        slides: outline.slides.map((slide) => ({
+          content: toStoredOutlineContent(toEditableOutlineContent(slide.content)),
+        })),
+      };
+      const saved = await api<PresentationOutline>(`/outlines/${presentation.id}`, {
+        method: "PUT",
+        body: JSON.stringify(stored),
+      });
+      await api("/presentation/prepare", {
+        method: "POST",
+        body: JSON.stringify({
+          presentation_id: presentation.id,
+          outlines: saved.slides,
+          layout: DEFAULT_TEMPLATE_ID,
+          title,
+        }),
+      });
       location.href = `/presentations/${presentation.id}/edit?stream=true`;
-    } catch (cause) { setError(localizeError(cause)); setSaving(false); }
+    } catch (cause) {
+      setError(localizeError(cause));
+      setSaving(false);
+    }
   };
 
   return <main className="outline-layout">
-    <aside className="outline-sidebar"><header><a href="/"><ArrowLeftIcon />返回首页</a><b>大纲</b></header>
-      <div className="outline-list">{outline.slides.map((slide, index) => <button className={index === selected ? "active" : ""} key={`${index}-${outlineTitle(slide.content)}`} onClick={() => setSelected(index)}>
-        <span>{String(index + 1).padStart(2, "0")}</span><b>{outlineTitle(slide.content)}</b>
-      </button>)}</div>
-      <button className="add-page" onClick={addSlide}><PlusIcon />添加一页</button>
+    <aside className="outline-sidebar">
+      <header><a href="/"><ArrowLeftIcon />返回首页</a><b>大纲</b></header>
+      <div className="outline-list">
+        {slides.map((slide, index) => {
+          const writing = streaming && activeSlideIndex === index;
+          return <button
+            className={`${index === selectedSafe ? "active" : ""} ${writing ? "writing" : ""}`}
+            key={`${index}-${outlineTitle(slide.content)}`}
+            onClick={() => setSelected(index)}
+          >
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <b>{outlineTitle(slide.content) || (writing ? "正在生成…" : "未命名页面")}</b>
+          </button>;
+        })}
+        {streaming && slides.length === 0 && (
+          <div className="outline-stream-hint">正在构思页面结构…</div>
+        )}
+      </div>
+      {!streaming && <button className="add-page" onClick={addSlide}><PlusIcon />添加一页</button>}
     </aside>
-    <section className="outline-canvas"><header><div><h1>{title}</h1></div>
-      <div className="outline-actions"><label>模板<select value={template} onChange={(event) => setTemplate(event.target.value)}><option value="general">自动匹配</option>{templates.filter((item) => item.id !== "general").map((item) => <option value={item.id} key={item.id}>{templateName(item)} · {item.layout_count} 种布局</option>)}</select></label><a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">预览模板</a><button className="primary" disabled={saving} onClick={() => void confirm()}><SparklesIcon />{saving ? "正在准备…" : "确认生成"}</button></div>
-    </header>
-    <div className="outline-editor-flat"><div className="page-meta"><b>第 {selected + 1} 页</b><span>{current.content.length} 字</span><button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button></div>
-      <textarea value={current.content} onChange={(event) => updateCurrent(event.target.value)} />
-    </div>
-    {error && <div className="error-line">{error}</div>}
+    <section className="outline-canvas">
+      <header>
+        <div>
+          <h1>{title || "正在生成大纲"}</h1>
+          {streaming && <p className="outline-stream-status">{status || "AI 正在逐页生成大纲"}</p>}
+        </div>
+        <div className="outline-actions">
+          <button className="primary" disabled={saving || streaming} onClick={() => void confirm()}>
+            <SparklesIcon />{streaming ? "生成中…" : saving ? "正在准备…" : "确认生成"}
+          </button>
+        </div>
+      </header>
+      <div className={`outline-editor-flat ${streaming && activeSlideIndex === selectedSafe ? "is-streaming" : ""}`}>
+        <div className="page-meta">
+          <b>第 {selectedSafe + 1} 页</b>
+          <span>{editableContent.length} 字</span>
+          {streaming
+            ? <span className="stream-badge">{activeSlideIndex === selectedSafe ? "正在写入" : "已生成"}</span>
+            : <button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button>}
+        </div>
+        <textarea
+          value={editableContent}
+          readOnly={streaming}
+          onChange={(event) => updateCurrent(event.target.value)}
+          placeholder={streaming ? "内容正在流入…" : "在这里编辑本页大纲"}
+        />
+      </div>
+      {error && <div className="error-line">{error}</div>}
     </section>
   </main>;
 }

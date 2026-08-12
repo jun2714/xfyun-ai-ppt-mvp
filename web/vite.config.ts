@@ -6,9 +6,21 @@ export default defineConfig({
   server: {
     strictPort: true,
     proxy: {
-      "/api/v1/ppt": "http://127.0.0.1:8000",
-      "/app_data": "http://127.0.0.1:8000",
-      "/static": "http://127.0.0.1:8000"
-    }
-  }
+      // Keep SSE outline/slide streams unbuffered for progressive UI updates.
+      "/api/v1/ppt": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        timeout: 0,
+        proxyTimeout: 0,
+      },
+      "/app_data": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+      "/static": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
+  },
 });

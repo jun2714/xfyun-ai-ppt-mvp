@@ -960,7 +960,7 @@ class PresentationChatMemoryLayer:
         await self._sql_session.refresh(new_slide)
         return {
             "added": True,
-            "message": f"Blank slide added at index {insert_index}.",
+            "message": f"已在第 {insert_index + 1} 页添加空白页。",
             "slide_id": str(new_slide.id),
             "index": insert_index,
             "slide_number": insert_index + 1,
@@ -1068,7 +1068,7 @@ class PresentationChatMemoryLayer:
             return {
                 "saved": True,
                 "action": "replaced",
-                "message": f"Slide at index {target_index} was replaced successfully.",
+                "message": f"第 {target_index + 1} 页已成功替换。",
                 "slide_id": str(existing_slide.id),
                 "index": target_index,
             }
@@ -1144,7 +1144,7 @@ class PresentationChatMemoryLayer:
         return {
             "saved": True,
             "action": "created",
-            "message": f"New slide saved at index {insert_index}.",
+            "message": f"新页面已保存到第 {insert_index + 1} 页。",
             "slide_id": str(new_slide.id),
             "index": insert_index,
             "shifted_slide_count": len(slides_to_shift),
@@ -1337,7 +1337,7 @@ class PresentationChatMemoryLayer:
         if not slide:
             return {
                 "deleted": False,
-                "message": f"No slide found at index {target_index}.",
+                "message": f"未找到第 {target_index + 1} 页。",
                 "index": target_index,
             }
 
@@ -1416,7 +1416,7 @@ class PresentationChatMemoryLayer:
 
         return {
             "deleted": True,
-            "message": f"Slide at index {target_index} was deleted successfully.",
+            "message": f"第 {target_index + 1} 页已成功删除。",
             "deleted_slide_id": deleted_slide_id,
             "index": target_index,
             "shifted_slide_count": shifted_count,

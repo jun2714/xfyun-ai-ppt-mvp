@@ -88,9 +88,10 @@ def get_system_prompt(
 
     slide_outline_structure = (
         "Each slide content:\n"
-        "   - Must have a ## title.\n"
-        # "   - Must have content either in multiple bullet points or table or both.\n"
-        "   - Must be in Markdown format.\n"
+        "   - First line must be a plain-text title without markdown markers "
+        "(no #, ##, **, or __).\n"
+        "   - Following lines are audience-facing body text.\n"
+        "   - Prefer plain text and bullet lines starting with '- '.\n"
         "   - Don't use **bold** and __italic__ text.\n"
         "   - First slide title must be the same as the presentation title."
         "\nFor each slide also populate content_contract from that slide's actual "
@@ -108,10 +109,15 @@ def get_system_prompt(
         "or transitions.\n"
         "Do not write phrases such as 'create a bar chart', 'add an image', 'use a table', "
         "'show this as', 'the slide should', or 'place on the left'.\n"
-        "Use visual requests only to choose content for the specified slide. For any chart "
-        "request, include a compact Markdown table with labels and numeric values. Preserve "
-        "supplied data; otherwise add a small relevant dataset and clearly label estimates "
-        "or illustrative values. Do not mention the chart instruction.\n"
+        "For kindergarten, preschool, craft, story, and classroom teaching decks: prefer "
+        "concrete scene descriptions children can understand. Do NOT invent attendance/"
+        "count statistics tables just to enable charts. Use short bullets or comparisons "
+        "instead, and mark content_contract.requires_images=true with media_role="
+        "framed-image when a scene illustration would help.\n"
+        "Only when the user explicitly asks for a chart/graph, include a compact Markdown "
+        "table with labels and numeric values. Preserve supplied data; otherwise add a "
+        "small relevant dataset and clearly label estimates or illustrative values. Do "
+        "not mention the chart instruction.\n"
         "Example: for 'slide 5: create a bar chart of Q1 10, Q2 20', slide 5 may contain "
         "a title and a Quarter | Value Markdown table, but it must not contain the words "
         "'create a bar chart'.\n"
@@ -377,32 +383,37 @@ async def generate_ppt_outline(
             include_title_slide,
             include_table_of_contents,
         )
-        if use_search_tool:
-            emitted_content = False
-            async for event in stream_generate_events(
-                client,
-                disconnect_checker=disconnect_checker,
-                **get_generate_kwargs(
-                    model=model,
-                    messages=messages,
-                    response_format=response_format,
-                    tools=[WebSearchTool()],
-                    stream=True,
-                ),
+        # Always stream outline tokens so the product UI can render pages as they
+        # arrive. Schema retries stay on the non-stream helpers used by slide
+        # generation; outlines are repaired with dirtyjson after the SSE ends.
+        emitted_content = False
+        async for event in stream_generate_events(
+            client,
+            disconnect_checker=disconnect_checker,
+            **get_generate_kwargs(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+                tools=[WebSearchTool()] if use_search_tool else None,
+                stream=True,
+            ),
+        ):
+            if getattr(event, "type", None) == "content":
+                chunk = getattr(event, "chunk", None)
+                if chunk:
+                    emitted_content = True
+                    yield chunk
+            elif (
+                isinstance(event, ResponseStreamCompletionChunk)
+                and not emitted_content
             ):
-                if getattr(event, "type", None) == "content":
-                    chunk = getattr(event, "chunk", None)
-                    if chunk:
-                        emitted_content = True
-                        yield chunk
-                elif (
-                    isinstance(event, ResponseStreamCompletionChunk)
-                    and not emitted_content
-                ):
-                    final_content = serialize_structured_content(event.content)
-                    if final_content:
-                        yield final_content
-        else:
+                final_content = serialize_structured_content(event.content)
+                if final_content:
+                    yield final_content
+                    emitted_content = True
+
+        if not emitted_content:
+            # Fallback when a gateway only returns a non-stream structured body.
             structured_content = await generate_structured_with_schema_retries(
                 client,
                 model,

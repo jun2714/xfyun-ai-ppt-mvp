@@ -1,17 +1,17 @@
 {
   "id": "modern",
-  "name": "Modern",
-  "description": "Clean, contemporary layouts with generous whitespace, confident typography, and bold visual accents for a polished presentation.",
+  "name": "温馨绘本",
+  "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
   "thumbnail": "static/thumbnail.png",
   "icon_type": "bold",
   "merged_components": [
     {
       "id": "plain_background",
-      "description": "Full canvas background layer providing a clean white base behind all slide content and imagery.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "plain_background",
-          "description": "Full canvas background layer providing a clean white base behind all slide content and imagery.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -48,7 +48,7 @@
         },
         {
           "id": "slide_background",
-          "description": "Full-canvas neutral background layer that provides the clean base for all foreground slide elements.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -85,7 +85,7 @@
         },
         {
           "id": "full_bleed_canvas",
-          "description": "A plain full-slide background layer that provides a neutral canvas beneath all foreground content blocks.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -122,7 +122,7 @@
         },
         {
           "id": "plain_background",
-          "description": "Full canvas white background establishes a clean base behind all content and decorative accent elements.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -159,7 +159,7 @@
         },
         {
           "id": "background_layer",
-          "description": "Full-slide plain background layer providing the white canvas behind all foreground content.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -196,7 +196,7 @@
         },
         {
           "id": "background_canvas",
-          "description": "Full-slide white canvas establishing the clean background area beneath all foreground layout components.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -235,11 +235,11 @@
     },
     {
       "id": "intro_text_block",
-      "description": "Left aligned introduction area with prominent heading, short accent rule, and multiline supporting copy beneath it.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "intro_text_block",
-          "description": "Left aligned introduction area with prominent heading, short accent rule, and multiline supporting copy beneath it.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 40,
             "y": 228.62
@@ -290,7 +290,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "primary_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 5,
                   "rotation": 0
@@ -367,13 +367,13 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "温馨绘本",
                   "max_length": 300,
                   "min_length": 84,
                   "rotation": 0
                 }
               ],
-              "name": "intro_stack"
+              "name": "温馨绘本"
             }
           ]
         }
@@ -381,11 +381,11 @@
     },
     {
       "id": "attribution_card",
-      "description": "Compact bordered information card positioned below the intro text, combining a small badge with two stacked text lines.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "attribution_card",
-          "description": "Compact bordered information card positioned below the intro text, combining a small badge with two stacked text lines.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 40,
             "y": 412.37
@@ -504,7 +504,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_initials",
+                      "name": "温馨绘本",
                       "max_length": 2,
                       "min_length": 1
                     }
@@ -549,7 +549,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_primary_text",
+                        "name": "温馨绘本",
                         "max_length": 29,
                         "min_length": 4,
                         "position": {
@@ -587,7 +587,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_secondary_text",
+                        "name": "温馨绘本",
                         "max_length": 32,
                         "min_length": 7,
                         "position": {
@@ -598,12 +598,12 @@
                         "__presenton_manual_position": true
                       }
                     ],
-                    "name": "card_text_stack",
+                    "name": "温馨绘本",
                     "max_children": 2,
                     "min_children": 2
                   }
                 ],
-                "name": "card_content_row",
+                "name": "温馨绘本",
                 "max_children": 2,
                 "min_children": 2
               },
@@ -615,11 +615,11 @@
     },
     {
       "id": "right_image_panel",
-      "description": "Large portrait image panel anchored on the right side, balancing the text-heavy column with a visual focal area.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "right_image_panel",
-          "description": "Large portrait image panel anchored on the right side, balancing the text-heavy column with a visual focal area.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 702.41,
             "y": 64
@@ -645,7 +645,7 @@
                 "br": 4
               },
               "decorative": false,
-              "name": "main_visual_panel",
+              "name": "温馨绘本",
               "is_icon": false,
               "focus_x": 49.15,
               "focus_y": 50.19,
@@ -657,11 +657,11 @@
     },
     {
       "id": "slide_canvas",
-      "description": "Full-slide background with a thin accent rule aligned along the bottom edge.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "slide_canvas",
-          "description": "Full-slide background with a thin accent rule aligned along the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -729,7 +729,7 @@
         },
         {
           "id": "base_canvas",
-          "description": "Full slide background with a slim horizontal accent line anchored to the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -803,7 +803,7 @@
         },
         {
           "id": "page_background",
-          "description": "Full-slide white canvas with a thin accent rule along the bottom edge for visual grounding.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -873,7 +873,7 @@
         },
         {
           "id": "background_accent",
-          "description": "Full-slide white background with a thin blue accent rule anchored along the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -945,11 +945,11 @@
     },
     {
       "id": "left_text_column",
-      "description": "Left-aligned title and paragraph block occupying the open whitespace beside the card grid.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "left_text_column",
-          "description": "Left-aligned title and paragraph block occupying the open whitespace beside the card grid.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 66,
             "y": 162.25
@@ -989,7 +989,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "温馨绘本",
               "max_length": 30,
               "min_length": 10,
               "rotation": 0
@@ -1026,7 +1026,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 374,
               "min_length": 145
             }
@@ -1034,7 +1034,7 @@
         },
         {
           "id": "left_text_block",
-          "description": "Left-aligned content area with a prominent heading above a wider explanatory paragraph block.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 170.25
@@ -1074,7 +1074,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 33,
               "min_length": 4,
               "rotation": 0
@@ -1111,7 +1111,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_paragraph",
+              "name": "温馨绘本",
               "max_length": 281,
               "min_length": 141
             }
@@ -1119,7 +1119,7 @@
         },
         {
           "id": "left_text_stack",
-          "description": "Left column text stack with a large headline above a compact descriptive paragraph.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 70.87,
             "y": 224.73
@@ -1159,7 +1159,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "温馨绘本",
               "max_length": 29,
               "min_length": 10
             },
@@ -1195,7 +1195,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 320,
               "min_length": 40,
               "rotation": 0
@@ -1204,7 +1204,7 @@
         },
         {
           "id": "right_text_stack",
-          "description": "A right-side vertical text stack with a prominent heading above a longer descriptive paragraph block.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 704,
             "y": 97.75
@@ -1256,7 +1256,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stack_heading",
+                  "name": "温馨绘本",
                   "max_length": 31,
                   "min_length": 11,
                   "position": {
@@ -1294,12 +1294,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stack_body",
+                  "name": "温馨绘本",
                   "max_length": 626,
                   "min_length": 237
                 }
               ],
-              "name": "right_copy_column",
+              "name": "温馨绘本",
               "max_children": 2,
               "min_children": 2,
               "rotation": 0
@@ -1310,11 +1310,11 @@
     },
     {
       "id": "component_group_1",
-      "description": "Grouped slide elements for reusable template content.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "component_group_1",
-          "description": "Grouped slide elements for reusable template content.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 648,
             "y": 72.75
@@ -1322,7 +1322,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "grid_1",
+              "name": "温馨绘本",
               "position": {
                 "x": 0,
                 "y": 0
@@ -1397,7 +1397,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -1432,7 +1432,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 22,
                       "min_length": 3,
                       "rotation": 0
@@ -1500,13 +1500,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "温馨绘本",
                       "max_length": 113,
                       "min_length": 20,
                       "rotation": 0
                     }
                   ],
-                  "name": "card_item"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -1567,7 +1567,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -1602,7 +1602,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 22,
                       "min_length": 3,
                       "rotation": 0
@@ -1670,13 +1670,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "温馨绘本",
                       "max_length": 113,
                       "min_length": 20,
                       "rotation": 0
                     }
                   ],
-                  "name": "card_item"
+                  "name": "温馨绘本"
                 }
               ],
               "max_children": 6
@@ -1687,11 +1687,11 @@
     },
     {
       "id": "stacked_card_column",
-      "description": "Right-side vertical card column containing repeated rounded panels with an icon, title, and supporting text.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "stacked_card_column",
-          "description": "Right-side vertical card column containing repeated rounded panels with an icon, title, and supporting text.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 704,
             "y": 45
@@ -1767,7 +1767,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -1802,7 +1802,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -1838,12 +1838,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -1899,7 +1899,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -1934,7 +1934,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -1970,12 +1970,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -2031,7 +2031,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -2066,7 +2066,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -2102,12 +2102,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -2163,7 +2163,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -2198,7 +2198,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -2234,15 +2234,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "card_stack",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 4
             }
@@ -2252,11 +2252,11 @@
     },
     {
       "id": "bottom_accent_bar",
-      "description": "Thin horizontal accent bar spanning the bottom edge as a simple decorative slide footer.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "bottom_accent_bar",
-          "description": "Thin horizontal accent bar spanning the bottom edge as a simple decorative slide footer.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -2299,7 +2299,7 @@
         },
         {
           "id": "bottom_accent_line",
-          "description": "Thin full-width colored strip aligned to the bottom edge as a simple finishing accent.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -2342,7 +2342,7 @@
         },
         {
           "id": "bottom_accent_rule",
-          "description": "Thin full-width horizontal rule anchored to the bottom edge as a simple decorative accent.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -2387,11 +2387,11 @@
     },
     {
       "id": "right_chart_panel",
-      "description": "Rounded right-side panel containing a single line chart centered with padding inside the panel.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "right_chart_panel",
-          "description": "Rounded right-side panel containing a single line chart centered with padding inside the panel.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 616.97,
             "y": 200
@@ -2464,7 +2464,7 @@
               ],
               "series": [
                 {
-                  "name": "value",
+                  "name": "温馨绘本",
                   "values": [
                     60,
                     42,
@@ -2479,14 +2479,14 @@
               "y_axis_grid": true,
               "grid_color": "#E4EAF3",
               "decorative": false,
-              "name": "panel_line_chart",
+              "name": "温馨绘本",
               "rotation": 0
             }
           ]
         },
         {
           "id": "left_visual_card",
-          "description": "Rounded card in the lower-left column containing a single line chart with integrated axes and legend.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 238
@@ -2559,7 +2559,7 @@
               ],
               "series": [
                 {
-                  "name": "Artificial Intelligence",
+                  "name": "温馨绘本",
                   "values": [
                     5,
                     10,
@@ -2568,7 +2568,7 @@
                   ]
                 },
                 {
-                  "name": "Internet of Things",
+                  "name": "温馨绘本",
                   "values": [
                     10,
                     20,
@@ -2577,7 +2577,7 @@
                   ]
                 },
                 {
-                  "name": "Other Technology",
+                  "name": "温馨绘本",
                   "values": [
                     8,
                     15,
@@ -2591,7 +2591,7 @@
               "y_axis_grid": true,
               "grid_color": "#E5E7EB",
               "decorative": false,
-              "name": "line_chart_area",
+              "name": "温馨绘本",
               "rotation": 0
             }
           ]
@@ -2600,11 +2600,11 @@
     },
     {
       "id": "left_title_area",
-      "description": "Large headline area positioned in the upper-left column above the visual content card.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "left_title_area",
-          "description": "Large headline area positioned in the upper-left column above the visual content card.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 162
@@ -2644,7 +2644,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "温馨绘本",
               "max_length": 28,
               "min_length": 8,
               "rotation": 0
@@ -2653,7 +2653,7 @@
         },
         {
           "id": "header_title_area",
-          "description": "Large left-aligned heading area placed near the upper edge with generous whitespace beneath.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 80
@@ -2693,7 +2693,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "温馨绘本",
               "max_length": 40,
               "min_length": 8
             }
@@ -2701,7 +2701,7 @@
         },
         {
           "id": "upper_left_heading",
-          "description": "Large bold two-line heading placed in the upper-left, leaving generous whitespace above the card row.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 122
@@ -2743,7 +2743,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 39,
               "min_length": 4,
               "rotation": 0
@@ -2752,7 +2752,7 @@
         },
         {
           "id": "header_block",
-          "description": "Large left-aligned heading area positioned near the upper-left with generous whitespace above the card grid.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 80
@@ -2792,7 +2792,7 @@
                 }
               ],
               "decorative": false,
-              "name": "header_text",
+              "name": "温馨绘本",
               "max_length": 41,
               "min_length": 9
             }
@@ -2802,11 +2802,11 @@
     },
     {
       "id": "right_copy_area",
-      "description": "Wide paragraph block placed at the top of the right column, aligned above the table.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "right_copy_area",
-          "description": "Wide paragraph block placed at the top of the right column, aligned above the table.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 617,
             "y": 31.5
@@ -2844,7 +2844,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "温馨绘本",
               "max_length": 406,
               "min_length": 143
             }
@@ -2854,11 +2854,11 @@
     },
     {
       "id": "right_table_area",
-      "description": "Large rounded table block filling the right column beneath the paragraph with two aligned data columns.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "right_table_area",
-          "description": "Large rounded table block filling the right column beneath the paragraph with two aligned data columns.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 617,
             "y": 193.5
@@ -3376,7 +3376,7 @@
                 ]
               ],
               "decorative": false,
-              "name": "two_column_table",
+              "name": "温馨绘本",
               "max_columns": 2,
               "min_columns": 1,
               "max_rows": 8,
@@ -3723,11 +3723,11 @@
     },
     {
       "id": "left_image_block",
-      "description": "A large rectangular media area aligned left of center, leaving broad whitespace around the slide edges.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "left_image_block",
-          "description": "A large rectangular media area aligned left of center, leaving broad whitespace around the slide edges.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 152
@@ -3747,7 +3747,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "cover",
               "decorative": false,
-              "name": "left_media_image",
+              "name": "温馨绘本",
               "is_icon": false
             }
           ]
@@ -3756,11 +3756,11 @@
     },
     {
       "id": "paired_mosaic_grid",
-      "description": "Two matching mosaic blocks arranged horizontally, each combining alternating image and text tiles.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "paired_mosaic_grid",
-          "description": "Two matching mosaic blocks arranged horizontally, each combining alternating image and text tiles.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 112,
             "y": 224
@@ -3826,7 +3826,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "upper_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -3849,7 +3849,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "lower_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -3917,7 +3917,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 18,
                   "min_length": 9
                 },
@@ -3953,7 +3953,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_body",
+                  "name": "温馨绘本",
                   "max_length": 124,
                   "min_length": 62
                 },
@@ -3989,7 +3989,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 10,
                   "rotation": 0
@@ -4026,12 +4026,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 }
               ],
-              "name": "left_mosaic_block",
+              "name": "温馨绘本",
               "position": {
                 "x": 0,
                 "y": 0
@@ -4097,7 +4097,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "upper_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -4120,7 +4120,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "lower_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -4188,7 +4188,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 16,
                   "min_length": 8
                 },
@@ -4224,7 +4224,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 },
@@ -4260,7 +4260,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 10,
                   "rotation": 0
@@ -4297,12 +4297,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 }
               ],
-              "name": "right_mosaic_block",
+              "name": "温馨绘本",
               "position": {
                 "x": 544,
                 "y": 0
@@ -4314,11 +4314,11 @@
     },
     {
       "id": "four_card_grid",
-      "description": "Four evenly spaced vertical cards align in one row, each containing an image, centered heading, and paragraph.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "four_card_grid",
-          "description": "Four evenly spaced vertical cards align in one row, each containing an image, centered heading, and paragraph.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 250
@@ -4427,7 +4427,7 @@
                         "br": 6
                       },
                       "decorative": false,
-                      "name": "card_photo",
+                      "name": "温馨绘本",
                       "is_icon": false
                     },
                     {
@@ -4464,7 +4464,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 40,
                       "min_length": 5,
                       "rotation": 0
@@ -4501,13 +4501,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "温馨绘本",
                       "max_length": 170,
                       "min_length": 54,
                       "rotation": 0
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -4595,7 +4595,7 @@
                         "br": 6
                       },
                       "decorative": false,
-                      "name": "card_photo",
+                      "name": "温馨绘本",
                       "is_icon": false
                     },
                     {
@@ -4632,7 +4632,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 40,
                       "min_length": 5,
                       "rotation": 0
@@ -4669,16 +4669,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "温馨绘本",
                       "max_length": 170,
                       "min_length": 54,
                       "rotation": 0
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "card_grid",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 2,
               "justify_items": "flex-start"
@@ -4689,11 +4689,11 @@
     },
     {
       "id": "left_feature_column",
-      "description": "Left column combining a large heading, wide visual block, and supporting body paragraph beneath it.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "left_feature_column",
-          "description": "Left column combining a large heading, wide visual block, and supporting body paragraph beneath it.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 63.75
@@ -4733,7 +4733,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 18,
               "min_length": 6
             },
@@ -4794,11 +4794,11 @@
                   "data": "/static/images/replaceable_template_image.png",
                   "fit": "cover",
                   "decorative": false,
-                  "name": "wide_feature_visual",
+                  "name": "温馨绘本",
                   "is_icon": false
                 }
               ],
-              "name": "wide_visual_frame"
+              "name": "温馨绘本"
             },
             {
               "type": "text",
@@ -4832,7 +4832,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 473,
               "min_length": 197
             }
@@ -4842,11 +4842,11 @@
     },
     {
       "id": "right_metric_stack",
-      "description": "Right column containing four vertically stacked metric cards with colored labels, headline values, and explanatory text.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "right_metric_stack",
-          "description": "Right column containing four vertically stacked metric cards with colored labels, headline values, and explanatory text.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 616.95,
             "y": 35.75
@@ -4940,7 +4940,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "温馨绘本",
                       "max_length": 28,
                       "min_length": 14
                     },
@@ -4978,7 +4978,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "温馨绘本",
                       "max_length": 41,
                       "min_length": 6
                     },
@@ -5014,13 +5014,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "温馨绘本",
                       "max_length": 237,
                       "min_length": 80,
                       "rotation": 0
                     }
                   ],
-                  "name": "compact_metric_card"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -5094,7 +5094,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "温馨绘本",
                       "max_length": 28,
                       "min_length": 14
                     },
@@ -5132,7 +5132,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "温馨绘本",
                       "max_length": 41,
                       "min_length": 6
                     },
@@ -5168,16 +5168,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "温馨绘本",
                       "max_length": 237,
                       "min_length": 80,
                       "rotation": 0
                     }
                   ],
-                  "name": "compact_metric_card"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "metric_card_stack",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 2,
               "rotation": 0
@@ -5188,11 +5188,11 @@
     },
     {
       "id": "indexed_card_grid",
-      "description": "Two-column grid of compact horizontal entries, each pairing a square number badge with a rounded information card.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "variants": [
         {
           "id": "indexed_card_grid",
-          "description": "Two-column grid of compact horizontal entries, each pairing a square number badge with a rounded information card.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 201.59
@@ -5283,7 +5283,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -5350,7 +5350,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -5382,18 +5382,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -5465,7 +5465,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -5532,7 +5532,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -5564,18 +5564,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -5647,7 +5647,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -5714,7 +5714,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -5746,18 +5746,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -5829,7 +5829,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -5896,7 +5896,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -5928,18 +5928,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6011,7 +6011,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6078,7 +6078,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -6110,18 +6110,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6193,7 +6193,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6260,7 +6260,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -6292,18 +6292,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6375,7 +6375,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6442,7 +6442,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -6474,18 +6474,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6557,7 +6557,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6624,7 +6624,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -6656,18 +6656,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6739,7 +6739,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6806,7 +6806,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -6838,18 +6838,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6921,7 +6921,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -6988,7 +6988,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -7020,23 +7020,23 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "entry_grid",
+              "name": "温馨绘本",
               "max_children": 10,
               "min_children": 2
             }
@@ -7048,11 +7048,11 @@
   "layouts": [
     {
       "id": "title_slide",
-      "description": "A split cover slide with a left text introduction, compact attribution card, and a large rounded image panel on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "plain_background",
-          "description": "Full canvas background layer providing a clean white base behind all slide content and imagery.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -7089,7 +7089,7 @@
         },
         {
           "id": "intro_text_block",
-          "description": "Left aligned introduction area with prominent heading, short accent rule, and multiline supporting copy beneath it.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 40,
             "y": 228.62
@@ -7140,7 +7140,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "primary_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 5,
                   "rotation": 0
@@ -7217,19 +7217,19 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "温馨绘本",
                   "max_length": 300,
                   "min_length": 84,
                   "rotation": 0
                 }
               ],
-              "name": "intro_stack"
+              "name": "温馨绘本"
             }
           ]
         },
         {
           "id": "attribution_card",
-          "description": "Compact bordered information card positioned below the intro text, combining a small badge with two stacked text lines.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 40,
             "y": 412.37
@@ -7348,7 +7348,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_initials",
+                      "name": "温馨绘本",
                       "max_length": 2,
                       "min_length": 1
                     }
@@ -7393,7 +7393,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_primary_text",
+                        "name": "温馨绘本",
                         "max_length": 29,
                         "min_length": 4,
                         "position": {
@@ -7431,7 +7431,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_secondary_text",
+                        "name": "温馨绘本",
                         "max_length": 32,
                         "min_length": 7,
                         "position": {
@@ -7442,12 +7442,12 @@
                         "__presenton_manual_position": true
                       }
                     ],
-                    "name": "card_text_stack",
+                    "name": "温馨绘本",
                     "max_children": 2,
                     "min_children": 2
                   }
                 ],
-                "name": "card_content_row",
+                "name": "温馨绘本",
                 "max_children": 2,
                 "min_children": 2
               },
@@ -7457,7 +7457,7 @@
         },
         {
           "id": "right_image_panel",
-          "description": "Large portrait image panel anchored on the right side, balancing the text-heavy column with a visual focal area.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 702.41,
             "y": 64
@@ -7483,7 +7483,7 @@
                 "br": 4
               },
               "decorative": false,
-              "name": "main_visual_panel",
+              "name": "温馨绘本",
               "is_icon": false,
               "focus_x": 49.15,
               "focus_y": 50.19,
@@ -7496,11 +7496,11 @@
     },
     {
       "id": "title_description_bullet_points_grid_with_icon",
-      "description": "A split slide with a large text panel on the left and a feature card grid on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "slide_canvas",
-          "description": "Full-slide background with a thin accent rule aligned along the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -7568,7 +7568,7 @@
         },
         {
           "id": "left_text_column",
-          "description": "Left-aligned title and paragraph block occupying the open whitespace beside the card grid.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 66,
             "y": 162.25
@@ -7608,7 +7608,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "温馨绘本",
               "max_length": 30,
               "min_length": 10,
               "rotation": 0
@@ -7645,7 +7645,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 374,
               "min_length": 145
             }
@@ -7653,7 +7653,7 @@
         },
         {
           "id": "component_group_1",
-          "description": "Grouped slide elements for reusable template content.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 648,
             "y": 72.75
@@ -7661,7 +7661,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "grid_1",
+              "name": "温馨绘本",
               "position": {
                 "x": 0,
                 "y": 0
@@ -7736,7 +7736,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -7771,7 +7771,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 22,
                       "min_length": 3,
                       "rotation": 0
@@ -7839,13 +7839,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "温馨绘本",
                       "max_length": 113,
                       "min_length": 20,
                       "rotation": 0
                     }
                   ],
-                  "name": "card_item"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -7906,7 +7906,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -7941,7 +7941,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 22,
                       "min_length": 3,
                       "rotation": 0
@@ -8009,13 +8009,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "温馨绘本",
                       "max_length": 113,
                       "min_length": 20,
                       "rotation": 0
                     }
                   ],
-                  "name": "card_item"
+                  "name": "温馨绘本"
                 }
               ],
               "max_children": 6
@@ -8027,11 +8027,11 @@
     },
     {
       "id": "title_description_bullet_points_list_with_icon",
-      "description": "A split slide with a large text block on the left and stacked rounded information cards on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "slide_background",
-          "description": "Full-canvas neutral background layer that provides the clean base for all foreground slide elements.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -8068,7 +8068,7 @@
         },
         {
           "id": "left_text_block",
-          "description": "Left-aligned content area with a prominent heading above a wider explanatory paragraph block.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 170.25
@@ -8108,7 +8108,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 33,
               "min_length": 4,
               "rotation": 0
@@ -8145,7 +8145,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_paragraph",
+              "name": "温馨绘本",
               "max_length": 281,
               "min_length": 141
             }
@@ -8153,7 +8153,7 @@
         },
         {
           "id": "stacked_card_column",
-          "description": "Right-side vertical card column containing repeated rounded panels with an icon, title, and supporting text.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 704,
             "y": 45
@@ -8229,7 +8229,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -8264,7 +8264,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -8300,12 +8300,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -8361,7 +8361,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -8396,7 +8396,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -8432,12 +8432,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -8493,7 +8493,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -8528,7 +8528,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -8564,12 +8564,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -8625,7 +8625,7 @@
                       "fit": "fill",
                       "color": "#234CD9",
                       "decorative": false,
-                      "name": "card_icon",
+                      "name": "温馨绘本",
                       "is_icon": true
                     },
                     {
@@ -8660,7 +8660,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 36,
                       "min_length": 5
                     },
@@ -8696,15 +8696,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_description",
+                      "name": "温馨绘本",
                       "max_length": 109,
                       "min_length": 48
                     }
                   ],
-                  "name": "card_panel"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "card_stack",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 4
             }
@@ -8712,7 +8712,7 @@
         },
         {
           "id": "bottom_accent_bar",
-          "description": "Thin horizontal accent bar spanning the bottom edge as a simple decorative slide footer.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -8758,11 +8758,11 @@
     },
     {
       "id": "title_description_chart",
-      "description": "Split slide with a left-aligned text block, rounded chart panel on the right, and a thin bottom accent rule.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "base_canvas",
-          "description": "Full slide background with a slim horizontal accent line anchored to the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -8836,7 +8836,7 @@
         },
         {
           "id": "left_text_stack",
-          "description": "Left column text stack with a large headline above a compact descriptive paragraph.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 70.87,
             "y": 224.73
@@ -8876,7 +8876,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "温馨绘本",
               "max_length": 29,
               "min_length": 10
             },
@@ -8912,7 +8912,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 320,
               "min_length": 40,
               "rotation": 0
@@ -8921,7 +8921,7 @@
         },
         {
           "id": "right_chart_panel",
-          "description": "Rounded right-side panel containing a single line chart centered with padding inside the panel.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 616.97,
             "y": 200
@@ -8994,7 +8994,7 @@
               ],
               "series": [
                 {
-                  "name": "value",
+                  "name": "温馨绘本",
                   "values": [
                     60,
                     42,
@@ -9009,7 +9009,7 @@
               "y_axis_grid": true,
               "grid_color": "#E4EAF3",
               "decorative": false,
-              "name": "panel_line_chart",
+              "name": "温馨绘本",
               "rotation": 0
             }
           ]
@@ -9018,11 +9018,11 @@
     },
     {
       "id": "title_description_chart_table",
-      "description": "Split layout with a large left title and chart card balanced by explanatory text and a metric table on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "page_background",
-          "description": "Full-slide white canvas with a thin accent rule along the bottom edge for visual grounding.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -9092,7 +9092,7 @@
         },
         {
           "id": "left_title_area",
-          "description": "Large headline area positioned in the upper-left column above the visual content card.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 162
@@ -9132,7 +9132,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "温馨绘本",
               "max_length": 28,
               "min_length": 8,
               "rotation": 0
@@ -9141,7 +9141,7 @@
         },
         {
           "id": "left_visual_card",
-          "description": "Rounded card in the lower-left column containing a single line chart with integrated axes and legend.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 238
@@ -9215,7 +9215,7 @@
               ],
               "series": [
                 {
-                  "name": "Artificial Intelligence",
+                  "name": "温馨绘本",
                   "values": [
                     5,
                     10,
@@ -9224,7 +9224,7 @@
                   ]
                 },
                 {
-                  "name": "Internet of Things",
+                  "name": "温馨绘本",
                   "values": [
                     10,
                     20,
@@ -9233,7 +9233,7 @@
                   ]
                 },
                 {
-                  "name": "Other Technology",
+                  "name": "温馨绘本",
                   "values": [
                     8,
                     15,
@@ -9247,14 +9247,14 @@
               "y_axis_grid": true,
               "grid_color": "#E5E7EB",
               "decorative": false,
-              "name": "line_chart_area",
+              "name": "温馨绘本",
               "rotation": 0
             }
           ]
         },
         {
           "id": "right_copy_area",
-          "description": "Wide paragraph block placed at the top of the right column, aligned above the table.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 617,
             "y": 31.5
@@ -9292,7 +9292,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "温馨绘本",
               "max_length": 406,
               "min_length": 143
             }
@@ -9300,7 +9300,7 @@
         },
         {
           "id": "right_table_area",
-          "description": "Large rounded table block filling the right column beneath the paragraph with two aligned data columns.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 617,
             "y": 193.5
@@ -9620,7 +9620,7 @@
                 ]
               ],
               "decorative": false,
-              "name": "two_column_table",
+              "name": "温馨绘本",
               "max_columns": 2,
               "min_columns": 1,
               "min_rows": 3,
@@ -9632,11 +9632,11 @@
     },
     {
       "id": "title_description_image",
-      "description": "A clean split slide with a large image on the left and stacked title plus paragraph text on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "full_bleed_canvas",
-          "description": "A plain full-slide background layer that provides a neutral canvas beneath all foreground content blocks.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -9673,7 +9673,7 @@
         },
         {
           "id": "left_image_block",
-          "description": "A large rectangular media area aligned left of center, leaving broad whitespace around the slide edges.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 152
@@ -9693,14 +9693,14 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "cover",
               "decorative": false,
-              "name": "left_media_image",
+              "name": "温馨绘本",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_stack",
-          "description": "A right-side vertical text stack with a prominent heading above a longer descriptive paragraph block.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 704,
             "y": 97.75
@@ -9752,7 +9752,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stack_heading",
+                  "name": "温馨绘本",
                   "max_length": 31,
                   "min_length": 11,
                   "position": {
@@ -9790,12 +9790,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stack_body",
+                  "name": "温馨绘本",
                   "max_length": 626,
                   "min_length": 237
                 }
               ],
-              "name": "right_copy_column",
+              "name": "温馨绘本",
               "max_children": 2,
               "min_children": 2,
               "rotation": 0
@@ -9806,11 +9806,11 @@
     },
     {
       "id": "title_list_of_cards_with_alternating_image",
-      "description": "A clean slide with a large header, side-by-side mosaic card groups, and a thin footer accent line.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "plain_background",
-          "description": "Full canvas white background establishes a clean base behind all content and decorative accent elements.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -9847,7 +9847,7 @@
         },
         {
           "id": "header_title_area",
-          "description": "Large left-aligned heading area placed near the upper edge with generous whitespace beneath.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 80
@@ -9887,7 +9887,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "温馨绘本",
               "max_length": 40,
               "min_length": 8
             }
@@ -9895,7 +9895,7 @@
         },
         {
           "id": "paired_mosaic_grid",
-          "description": "Two matching mosaic blocks arranged horizontally, each combining alternating image and text tiles.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 112,
             "y": 224
@@ -9961,7 +9961,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "upper_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -9984,7 +9984,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "lower_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -10052,7 +10052,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 18,
                   "min_length": 9
                 },
@@ -10088,7 +10088,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_body",
+                  "name": "温馨绘本",
                   "max_length": 124,
                   "min_length": 62
                 },
@@ -10124,7 +10124,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 10,
                   "rotation": 0
@@ -10161,12 +10161,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 }
               ],
-              "name": "left_mosaic_block",
+              "name": "温馨绘本",
               "position": {
                 "x": 0,
                 "y": 0
@@ -10232,7 +10232,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "upper_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -10255,7 +10255,7 @@
                     "br": 0
                   },
                   "decorative": false,
-                  "name": "lower_image_tile",
+                  "name": "温馨绘本",
                   "is_icon": false
                 },
                 {
@@ -10323,7 +10323,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 16,
                   "min_length": 8
                 },
@@ -10359,7 +10359,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "upper_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 },
@@ -10395,7 +10395,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_heading",
+                  "name": "温馨绘本",
                   "max_length": 19,
                   "min_length": 10,
                   "rotation": 0
@@ -10432,12 +10432,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "lower_text_body",
+                  "name": "温馨绘本",
                   "max_length": 113,
                   "min_length": 57
                 }
               ],
-              "name": "right_mosaic_block",
+              "name": "温馨绘本",
               "position": {
                 "x": 544,
                 "y": 0
@@ -10447,7 +10447,7 @@
         },
         {
           "id": "bottom_accent_line",
-          "description": "Thin full-width colored strip aligned to the bottom edge as a simple finishing accent.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -10492,11 +10492,11 @@
     },
     {
       "id": "title_list_of_cards_with_image",
-      "description": "A clean title-led slide with equal profile cards aligned horizontally above a thin bottom accent line.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "background_accent",
-          "description": "Full-slide white background with a thin blue accent rule anchored along the bottom edge.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -10566,7 +10566,7 @@
         },
         {
           "id": "upper_left_heading",
-          "description": "Large bold two-line heading placed in the upper-left, leaving generous whitespace above the card row.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 122
@@ -10608,7 +10608,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 39,
               "min_length": 4,
               "rotation": 0
@@ -10617,7 +10617,7 @@
         },
         {
           "id": "four_card_grid",
-          "description": "Four evenly spaced vertical cards align in one row, each containing an image, centered heading, and paragraph.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 250
@@ -10726,7 +10726,7 @@
                         "br": 6
                       },
                       "decorative": false,
-                      "name": "card_photo",
+                      "name": "温馨绘本",
                       "is_icon": false
                     },
                     {
@@ -10763,7 +10763,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 40,
                       "min_length": 5,
                       "rotation": 0
@@ -10800,13 +10800,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "温馨绘本",
                       "max_length": 170,
                       "min_length": 54,
                       "rotation": 0
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -10894,7 +10894,7 @@
                         "br": 6
                       },
                       "decorative": false,
-                      "name": "card_photo",
+                      "name": "温馨绘本",
                       "is_icon": false
                     },
                     {
@@ -10931,7 +10931,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "温馨绘本",
                       "max_length": 40,
                       "min_length": 5,
                       "rotation": 0
@@ -10968,16 +10968,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "温馨绘本",
                       "max_length": 170,
                       "min_length": 54,
                       "rotation": 0
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "card_grid",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 2,
               "justify_items": "flex-start"
@@ -10988,11 +10988,11 @@
     },
     {
       "id": "title_image_description_list_with_highlighted_text_heading_description",
-      "description": "A clean split slide with a left title, map visual and paragraph, plus a stacked metric summary column on the right.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "background_layer",
-          "description": "Full-slide plain background layer providing the white canvas behind all foreground content.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -11029,7 +11029,7 @@
         },
         {
           "id": "left_feature_column",
-          "description": "Left column combining a large heading, wide visual block, and supporting body paragraph beneath it.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 63.75
@@ -11069,7 +11069,7 @@
                 }
               ],
               "decorative": false,
-              "name": "section_heading",
+              "name": "温馨绘本",
               "max_length": 18,
               "min_length": 6
             },
@@ -11130,11 +11130,11 @@
                   "data": "/static/images/replaceable_template_image.png",
                   "fit": "cover",
                   "decorative": false,
-                  "name": "wide_feature_visual",
+                  "name": "温馨绘本",
                   "is_icon": false
                 }
               ],
-              "name": "wide_visual_frame"
+              "name": "温馨绘本"
             },
             {
               "type": "text",
@@ -11168,7 +11168,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "温馨绘本",
               "max_length": 473,
               "min_length": 197
             }
@@ -11176,7 +11176,7 @@
         },
         {
           "id": "right_metric_stack",
-          "description": "Right column containing four vertically stacked metric cards with colored labels, headline values, and explanatory text.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 616.95,
             "y": 35.75
@@ -11270,7 +11270,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "温馨绘本",
                       "max_length": 28,
                       "min_length": 14
                     },
@@ -11308,7 +11308,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "温馨绘本",
                       "max_length": 41,
                       "min_length": 6
                     },
@@ -11344,13 +11344,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "温馨绘本",
                       "max_length": 237,
                       "min_length": 80,
                       "rotation": 0
                     }
                   ],
-                  "name": "compact_metric_card"
+                  "name": "温馨绘本"
                 },
                 {
                   "type": "group",
@@ -11424,7 +11424,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "温馨绘本",
                       "max_length": 28,
                       "min_length": 14
                     },
@@ -11462,7 +11462,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "温馨绘本",
                       "max_length": 41,
                       "min_length": 6
                     },
@@ -11498,16 +11498,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "温馨绘本",
                       "max_length": 237,
                       "min_length": 80,
                       "rotation": 0
                     }
                   ],
-                  "name": "compact_metric_card"
+                  "name": "温馨绘本"
                 }
               ],
-              "name": "metric_card_stack",
+              "name": "温馨绘本",
               "max_children": 4,
               "min_children": 2,
               "rotation": 0
@@ -11518,11 +11518,11 @@
     },
     {
       "id": "table_of_contents",
-      "description": "A clean index-style slide layout with a large header, card-based navigation grid, and thin bottom accent rule.",
+      "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full-slide white canvas establishing the clean background area beneath all foreground layout components.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 0
@@ -11559,7 +11559,7 @@
         },
         {
           "id": "header_block",
-          "description": "Large left-aligned heading area positioned near the upper-left with generous whitespace above the card grid.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 80
@@ -11599,7 +11599,7 @@
                 }
               ],
               "decorative": false,
-              "name": "header_text",
+              "name": "温馨绘本",
               "max_length": 41,
               "min_length": 9
             }
@@ -11607,7 +11607,7 @@
         },
         {
           "id": "indexed_card_grid",
-          "description": "Two-column grid of compact horizontal entries, each pairing a square number badge with a rounded information card.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 64,
             "y": 201.59
@@ -11698,7 +11698,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -11765,7 +11765,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -11797,18 +11797,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -11880,7 +11880,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -11947,7 +11947,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -11979,18 +11979,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12062,7 +12062,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -12129,7 +12129,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -12161,18 +12161,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12244,7 +12244,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -12311,7 +12311,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -12343,18 +12343,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12426,7 +12426,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -12493,7 +12493,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -12525,18 +12525,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12608,7 +12608,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -12675,7 +12675,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -12707,18 +12707,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12790,7 +12790,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -12857,7 +12857,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -12889,18 +12889,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12972,7 +12972,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -13039,7 +13039,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -13071,18 +13071,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -13154,7 +13154,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -13221,7 +13221,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -13253,18 +13253,18 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -13336,7 +13336,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "温馨绘本",
                         "max_length": 2,
                         "min_length": 1
                       }
@@ -13403,7 +13403,7 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_title",
+                            "name": "温馨绘本",
                             "max_length": 40,
                             "min_length": 5
                           },
@@ -13435,23 +13435,23 @@
                               }
                             ],
                             "decorative": false,
-                            "name": "entry_description",
+                            "name": "温馨绘本",
                             "max_length": 60,
                             "min_length": 18
                           }
                         ],
-                        "name": "entry_text_stack",
+                        "name": "温馨绘本",
                         "max_children": 2,
                         "min_children": 2
                       }
                     }
                   ],
-                  "name": "entry_row",
+                  "name": "温馨绘本",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "entry_grid",
+              "name": "温馨绘本",
               "max_children": 10,
               "min_children": 2
             }
@@ -13459,7 +13459,7 @@
         },
         {
           "id": "bottom_accent_rule",
-          "description": "Thin full-width horizontal rule anchored to the bottom edge as a simple decorative accent.",
+          "description": "留白舒适、排版简洁，适合绘本分享、故事讲述与情感主题。",
           "position": {
             "x": 0,
             "y": 716
@@ -13504,7 +13504,7 @@
       "elements": [
         {
           "type": "text",
-          "name": "text_8",
+          "name": "温馨绘本",
           "decorative": false,
           "position": {
             "x": 36,

@@ -4,15 +4,20 @@ from pydantic import BaseModel, Field
 
 
 NO_EMBEDDED_TEXT_INSTRUCTION = (
-    "Do not include any visible text, letters, numbers, labels, captions, "
-    "answers, logos, watermarks, signatures, or pseudo-text in the image."
+    "画面中不要出现任何可见文字、字母、数字、标签、说明文字、答案、"
+    "Logo、水印、签名或伪文字。"
+)
+
+CHINESE_PEOPLE_INSTRUCTION = (
+    "若画面出现人物，必须全部为中国人面孔与形象，符合中国幼教场景；"
+    "不要出现欧美面孔。"
 )
 
 
 class ImagePrompt(BaseModel):
     prompt: str
     theme_prompt: Optional[str] = None
-    prompt_language: str = Field(default="auto")
+    prompt_language: str = Field(default="zh-CN")
     visible_language: str = Field(default="auto")
     allow_embedded_text: bool = Field(default=False)
     ocr_policy: Literal["reject-on-detection", "disabled"] = Field(
@@ -27,4 +32,5 @@ class ImagePrompt(BaseModel):
         # same protection, including editor regeneration and future asset plans.
         if not self.allow_embedded_text:
             parts.append(NO_EMBEDDED_TEXT_INSTRUCTION)
-        return ", ".join(part for part in parts if part)
+        parts.append(CHINESE_PEOPLE_INSTRUCTION)
+        return "。".join(part for part in parts if part)

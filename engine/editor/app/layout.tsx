@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Manrope, Noto_Sans_SC, Syne, Unbounded } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Providers } from "./providers";
 import MixpanelInitializer from "./MixpanelInitializer";
 import { Toaster } from "@/components/ui/sonner";
 import TailwindCdnRuntime from "@/components/runtime/TailwindCdnRuntime";
+
+// Avoid next/font/google here: fonts.gstatic.com is often unreachable in CN,
+// which crashes the editor during Turbopack compile.
 const inter = localFont({
   src: [
     {
@@ -18,27 +20,70 @@ const inter = localFont({
   variable: "--font-inter",
 });
 
-const syne = Syne({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const systemUi = localFont({
+  src: [
+    {
+      path: "./fonts/Inter.ttf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   variable: "--font-syne",
+  fallback: [
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "sans-serif",
+  ],
 });
 
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const manrope = localFont({
+  src: [
+    {
+      path: "./fonts/Inter.ttf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   variable: "--font-manrope",
+  fallback: [
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "sans-serif",
+  ],
 });
 
-const unbounded = Unbounded({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const unbounded = localFont({
+  src: [
+    {
+      path: "./fonts/Inter.ttf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   variable: "--font-unbounded",
+  fallback: [
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "sans-serif",
+  ],
 });
 
-const notoSansSC = Noto_Sans_SC({
-  subsets: ["latin"],
+const notoSansSC = localFont({
+  src: [
+    {
+      path: "./fonts/Inter.ttf",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   variable: "--font-noto-sans-sc",
+  fallback: ["Microsoft YaHei", "PingFang SC", "Noto Sans SC", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -58,7 +103,7 @@ export default function RootLayout({
         <link rel="preload" href="/Presenton_Splash.png" as="image" />
       </head>
       <body
-        className={`${inter.variable} ${syne.variable} ${manrope.variable} ${unbounded.variable} ${notoSansSC.variable} antialiased`}
+        className={`${inter.variable} ${systemUi.variable} ${manrope.variable} ${unbounded.variable} ${notoSansSC.variable} antialiased`}
       >
         <Providers>
           <MixpanelInitializer>

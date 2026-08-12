@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { notify } from "@/components/ui/sonner";
 import { setOutlines } from "@/store/slices/presentationGeneration";
 import { jsonrepair } from "jsonrepair";
-import { RootState } from "@/store/store";
 import { getApiUrl } from "@/utils/api";
 import { limitOutlines } from "@/utils/presentationLimits";
 import {
@@ -13,29 +12,21 @@ import {
 
 const MAX_STREAM_RETRIES = 3;
 const STREAM_RETRY_DELAY_MS = 1_000;
-const DEFAULT_STATUS_MESSAGE = "Preparing your presentation outline";
+const DEFAULT_STATUS_MESSAGE = "正在准备演示大纲…";
 
 export const useOutlineStreaming = (
   presentationId: string | null,
   enabled = true
 ) => {
   const dispatch = useDispatch();
-  const { outlines } = useSelector(
-    (state: RootState) => state.presentationGeneration
-  );
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState<number | null>(null);
   const [highestActiveIndex, setHighestActiveIndex] = useState<number>(-1);
   const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
-  const outlinesRef = useRef<{ content: string }[]>(outlines);
   const prevSlidesRef = useRef<{ content: string }[]>([]);
   const activeIndexRef = useRef<number>(-1);
   const highestIndexRef = useRef<number>(-1);
-
-  useEffect(() => {
-    outlinesRef.current = outlines;
-  }, [outlines]);
 
   useEffect(() => {
     const resetStreamingState = (message = DEFAULT_STATUS_MESSAGE) => {
@@ -49,7 +40,7 @@ export const useOutlineStreaming = (
       highestIndexRef.current = -1;
     };
 
-    if (!enabled || !presentationId || outlinesRef.current.length > 0) {
+    if (!enabled || !presentationId) {
       resetStreamingState();
       return;
     }
@@ -91,7 +82,7 @@ export const useOutlineStreaming = (
       prevSlidesRef.current = [];
       activeIndexRef.current = -1;
       highestIndexRef.current = -1;
-      setStatusMessage("Reconnecting to outline stream");
+      setStatusMessage("正在重新连接大纲流…");
 
       retryTimer = setTimeout(() => {
         if (!isClosed) {
@@ -182,7 +173,7 @@ export const useOutlineStreaming = (
               setIsLoading(false);
               setActiveSlideIndex(null);
               setHighestActiveIndex(-1);
-              setStatusMessage("Outline ready");
+              setStatusMessage("大纲已就绪");
               prevSlidesRef.current = outlinesData;
               activeIndexRef.current = -1;
               highestIndexRef.current = -1;
@@ -200,7 +191,7 @@ export const useOutlineStreaming = (
             break;
 
           case "closing":
-            resetStreamingState("Outline ready");
+            resetStreamingState("大纲已就绪");
             isClosed = true;
             closeEventSource();
             clearRetryTimer();

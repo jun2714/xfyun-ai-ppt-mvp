@@ -109,11 +109,11 @@ function nextBlankLayoutId(layouts: TemplateV2Layout[]) {
 function blankLayoutWithFullSlideRectangle(layoutId: string): TemplateV2Layout {
   return {
     id: layoutId,
-    description: "Blank slide layout.",
+    description: "空白页布局。",
     components: [
       {
         id: `${layoutId}-rectangle`,
-        description: "Full-slide rectangle",
+        description: "整页矩形",
         position: { x: 0, y: 0 },
         size: {
           width: EDITOR_STAGE_WIDTH,
@@ -293,9 +293,9 @@ const GroupLayoutPreview = ({
         template_id: templateId,
         layout_index: layoutIndex,
       });
-      notify.success("Copied", "Template layout ID copied.");
+      notify.success("已复制", "页面 ID 已复制到剪贴板。");
     } catch {
-      notify.error("Copy failed", layoutToken);
+      notify.error("复制失败", layoutToken);
     }
   }, [editableLayouts, templateId]);
 
@@ -309,10 +309,10 @@ const GroupLayoutPreview = ({
       track(ANALYTICS_EVENTS.TEMPLATE_ID_COPIED, {
         template_id: templateId,
       });
-      notify.success("Copied", "Template ID copied.");
+      notify.success("已复制", "模板 ID 已复制到剪贴板。");
     } catch (copyError) {
       notify.error(
-        "Copy failed",
+        "复制失败",
         copyError instanceof Error ? copyError.message : templateId,
       );
     }
@@ -325,7 +325,7 @@ const GroupLayoutPreview = ({
       return;
     }
 
-    const nextName = templateNameDraft.trim() || "Untitled Template";
+    const nextName = templateNameDraft.trim() || "未命名模板";
     if (nextName !== templateNameDraft) {
       setTemplateNameDraft(nextName);
     }
@@ -391,8 +391,8 @@ const GroupLayoutPreview = ({
     );
     if (!hasEditableContent) {
       notify.warning(
-        "No editable content",
-        "Mark a schema field as non-decorative before testing content density.",
+        "无可编辑内容",
+        "请先将结构字段设为非装饰元素，再预览内容密度。",
       );
       return;
     }
@@ -609,8 +609,8 @@ const GroupLayoutPreview = ({
       );
       if (targetIndex < 0) {
         notify.error(
-          "Slide unavailable",
-          "The blank slide is no longer available. Add a new one and try again.",
+          "页面不可用",
+          "空白页已不存在，请新增后再试。",
         );
         setPromptLayoutId(null);
         return false;
@@ -624,7 +624,7 @@ const GroupLayoutPreview = ({
           prompt,
         });
         if (!isRecord(response.layout)) {
-          throw new Error("No generated layout was returned.");
+          throw new Error("未返回生成的页面布局。");
         }
         const generatedLayout = normalizeBackendAssetUrls(response.layout);
 
@@ -650,8 +650,8 @@ const GroupLayoutPreview = ({
         setPromptLayoutId(null);
         setHasUnsavedChanges(true);
         notify.success(
-          "Slide created",
-          `Slide ${targetIndex + 1} was generated. Save to keep it.`,
+          "页面已生成",
+          `第 ${targetIndex + 1} 页已生成，请保存以保留。`,
         );
         track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_LAYOUT_RECONSTRUCTED, {
           template_id: templateId,
@@ -662,10 +662,10 @@ const GroupLayoutPreview = ({
         return true;
       } catch (generationError) {
         notify.error(
-          "Failed to create slide",
+          "生成页面失败",
           generationError instanceof Error
             ? generationError.message
-            : "Something went wrong while creating this slide.",
+            : "生成页面时出现问题。",
         );
         track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_LAYOUT_RECONSTRUCT_FAILED, {
           template_id: templateId,
@@ -724,8 +724,8 @@ const GroupLayoutPreview = ({
     if (!canEditTemplate) return;
     if (editableLayouts.length <= 1) {
       notify.warning(
-        "Cannot delete slide",
-        "A template needs at least one layout.",
+        "无法删除页面",
+        "模板至少需要保留一页。",
       );
       return;
     }
@@ -775,13 +775,13 @@ const GroupLayoutPreview = ({
         (item) => item.index === activeLayoutIndex,
       );
       if (!createdLayout) {
-        throw new Error("No reconstructed layout was returned.");
+        throw new Error("未返回重新生成的页面布局。");
       }
 
       updateActiveLayout(normalizeBackendAssetUrls(createdLayout.layout));
       notify.success(
-        "Slide reconstructed",
-        `Slide ${activeLayoutIndex + 1} was reconstructed. Save to keep it.`,
+        "页面已重新生成",
+        `第 ${activeLayoutIndex + 1} 页已重新生成，请保存以保留。`,
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_LAYOUT_RECONSTRUCTED, {
         template_id: templateId,
@@ -790,10 +790,10 @@ const GroupLayoutPreview = ({
       });
     } catch (reconstructError) {
       notify.error(
-        "Failed to reconstruct slide",
+        "重新生成失败",
         reconstructError instanceof Error
           ? reconstructError.message
-          : "Something went wrong while reconstructing this slide.",
+          : "重新生成页面时出现问题。",
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_LAYOUT_RECONSTRUCT_FAILED, {
         template_id: templateId,
@@ -823,8 +823,8 @@ const GroupLayoutPreview = ({
       if (!canEditTemplate || !activeLayout || typeof window === "undefined") {
         if (!activeLayout) {
           notify.warning(
-            "Create a layout first",
-            "Add a blank layout before inserting content.",
+            "请先创建页面",
+            "插入内容前请先添加空白页。",
           );
         }
         return false;
@@ -849,8 +849,8 @@ const GroupLayoutPreview = ({
 
       if (!detail.handled) {
         notify.warning(
-          "Insert unavailable",
-          "Select the active layout and try again.",
+          "无法插入",
+          "请选中当前页面后再试。",
         );
         return false;
       }
@@ -962,8 +962,8 @@ const GroupLayoutPreview = ({
         recordArray(block.raw, "elements").length === 0
       ) {
         notify.warning(
-          "Component unavailable",
-          "This merged component cannot be inserted yet.",
+          "组件不可用",
+          "该合并组件暂无法插入。",
         );
         return;
       }
@@ -1014,7 +1014,7 @@ const GroupLayoutPreview = ({
         had_unsaved_changes: hasUnsavedChanges,
       });
 
-      const nextTemplateName = templateNameDraft.trim() || "Untitled Template";
+      const nextTemplateName = templateNameDraft.trim() || "未命名模板";
       if (nextTemplateName !== templateNameDraft) {
         setTemplateNameDraft(nextTemplateName);
       }
@@ -1031,8 +1031,8 @@ const GroupLayoutPreview = ({
       setHasUnsavedChanges(false);
       setSavedTemplateName(nextTemplateName);
       notify.success(
-        "Changes saved",
-        "Template JSON was updated.",
+        "已保存",
+        "模板已更新。",
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_SAVED, {
         template_id: templateId,
@@ -1041,10 +1041,10 @@ const GroupLayoutPreview = ({
       });
     } catch (saveError) {
       notify.error(
-        "Failed to save template",
+        "保存失败",
         saveError instanceof Error
           ? saveError.message
-          : "Something went wrong while saving the template.",
+          : "保存模板时出现问题。",
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_SAVE_FAILED, {
         template_id: templateId,
@@ -1082,8 +1082,8 @@ const GroupLayoutPreview = ({
       if (result.success) {
         setIsDeleteDialogOpen(false);
         notify.success(
-          "Template deleted",
-          "The template was deleted successfully.",
+          "模板已删除",
+          "该模板已成功删除。",
         );
         track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_DELETED, {
           template_id: templateId,
@@ -1094,8 +1094,8 @@ const GroupLayoutPreview = ({
       }
 
       notify.error(
-        "Could not delete template",
-        result.message || "Something went wrong while deleting the template.",
+        "无法删除模板",
+        result.message || "删除模板时出现问题。",
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_DELETE_FAILED, {
         template_id: templateId,
@@ -1104,10 +1104,10 @@ const GroupLayoutPreview = ({
       });
     } catch (deleteError) {
       notify.error(
-        "Could not delete template",
+        "无法删除模板",
         deleteError instanceof Error
           ? deleteError.message
-          : "Something went wrong while deleting the template.",
+          : "删除模板时出现问题。",
       );
       track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_DELETE_FAILED, {
         template_id: templateId,
@@ -1172,14 +1172,14 @@ const GroupLayoutPreview = ({
             !activeLayout ||
             !activePreviewLayout ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 text-sm text-[#696969]">
-              <p>No layouts available for this template.</p>
+              <p>该模板暂无可用页面。</p>
               {canEditTemplate ? (
                 <button
                   className="rounded-[8px] border border-[#D9D6FE] bg-white px-4 py-2 text-[13px] font-medium text-[#7A5AF8] transition-colors hover:bg-[#F8F6FF]"
                   onClick={createBlankLayout}
                   type="button"
                 >
-                  Create blank layout
+                  创建空白页
                 </button>
               ) : null}
             </div>

@@ -72,7 +72,14 @@ def get_user_prompt(prompt: str, slide_data: dict, language: str):
     display_language = _resolve_prompt_language(language)
     return f"""
         ## Icon Query And Image Prompt Language
-        English
+        Chinese
+
+        ## Image Prompt Contract
+        - Write image_prompt fields in Chinese.
+        - If people appear, they must all be Chinese people with East Asian / Chinese
+          facial features suitable for Chinese kindergarten teaching. Do not depict
+          Western / Caucasian people.
+        - Never request visible text inside the image.
 
         ## Current Date and Time
         {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}

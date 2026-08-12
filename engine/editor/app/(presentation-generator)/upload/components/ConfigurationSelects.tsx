@@ -27,12 +27,14 @@ import {
   clampSlideCountValue,
   MAX_NUMBER_OF_SLIDES,
 } from "@/utils/presentationLimits";
+import { languageLabel } from "@/app/(presentation-generator)/utils/teachnovaLocale";
 
 // Types
 interface ConfigurationSelectsProps {
   config: PresentationConfig;
   onConfigChange: (key: keyof PresentationConfig, value: any) => void;
   compact?: boolean;
+  hideLanguage?: boolean;
 }
 
 type SlideOption =
@@ -170,7 +172,7 @@ const SlideCountSelect: React.FC<{
                   : "text-xs font-medium min-[1800px]:text-sm min-[2200px]:text-base"
               )}
             >
-              {compact && value ? `Slides ${value}` : displayLabel}
+              {compact && value ? `${value} 页` : displayLabel}
             </span>
             {compact && (
               <ChevronRight
@@ -232,7 +234,7 @@ const SlideCountSelect: React.FC<{
               {SLIDE_OPTIONS.map((option) => (
                 <CommandItem
                   key={option}
-                  value={`${option} slides`}
+                  value={`${option} 页`}
                   role="option"
                   onPointerDownCapture={() => {
                     isSelectingPresetRef.current = true;
@@ -254,7 +256,7 @@ const SlideCountSelect: React.FC<{
                       value === option ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option} slides
+                  {option} 页
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -268,7 +270,7 @@ const SlideCountSelect: React.FC<{
 /**
  * Renders a language selection component with search functionality
  */
-const LanguageSelect: React.FC<{
+export const LanguageSelect: React.FC<{
   value: string | null;
   onValueChange: (value: string) => void;
   open: boolean;
@@ -314,7 +316,7 @@ const LanguageSelect: React.FC<{
                 : "text-xs font-medium min-[1800px]:text-sm min-[2200px]:text-base"
             )}
           >
-          {value || "选择语言"}
+          {languageLabel(value)}
           </span>
           {compact && (
             <ChevronRight
@@ -359,7 +361,7 @@ const LanguageSelect: React.FC<{
                     value === language ? "opacity-100" : "opacity-0"
                   )}
                 />
-                {language}
+                {languageLabel(language)}
               </CommandItem>
             ))}
           </CommandGroup>
@@ -369,10 +371,33 @@ const LanguageSelect: React.FC<{
   </Popover>
 );
 
+/** Self-contained language control for header / external slots */
+export function LanguageSelectControl({
+  value,
+  onValueChange,
+  compact = true,
+}: {
+  value: string | null;
+  onValueChange: (value: string) => void;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <LanguageSelect
+      value={value}
+      onValueChange={onValueChange}
+      open={open}
+      onOpenChange={setOpen}
+      compact={compact}
+    />
+  );
+}
+
 export function ConfigurationSelects({
   config,
   onConfigChange,
   compact = false,
+  hideLanguage = false,
 }: ConfigurationSelectsProps) {
   const [openSlides, setOpenSlides] = useState(false);
   const [openLanguage, setOpenLanguage] = useState(false);
@@ -391,13 +416,15 @@ export function ConfigurationSelects({
         onOpenChange={setOpenSlides}
         compact={compact}
       />
-      <LanguageSelect
-        value={config.language}
-        onValueChange={(value) => onConfigChange("language", value)}
-        open={openLanguage}
-        onOpenChange={setOpenLanguage}
-        compact={compact}
-      />
+      {!hideLanguage ? (
+        <LanguageSelect
+          value={config.language}
+          onValueChange={(value) => onConfigChange("language", value)}
+          open={openLanguage}
+          onOpenChange={setOpenLanguage}
+          compact={compact}
+        />
+      ) : null}
       <AdvanceSettings
         config={config}
         onConfigChange={onConfigChange}

@@ -117,7 +117,7 @@ class PresentationChatService:
         attachments: list[ChatAttachment] | None = None,
     ) -> AsyncGenerator[tuple[ChatStreamEventType, ChatStreamEventValue], None]:
         self._tools.set_turn_context(user_message)
-        yield "status", "Reading deck context"
+        yield "status", "正在查看演示文稿上下文"
         conversation_id, messages, persisted_user_message = await self._prepare_turn_context(
             user_message,
             attachments or [],
@@ -180,7 +180,7 @@ class PresentationChatService:
                     "kind": "tool_plan",
                     "round": round_index + 1,
                     "tools": tool_names,
-                    "message": f"Using tools: {', '.join(tool_names)}",
+                    "message": f"正在调用：{', '.join(tool_names)}",
                 }
                 messages = self._append_sanitized_assistant_tool_turn(
                     messages,
@@ -245,11 +245,10 @@ class PresentationChatService:
             yield "trace", {
                 "kind": "limit",
                 "message": (
-                    "Reached tool-call limit before final answer; "
-                    "attempting best-effort summary."
+                    "本轮工具调用次数已达上限，正在尝试整理可用结论。"
                 ),
             }
-            yield "status", "Finalizing response"
+            yield "status", "正在整理回复"
             response_text = await self._try_final_response_without_tools(
                 client=client,
                 model=model,
@@ -259,11 +258,11 @@ class PresentationChatService:
                 response_text = self._build_tool_limit_fallback(last_tool_results)
             yield "chunk", response_text
 
-        final_response_text = response_text or "I could not generate a response for that request."
+        final_response_text = response_text or "这次没能生成有效回复，请换个说法再试一次。"
         if response_text is None:
             yield "chunk", final_response_text
 
-        yield "status", "Saving chat"
+        yield "status", "正在保存对话"
         result = await self._persist_turn(
             conversation_id=conversation_id,
             user_message=persisted_user_message,
@@ -784,33 +783,33 @@ class PresentationChatService:
     @staticmethod
     def _tool_start_message(tool_name: str) -> str:
         labels = {
-            "addOutline": "Adding an outline slide",
-            "updateOutline": "Updating the outline slide",
-            "deleteOutline": "Deleting the outline slide",
-            "addNewSlide": "Adding a blank slide",
-            "addNewSlideLayout": "Adding slide from layout",
-            "getTemplateSummary": "Reading template summary",
-            "getSmartPresentationContext": "Reading Smart deck design context",
-            "readSourceDocuments": "Reading source documents",
-            "searchSlide": "Searching relevant slides",
-            "getSlideAtIndex": "Opening the requested slide",
-            "getAvailableLayouts": "Checking available layouts",
-            "getContentSchemaFromLayoutId": "Reading layout content schema",
-            "generateAssets": "Generating slide assets",
-            "saveSlide": "Saving the slide",
-            "updateSlide": "Updating the slide",
-            "deleteSlide": "Deleting the slide",
-            "addElement": "Adding slide element",
-            "updateElement": "Updating slide element",
-            "deleteElement": "Removing slide element",
-            "addComponent": "Adding slide component",
-            "createComponent": "Creating slide component",
-            "updateComponent": "Updating slide component",
-            "deleteComponent": "Removing slide component",
-            "getPresentationTheme": "Checking available themes",
-            "setPresentationTheme": "Applying presentation theme",
+            "addOutline": "正在添加大纲页",
+            "updateOutline": "正在更新大纲页",
+            "deleteOutline": "正在删除大纲页",
+            "addNewSlide": "正在添加空白页",
+            "addNewSlideLayout": "正在按布局添加页面",
+            "getTemplateSummary": "正在读取模板摘要",
+            "getSmartPresentationContext": "正在读取 Smart 演示设计上下文",
+            "readSourceDocuments": "正在读取源文档",
+            "searchSlide": "正在搜索相关页面",
+            "getSlideAtIndex": "正在打开目标页面",
+            "getAvailableLayouts": "正在查看可用布局",
+            "getContentSchemaFromLayoutId": "正在读取布局内容结构",
+            "generateAssets": "正在生成页面素材",
+            "saveSlide": "正在保存页面",
+            "updateSlide": "正在更新页面",
+            "deleteSlide": "正在删除页面",
+            "addElement": "正在添加元素",
+            "updateElement": "正在更新元素",
+            "deleteElement": "正在删除元素",
+            "addComponent": "正在添加组件",
+            "createComponent": "正在创建组件",
+            "updateComponent": "正在更新组件",
+            "deleteComponent": "正在删除组件",
+            "getPresentationTheme": "正在查看可用主题",
+            "setPresentationTheme": "正在应用主题",
         }
-        return labels.get(tool_name, f"Running {tool_name}")
+        return labels.get(tool_name, f"正在执行 {tool_name}")
 
     @staticmethod
     def _build_tool_limit_fallback(last_tool_results: list[dict[str, Any]]) -> str:
@@ -827,8 +826,8 @@ class PresentationChatService:
                 return message.strip()
 
         return (
-            "I completed several tool operations but could not finalize the response "
-            "within the tool limit. Please ask a follow-up and I will continue."
+            "已完成若干操作，但本轮工具调用次数已达上限，未能整理最终回复。"
+            "请继续补充一句需求，我会接着处理。"
         )
 
     @staticmethod
@@ -843,11 +842,11 @@ class PresentationChatService:
                         first_guidance = str(guidance[0]).strip()
                         if first_guidance:
                             return (
-                                f"{tool_name} failed: {error.strip()} "
-                                f"Recovery: {first_guidance}"
+                                f"{tool_name} 失败：{error.strip()} "
+                                f"可尝试：{first_guidance}"
                             )
-                return f"{tool_name} failed: {error.strip()}"
-            return f"{tool_name} failed."
+                return f"{tool_name} 失败：{error.strip()}"
+            return f"{tool_name} 失败。"
 
         result = tool_result.get("result")
         if isinstance(result, dict):
@@ -861,17 +860,17 @@ class PresentationChatService:
 
             count = result.get("count")
             if isinstance(count, int):
-                return f"{tool_name} returned {count} result(s)."
+                return f"{tool_name} 返回了 {count} 条结果。"
 
             found = result.get("found")
             if isinstance(found, bool):
                 return (
-                    f"{tool_name} found requested data."
+                    "已找到所需信息"
                     if found
-                    else f"{tool_name} did not find matching data."
+                    else "未找到匹配内容"
                 )
 
-        return f"{tool_name} completed."
+        return f"{tool_name} 已完成。"
 
     @staticmethod
     def _convert_history_to_messages(history: list[dict[str, str]]) -> list[Message]:

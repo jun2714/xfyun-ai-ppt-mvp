@@ -55,7 +55,7 @@ const DocumentsPreviewPage: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Redux state
-  const { config, files } = useSelector(
+  const { config, files, generationMode } = useSelector(
     (state: RootState) => state.pptGenUpload
   );
 
@@ -164,13 +164,15 @@ const DocumentsPreviewPage: React.FC = () => {
           include_table_of_contents: !!config?.includeTableOfContents,
           include_title_slide: !!config?.includeTitleSlide,
           web_search: !!config?.webSearch,
+          generation_mode: generationMode,
         }
       );
 
       dispatch(clearOutlines());
       dispatch(setPresentationId(createResponse.id));
-      trackEvent(MixpanelEvent.Navigation, { from: pathname, to: "/outline" });
-      router.replace("/outline");
+      const destination = `/outline?id=${createResponse.id}&mode=${generationMode}`;
+      trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
+      router.replace(destination);
     } catch (error: any) {
       console.error("Error in radar presentation creation:", error);
       notify.error("Creation failed", error.message || "Something went wrong while creating the presentation.");

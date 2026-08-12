@@ -91,12 +91,35 @@ import {
 import Chat from "./Chat";
 import TemplateService from "../../services/api/template";
 import { TemplateV2HtmlSlidePreview } from "../../components/TemplateV2HtmlSlidePreview";
-import { isTemplateFreePresentation } from "../../_shared/blank-slide";
+import { isTemplateFreePresentation, isTemplateV2Slide } from "../../_shared/blank-slide";
 
 type PresentationActionsProps = React.ComponentProps<typeof Chat> & {
   editingDisabled?: boolean;
   presentationData?: unknown;
 };
+
+function isTemplateV2PresentationData(presentationData: unknown): boolean {
+  if (!presentationData || typeof presentationData !== "object") return false;
+  const data = presentationData as {
+    version?: unknown;
+    layout?: unknown;
+    slides?: unknown;
+  };
+  if (data.version === "v2-standard") return true;
+  if (
+    Array.isArray(data.slides) &&
+    data.slides.some((slide) => isTemplateV2Slide(slide))
+  ) {
+    return true;
+  }
+  const layouts = (data.layout as { layouts?: unknown } | undefined)?.layouts;
+  if (Array.isArray(layouts)) return true;
+  return Boolean(
+    layouts &&
+      typeof layouts === "object" &&
+      Array.isArray((layouts as { layouts?: unknown }).layouts),
+  );
+}
 
 type ActionId =
   | "ai"
@@ -198,59 +221,59 @@ function presentationActionsUiReducer(
 }
 
 const insertActions: ActionItem[] = [
-  { id: "texts", label: "Texts", icon: Type },
-  { id: "charts", label: "Charts", icon: BarChart3 },
-  { id: "tables", label: "Tables", icon: Rows3 },
-  { id: "images", label: "Images", icon: Image },
-  { id: "elements", label: "Elements", icon: Shapes },
+  { id: "texts", label: "文本", icon: Type },
+  { id: "charts", label: "图表", icon: BarChart3 },
+  { id: "tables", label: "表格", icon: Rows3 },
+  { id: "images", label: "图片", icon: Image },
+  { id: "elements", label: "元素", icon: Shapes },
 ];
 
 export const textItems = [
-  { id: "equation", label: "Equation", icon: Sigma },
-  { id: "equation-quadratic", label: "Quadratic", icon: Sigma },
-  { id: "equation-summation", label: "Summation", icon: Sigma },
-  { id: "equation-integral", label: "Integral", icon: Sigma },
-  { id: "equation-matrix", label: "Matrix", icon: Sigma },
-  { id: "title-block", label: "Title Block", icon: AlignCenter },
-  { id: "subtitle", label: "Subtitle", icon: AlignCenter },
-  { id: "bullet-list", label: "Bullet List", icon: List },
-  { id: "numbered-list", label: "Order List", icon: ListOrdered },
-  { id: "list-item", label: "List Item", icon: ListMinus },
-  { id: "quote", label: "Quote", icon: Quote },
-  { id: "body-text", label: "Body Text", icon: Columns2 },
+  { id: "equation", label: "公式", icon: Sigma },
+  { id: "equation-quadratic", label: "二次方程", icon: Sigma },
+  { id: "equation-summation", label: "求和", icon: Sigma },
+  { id: "equation-integral", label: "积分", icon: Sigma },
+  { id: "equation-matrix", label: "矩阵", icon: Sigma },
+  { id: "title-block", label: "标题块", icon: AlignCenter },
+  { id: "subtitle", label: "副标题", icon: AlignCenter },
+  { id: "bullet-list", label: "项目列表", icon: List },
+  { id: "numbered-list", label: "编号列表", icon: ListOrdered },
+  { id: "list-item", label: "列表项", icon: ListMinus },
+  { id: "quote", label: "引用", icon: Quote },
+  { id: "body-text", label: "正文", icon: Columns2 },
 ] satisfies PaletteItem[];
 
 export const chartTypeItems = [
-  { id: "bar", label: "Bar Chart", icon: BarChart3 },
-  { id: "horizontal_bar", label: "Horizontal Bar", icon: BarChart3 },
-  { id: "stacked_bar", label: "Stacked Bar", icon: BarChart3 },
+  { id: "bar", label: "柱状图", icon: BarChart3 },
+  { id: "horizontal_bar", label: "条形图", icon: BarChart3 },
+  { id: "stacked_bar", label: "堆叠柱状图", icon: BarChart3 },
   {
     id: "horizontal_stacked_bar",
-    label: "Horizontal Stack Bar",
+    label: "堆叠条形图",
     icon: BarChart3,
   },
-  { id: "line", label: "Line Chart", icon: LineChart },
-  { id: "pie", label: "Pie Chart", icon: PieChart },
-  { id: "area", label: "Area Chart", icon: AreaChart },
-  { id: "donut", label: "Donut Chart", icon: PieChart },
-  { id: "scatter", label: "Scatter Chart", icon: Circle },
-  { id: "radar", label: "Radar Chart", icon: PieChart },
-  { id: "polar_area", label: "Polar Area", icon: PieChart },
+  { id: "line", label: "折线图", icon: LineChart },
+  { id: "pie", label: "饼图", icon: PieChart },
+  { id: "area", label: "面积图", icon: AreaChart },
+  { id: "donut", label: "环形图", icon: PieChart },
+  { id: "scatter", label: "散点图", icon: Circle },
+  { id: "radar", label: "雷达图", icon: PieChart },
+  { id: "polar_area", label: "极区图", icon: PieChart },
 ] satisfies PaletteItem[];
 
 export const infographicItems = [
-  { id: "progress_bar", label: "Progress Bar", icon: ChartNoAxesGantt },
-  { id: "gauge", label: "Gauge Chart", icon: Gauge },
+  { id: "progress_bar", label: "进度条", icon: ChartNoAxesGantt },
+  { id: "gauge", label: "仪表盘", icon: Gauge },
 ] satisfies PaletteItem[];
 
 export const tableTypeItems = [
-  { id: "simple-table", label: "Simple Table", icon: Table2 },
+  { id: "simple-table", label: "简易表格", icon: Table2 },
 ] satisfies PaletteItem[];
 
 export const imageItems = [
-  { id: "image", label: "Image", icon: Image },
-  { id: "image-text", label: "Image + Text", icon: Columns2 },
-  { id: "image-grid", label: "Image Grid", icon: Grid3X3 },
+  { id: "image", label: "图片", icon: Image },
+  { id: "image-text", label: "图文组合", icon: Columns2 },
+  { id: "image-grid", label: "图片宫格", icon: Grid3X3 },
 ] satisfies PaletteItem[];
 
 const elementIconById: Record<ElementInsertKind, LucideIcon> = {
@@ -359,7 +382,7 @@ const NavButton = ({
 };
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <h4 className="mb-2 text-[10px] font-normal uppercase leading-[15px] tracking-[0.367px] text-[#99A1AF]">
+  <h4 className="mb-2 text-[10px] font-normal leading-[15px] tracking-[0.367px] text-[#99A1AF]">
     {children}
   </h4>
 );
@@ -485,6 +508,117 @@ function humanizeIdentifier(value: string) {
   return normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const BLOCK_TITLE_OVERRIDES: Record<string, string> = {
+  "Background Canvas": "背景画布",
+  "Image Showcase Card": "图片展示卡片",
+  "Right Text Panel": "右侧文本面板",
+  "Left Text Panel": "左侧文本面板",
+  "Title Block": "标题块",
+  "Content Card": "内容卡片",
+  "Feature Card": "功能卡片",
+  "Metric Card": "数据卡片",
+  "Hero Image": "主视觉图",
+  "Main Visual": "主视觉",
+  "Body Text": "正文",
+  "Supporting Text": "补充说明",
+};
+
+const BLOCK_WORD_MAP: Record<string, string> = {
+  Background: "背景",
+  Canvas: "画布",
+  Image: "图片",
+  Images: "图片",
+  Showcase: "展示",
+  Card: "卡片",
+  Cards: "卡片",
+  Right: "右侧",
+  Left: "左侧",
+  Top: "顶部",
+  Bottom: "底部",
+  Center: "居中",
+  Text: "文本",
+  Panel: "面板",
+  Title: "标题",
+  Subtitle: "副标题",
+  Heading: "标题",
+  Headline: "主标题",
+  Body: "正文",
+  Content: "内容",
+  Feature: "功能",
+  Features: "功能",
+  Metric: "指标",
+  Metrics: "指标",
+  Chart: "图表",
+  Table: "表格",
+  Photo: "照片",
+  Visual: "视觉",
+  Main: "主",
+  Primary: "主",
+  Secondary: "次要",
+  Supporting: "补充",
+  Intro: "导语",
+  Quote: "引用",
+  Grid: "网格",
+  Stack: "堆叠",
+  Group: "组合",
+  Row: "行",
+  Column: "列",
+  Icon: "图标",
+  Badge: "徽章",
+  Footer: "页脚",
+  Header: "页眉",
+  Accent: "装饰",
+  Overlay: "叠层",
+  Frame: "外框",
+  Media: "媒体",
+  Callout: "标注",
+  Timeline: "时间线",
+  Profile: "人物",
+  Review: "评价",
+  Pricing: "价格",
+  Step: "步骤",
+  Steps: "步骤",
+  Number: "编号",
+  List: "列表",
+  Item: "条目",
+  Items: "条目",
+  Description: "说明",
+  Summary: "摘要",
+  Caption: "说明文字",
+  Label: "标签",
+  Value: "数值",
+  Large: "大",
+  Small: "小",
+  Wide: "宽",
+  Narrow: "窄",
+  Vertical: "纵向",
+  Horizontal: "横向",
+  Centered: "居中",
+  Component: "组件",
+};
+
+function localizeBlockTitle(title: string) {
+  const trimmed = title.trim();
+  if (!trimmed) return trimmed;
+  if (/[\u3400-\u9fff]/.test(trimmed)) return trimmed;
+
+  const direct = BLOCK_TITLE_OVERRIDES[trimmed];
+  if (direct) return direct;
+
+  const words = trimmed.split(/[\s/_-]+/).filter(Boolean);
+  if (words.length === 0) return trimmed;
+
+  const localized = words.map((word) => {
+    if (BLOCK_WORD_MAP[word]) return BLOCK_WORD_MAP[word];
+    const titled = word.replace(/^\w/, (letter) => letter.toUpperCase());
+    return BLOCK_WORD_MAP[titled] ?? word;
+  });
+
+  // If nothing translated, keep the original English title.
+  if (localized.every((word, index) => word === words[index])) return trimmed;
+  return localized.join("");
+}
+
 function templateBlockFromComponent(
   component: unknown,
   index: number,
@@ -493,10 +627,11 @@ function templateBlockFromComponent(
   if (!raw) return null;
 
   const id = readRecordString(raw, "id");
-  const title =
+  const title = localizeBlockTitle(
     readRecordString(raw, "name") ??
-    readRecordString(raw, "title") ??
-    (id ? humanizeIdentifier(id) : `Component ${index + 1}`);
+      readRecordString(raw, "title") ??
+      (id ? humanizeIdentifier(id) : `组件 ${index + 1}`),
+  );
   const description = readRecordString(raw, "description") ?? "";
   const elementCount = readRecordArray(raw, "elements").length;
   const keyBase = id ?? title;
@@ -918,7 +1053,7 @@ function BlockGroupCard({
           onClick={toggleExpanded}
         >
           <span className="shrink-0 rounded-full border border-[#D6BBFB] bg-[#FAF8FF] px-3 py-1.5 text-[11px] font-medium leading-4 text-[#7F00FF]">
-            {variantCount} Layouts
+            {variantCount} 种布局
           </span>
           <ChevronDown
             className={cn(
@@ -1033,14 +1168,14 @@ export const BlocksPanel = ({
         }
       `}</style>
       <h3 className="mb-3 text-[clamp(13px,0.95vw,15px)] font-semibold leading-5 text-[#101323]">
-        Blocks
+        组件块
       </h3>
 
       <div className="mb-7 flex h-[clamp(46px,3.6vw,52px)] items-center rounded-[10px] border border-[#EDEEF0] bg-white pl-[clamp(10px,0.9vw,12px)] pr-[clamp(6px,0.6vw,8px)] shadow-[0_10px_26px_rgba(17,24,39,0.08)]">
         <input
           value={blockPrompt}
           onChange={(event) => setBlockPrompt(event.target.value)}
-          placeholder="Search blocks"
+          placeholder="搜索组件块"
           className="min-w-0 flex-1 bg-transparent text-[clamp(10px,0.75vw,12px)] text-[#101323] outline-none placeholder:text-[#9CA3AF]"
         />
         <button
@@ -1060,12 +1195,12 @@ export const BlocksPanel = ({
         </button>
       </div>
 
-      <SectionLabel>Content</SectionLabel>
+      <SectionLabel>内容</SectionLabel>
 
       <div className="space-y-3">
         {loading && (
           <p className="rounded-[8px] border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-[11px] leading-4 text-[#667085]">
-            Loading template components...
+            正在加载模板组件…
           </p>
         )}
         {!loading && error && (
@@ -1075,7 +1210,7 @@ export const BlocksPanel = ({
         )}
         {!loading && !error && visibleBlocks.length === 0 && (
           <p className="rounded-[8px] border border-dashed border-[#D0D5DD] bg-[#F9FAFB] p-4 text-[11px] leading-4 text-[#667085]">
-            No template components found.
+            暂无可用模板组件。
           </p>
         )}
         {!loading &&
@@ -1225,9 +1360,9 @@ function ActionsSidebar({
             <PrimaryActionButton
               active={activeAction === "blocks"}
               disabled={blocksUnavailable}
-              disabledReason="Blocks require a presentation template"
+              disabledReason="组件块需要先选择演示模板"
               icon={<BlocksIcon />}
-              label="Blocks"
+              label="组件块"
               onClick={() => onActionSelect("blocks")}
             />
           </>
@@ -1305,7 +1440,7 @@ function ActionsPanel({
       {!aiOnly && activeAction === "texts" && (
         <InsertPanel
           disabled={editingDisabled}
-          title="Texts"
+          title="文本"
           groups={[{ label: "Add", items: textItems }]}
           onItemSelect={onTextItemSelect}
         />
@@ -1313,7 +1448,7 @@ function ActionsPanel({
       {!aiOnly && activeAction === "charts" && (
         <InsertPanel
           disabled={editingDisabled}
-          title="Charts"
+          title="图表"
           groups={[
             { label: "Chart Type", items: chartTypeItems },
             { label: "Infographics", items: infographicItems },
@@ -1324,7 +1459,7 @@ function ActionsPanel({
       {!aiOnly && activeAction === "tables" && (
         <InsertPanel
           disabled={editingDisabled}
-          title="Tables"
+          title="表格"
           groups={[{ label: "Table Type", items: tableTypeItems }]}
           onItemSelect={onTableItemSelect}
         />
@@ -1332,7 +1467,7 @@ function ActionsPanel({
       {!aiOnly && activeAction === "images" && (
         <InsertPanel
           disabled={editingDisabled}
-          title="Images"
+          title="图片"
           groups={[{ label: "Add", items: imageItems }]}
           onItemSelect={onImageItemSelect}
         />
@@ -1340,7 +1475,7 @@ function ActionsPanel({
       {!aiOnly && activeAction === "elements" && (
         <InsertPanel
           disabled={editingDisabled}
-          title="Elements"
+          title="元素"
           groups={elementItemGroups}
           onItemSelect={onElementItemSelect}
         />
@@ -1373,7 +1508,10 @@ function templateV2TargetKey(
 
 const PresentationActions = (props: PresentationActionsProps) => {
   const { editingDisabled = false, presentationData, ...chatProps } = props;
-  const aiOnly = props.presentationType === "smart";
+  // 仅纯智能 HTML 演示隐藏插入工具；模板页始终保留组件块/图片等入口。
+  const aiOnly =
+    props.presentationType === "smart" &&
+    !isTemplateV2PresentationData(presentationData);
   const blocksUnavailable = isTemplateFreePresentation(presentationData);
   const [{ activeAction }, dispatchUiState] = useReducer(
     presentationActionsUiReducer,

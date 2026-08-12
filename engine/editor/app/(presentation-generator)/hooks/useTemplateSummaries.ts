@@ -16,18 +16,24 @@ const FEATURED_BUILT_IN_TEMPLATE_ORDER = [
 ] as const;
 
 function orderBuiltInTemplates(templates: TemplateListItem[]) {
-  const priorityByName = new Map<string, number>(
+  const priorityByKey = new Map<string, number>(
     FEATURED_BUILT_IN_TEMPLATE_ORDER.map((name, index) => [name, index]),
   );
 
   return templates
     .map((template, index) => ({ template, index }))
     .sort((left, right) => {
+      const leftKey = left.template.id.trim().toLowerCase();
+      const rightKey = right.template.id.trim().toLowerCase();
+      const leftName = left.template.name.trim().toLowerCase();
+      const rightName = right.template.name.trim().toLowerCase();
       const leftPriority =
-        priorityByName.get(left.template.name.trim().toLowerCase()) ??
+        priorityByKey.get(leftKey) ??
+        priorityByKey.get(leftName) ??
         FEATURED_BUILT_IN_TEMPLATE_ORDER.length;
       const rightPriority =
-        priorityByName.get(right.template.name.trim().toLowerCase()) ??
+        priorityByKey.get(rightKey) ??
+        priorityByKey.get(rightName) ??
         FEATURED_BUILT_IN_TEMPLATE_ORDER.length;
 
       return leftPriority - rightPriority || left.index - right.index;
@@ -106,7 +112,7 @@ export function useTemplateSummaries({
       } catch (error) {
         console.error("Failed to load templates", error);
         if (!cancelled) {
-          toast.error("Failed to load templates");
+          toast.error("加载模板失败");
         }
       } finally {
         if (!cancelled) {

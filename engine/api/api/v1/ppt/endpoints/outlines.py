@@ -113,6 +113,28 @@ async def stream_outlines(
         if await request.is_disconnected():
             return
 
+        # Reopening or refreshing the outline page must replay the reviewed
+        # outline instead of paying for and overwriting it with a new LLM run.
+        if presentation.outlines:
+            yield SSEStatusResponse(status="Loading saved outline").to_string()
+            yield SSEResponse(
+                event="response",
+                data=json.dumps(
+                    {
+                        "type": "chunk",
+                        "chunk": json.dumps(
+                            presentation.outlines,
+                            ensure_ascii=False,
+                        ),
+                    }
+                ),
+            ).to_string()
+            yield SSECompleteResponse(
+                key="presentation",
+                value=presentation.model_dump(mode="json"),
+            ).to_string()
+            return
+
         yield SSEStatusResponse(
             status="Preparing your presentation outline"
         ).to_string()

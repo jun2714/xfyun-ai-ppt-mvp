@@ -6,26 +6,26 @@ import { ChevronRight } from "lucide-react";
 interface GenerateButtonProps {
   loadingState: LoadingState;
   streamState: { isStreaming: boolean; isLoading: boolean };
-  selectedTemplateId: string | null;
+  canContinue: boolean;
   onSubmit: () => void;
 }
 
 const GenerateButton: React.FC<GenerateButtonProps> = ({
   loadingState,
   streamState,
-  selectedTemplateId,
+  canContinue,
   onSubmit,
 }) => {
   const isDisabled =
     loadingState.isLoading ||
     streamState.isLoading ||
     streamState.isStreaming ||
-    !selectedTemplateId;
+    !canContinue;
 
   const getButtonText = () => {
     if (loadingState.isLoading) return loadingState.message;
-    if (streamState.isLoading || streamState.isStreaming) return "Loading...";
-    if (!selectedTemplateId) return "Select a Template";
+    if (streamState.isLoading || streamState.isStreaming) return "加载中…";
+    if (!canContinue) return "请等待大纲生成完成";
     return "继续";
   };
 

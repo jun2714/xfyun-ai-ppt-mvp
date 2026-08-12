@@ -1061,10 +1061,9 @@ def _component_image_prompt_key(element: dict[str, Any]) -> str:
 
 def _component_image_prompt_description(element: dict[str, Any]) -> str:
     if element.get("is_icon") is True:
-        return "Search query for the replacement icon."
+        return "用于替换图标的中文检索词。"
     return (
-        "Prompt describing only the visual scene or subject for the replacement "
-        "image. Do not request visible text, letters, numbers, labels, captions, "
-        "answers, logos, watermarks, signatures, or pseudo-text; all audience-facing "
-        "words must remain editable slide text."
+        "用中文描述替换图片的画面与主体。不要要求画面中出现可见文字、字母、数字、"
+        "标签、说明、答案、Logo、水印、签名或伪文字；所有面向观众的文字必须留在"
+        "可编辑文本中。若出现人物，必须全部为中国人面孔与形象，符合中国幼教场景。"
     )

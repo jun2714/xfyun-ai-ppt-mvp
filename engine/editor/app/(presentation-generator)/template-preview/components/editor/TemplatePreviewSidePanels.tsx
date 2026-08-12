@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { Density, PanelMode, SchemaField } from "./templatePreviewUtils";
+import { localizeSchemaLabel } from "./templatePreviewUtils";
 import {
   BlocksPanel,
   InsertPanel,
@@ -65,12 +66,12 @@ const insertNavItems: Array<{
   label: string;
   Icon: RailIcon;
 }> = [
-  { id: "blocks", label: "Blocks", Icon: BlocksIcon },
-  { id: "texts", label: "Texts", Icon: Type },
-  { id: "charts", label: "Charts", Icon: BarChart3 },
-  { id: "tables", label: "Tables", Icon: Rows3 },
-  { id: "images", label: "Images", Icon: ImageIcon },
-  { id: "elements", label: "Elements", Icon: Shapes },
+  { id: "blocks", label: "组件块", Icon: BlocksIcon },
+  { id: "texts", label: "文本", Icon: Type },
+  { id: "charts", label: "图表", Icon: BarChart3 },
+  { id: "tables", label: "表格", Icon: Rows3 },
+  { id: "images", label: "图片", Icon: ImageIcon },
+  { id: "elements", label: "元素", Icon: Shapes },
 ];
 
 const templateNavItems: Array<{
@@ -78,8 +79,8 @@ const templateNavItems: Array<{
   label: string;
   Icon: RailIcon;
 }> = [
-  { id: "schema", label: "Schema", Icon: Edit3 },
-  { id: "layouts", label: "Layouts", Icon: List },
+  { id: "schema", label: "结构", Icon: Edit3 },
+  { id: "layouts", label: "布局", Icon: List },
 ];
 
 function ToolRailButton({
@@ -196,34 +197,34 @@ export function TemplateInsertPanel({
         />
       ) : activePanel === "texts" ? (
         <InsertPanel
-          title="Texts"
-          groups={[{ label: "Add", items: textItems }]}
+          title="文本"
+          groups={[{ label: "添加", items: textItems }]}
           onItemSelect={onTextItemSelect}
         />
       ) : activePanel === "charts" ? (
         <InsertPanel
-          title="Charts"
+          title="图表"
           groups={[
-            { label: "Chart Type", items: chartTypeItems },
-            { label: "Infographics", items: infographicItems },
+            { label: "图表类型", items: chartTypeItems },
+            { label: "信息图", items: infographicItems },
           ]}
           onItemSelect={onChartItemSelect}
         />
       ) : activePanel === "tables" ? (
         <InsertPanel
-          title="Tables"
-          groups={[{ label: "Table Type", items: tableTypeItems }]}
+          title="表格"
+          groups={[{ label: "表格类型", items: tableTypeItems }]}
           onItemSelect={onTableItemSelect}
         />
       ) : activePanel === "images" ? (
         <InsertPanel
-          title="Images"
-          groups={[{ label: "Add", items: imageItems }]}
+          title="图片"
+          groups={[{ label: "添加", items: imageItems }]}
           onItemSelect={onImageItemSelect}
         />
       ) : activePanel === "elements" ? (
         <InsertPanel
-          title="Elements"
+          title="元素"
           groups={elementItemGroups}
           onItemSelect={onElementItemSelect}
         />
@@ -241,7 +242,7 @@ export function AiPanel({
   onPromptChange: (prompt: string) => void;
   onSubmit: () => void;
 }) {
-  const quickPrompts = ["Make it shorter", "Make it more engaging"];
+  const quickPrompts = ["写得更短一些", "改得更生动一些"];
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -255,9 +256,9 @@ export function AiPanel({
       <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-6 pt-[132px]">
         <div className="flex flex-1 items-start justify-center pt-[58px] text-center">
           <p className="text-[22.68px] font-normal leading-[24.3px] tracking-[-0.4536px] text-[#4C4C4C]">
-            What can I do
+            今天需要我帮你
             <br />
-            for your deck today?
+            改哪一页？
           </p>
         </div>
 
@@ -266,7 +267,7 @@ export function AiPanel({
             <Textarea
               value={prompt}
               onChange={(event) => onPromptChange(event.target.value)}
-              placeholder={"Ask anything.\nType / to get Quick prompts."}
+              placeholder={"随便问我。\n输入 / 查看快捷指令。"}
               className="min-h-[79px] resize-none border-0 bg-transparent p-0 text-[14px] font-normal leading-[18px] text-[#191919] shadow-none placeholder:text-[#999999] focus-visible:ring-0"
             />
             <div className="mt-2 flex h-[28px] items-center justify-between">
@@ -274,14 +275,14 @@ export function AiPanel({
                 <button
                   type="button"
                   className="flex h-[28px] w-[28px] items-center justify-center rounded-full border border-[#EDEEEF] text-[#191919]"
-                  title="Add"
+                  title="添加"
                 >
                   <Plus className="h-[14px] w-[14px]" />
                 </button>
                 <button
                   type="button"
                   className="flex h-[28px] w-[28px] items-center justify-center rounded-full border border-[#EDEEEF] text-[#191919]"
-                  title="AI options"
+                  title="AI 选项"
                 >
                   <Sparkles className="h-[13px] w-[13px] text-[#7A5AF8]" />
                 </button>
@@ -290,14 +291,14 @@ export function AiPanel({
                   className="flex h-[28px] items-center gap-[6px] rounded-full border border-[#EDEEEF] px-[10px] text-[12px] font-medium text-[#191919]"
                 >
                   <Sparkles className="h-[13px] w-[13px] text-[#7A5AF8]" />
-                  Prompt
+                  快捷指令
                 </button>
               </div>
               <button
                 type="submit"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EFEFF2] text-[#191919] disabled:text-[#9A9A9A]"
                 disabled={!prompt.trim()}
-                title="Send"
+                title="发送"
               >
                 <ArrowUp className="h-4 w-4" />
               </button>
@@ -329,29 +330,33 @@ function DensitySelector({
   density: Density;
   onDensityChange: (density: Density) => void;
 }) {
-  const options: Exclude<Density, "">[] = ["Low", "Medium", "High"];
+  const options: Array<{ value: Exclude<Density, "">; label: string }> = [
+    { value: "Low", label: "低" },
+    { value: "Medium", label: "中" },
+    { value: "High", label: "高" },
+  ];
 
   return (
     <div className="mt-[12px] grid grid-cols-3 gap-[8px]">
       {options.map((option) => (
         <button
-          key={option}
-          aria-pressed={density === option}
+          key={option.value}
+          aria-pressed={density === option.value}
           className={cn(
             "h-[30px] rounded-[6px] border text-[14px] font-normal transition-colors",
-            density === option
+            density === option.value
               ? "border-[#D9D6FE] bg-[#F8F6FF] text-[#7A5AF8]"
               : "border-[#EDEEEF] bg-white text-[#191919] hover:bg-[#F8F8F8]",
           )}
-          onClick={() => onDensityChange(option)}
+          onClick={() => onDensityChange(option.value)}
           title={
-            density === option
-              ? `${option} content density selected`
-              : `Preview ${option.toLowerCase()} content density`
+            density === option.value
+              ? `当前为${option.label}密度预览`
+              : `预览${option.label}密度内容`
           }
           type="button"
         >
-          {option}
+          {option.label}
         </button>
       ))}
 
@@ -389,12 +394,14 @@ export function SchemaPanel({
   const fieldGroups = [
     {
       id: "non-decorative",
-      label: "Content",
+      label: "内容",
+      emptyLabel: "内容",
       fields: fields.filter((field) => !field.decorative),
     },
     {
       id: "decorative",
-      label: "Decorative",
+      label: "装饰",
+      emptyLabel: "装饰",
       fields: fields.filter((field) => field.decorative),
     },
   ];
@@ -403,30 +410,29 @@ export function SchemaPanel({
     <aside className="hidden w-[299px] shrink-0 bg-[#FEFEFF] lg:flex lg:flex-col">
       <div className="px-3 pt-[33px]">
         <h2 className="text-[18px] font-medium text-[#101323]">
-          Schema Editor
+          内容结构编辑
         </h2>
         <div className="mt-[18px] flex items-center justify-between gap-3">
           <p className="text-[14px] font-normal text-[#191919]">
-            Content Density
+            内容密度
           </p>
           <button
-            aria-label="Reset content density preview"
+            aria-label="重置内容密度预览"
             className="flex h-7 items-center gap-1.5 rounded-[6px] border border-[#EDEEEF] bg-white px-2 text-[11px] font-medium text-[#667085] transition-colors hover:border-[#D9D6FE] hover:bg-[#F8F6FF] hover:text-[#7A5AF8] disabled:cursor-not-allowed disabled:opacity-40"
             disabled={!canResetDensity}
             onClick={onDensityReset}
-            title="Restore the original slide content"
+            title="恢复原始页面内容"
             type="button"
           >
             <RotateCcw className="h-3 w-3" />
-            Reset
+            重置
           </button>
         </div>
         <DensitySelector density={density} onDensityChange={onDensityChange} />
         <div className="mt-[10px] flex min-h-[62px] gap-[10px] rounded-[6px] bg-[#F3F6FB] px-[16px] py-[10px] text-[12px] leading-[14px] text-[#5F6470]">
           <Info className="mt-[2px] h-[14px] w-[14px] shrink-0 text-[#1F5FBF]" />
           <p>
-            Preview realistic content lengths without changing your saved
-            template. Reset restores the original content.
+            可预览不同内容长度，不会改动已保存的模板。点「重置」可恢复原始内容。
           </p>
         </div>
       </div>
@@ -434,7 +440,7 @@ export function SchemaPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-[40px]">
         {fields.length === 0 ? (
           <div className="rounded-[6px] border border-dashed border-[#DCDCE1] px-4 py-8 text-center text-[13px] text-[#808080]">
-            No schema elements were found for this layout.
+            该布局未找到可编辑结构字段。
           </div>
         ) : (
           <div className="space-y-6">
@@ -450,7 +456,7 @@ export function SchemaPanel({
                 </div>
                 {group.fields.length === 0 ? (
                   <div className="rounded-[6px] border border-dashed border-[#E4E7EC] px-3 py-4 text-center text-[11px] text-[#98A2B3]">
-                    No {group.label.toLowerCase()} elements.
+                    暂无{group.emptyLabel}元素。
                   </div>
                 ) : (
                   <div className="space-y-[8px]">
@@ -507,16 +513,28 @@ function SchemaFieldRow({
         : Type;
   const typeLabel =
     field.type === "text-list"
-      ? "List"
+      ? "列表"
       : field.type === "image"
         ? field.elementType === "icon"
-          ? "Icon"
-          : "Image"
+          ? "图标"
+          : "图片"
         : field.type === "element"
-          ? field.elementType
-              .replace(/[_-]+/g, " ")
-              .replace(/\b\w/g, (letter) => letter.toUpperCase())
-          : "String";
+          ? (
+              {
+                vector: "形状",
+                chart: "图表",
+                table: "表格",
+                container: "容器",
+                flex: "弹性布局",
+                grid: "网格",
+                group: "编组",
+                infographic: "信息图",
+                math: "公式",
+                svg: "矢量图",
+              } as Record<string, string>
+            )[field.elementType] ??
+            (localizeSchemaLabel(field.elementType) || "元素")
+          : "文本";
 
   return (
     <div className="space-y-[3px]">
@@ -552,7 +570,7 @@ function SchemaFieldRow({
               className="shrink-0 text-[12px] font-normal tracking-[0.48px] text-[#808080]"
               style={{ fontFamily: "Outfit, var(--font-syne), sans-serif" }}
             >
-              ({field.maxChars} Characters)
+              （{field.maxChars} 字）
             </span>
           ) : null}
         </button>
@@ -562,13 +580,13 @@ function SchemaFieldRow({
         <div className="ml-[28.5px] flex flex-col gap-[2px]">
           <div className="flex h-[30px] items-center gap-[8px] rounded-[4px] border border-[#E7E8EC] bg-[#FEFEFF] px-[10px] text-[14px] font-normal tracking-[0.56px] text-[#17181E]">
             <span className="text-[16px] leading-none text-[#808080]">#</span>
-            <span>Type</span>
+            <span>类型</span>
             <span className="ml-auto text-[#191919]">{typeLabel}</span>
           </div>
           <div className="flex h-[36px] items-center rounded-[4px] border border-[#E7E8EC] bg-[#FEFEFF] px-[10px] text-[14px] font-normal tracking-[0.56px] text-[#17181E]">
-            <span>Decorative</span>
+            <span>装饰元素</span>
             <Switch
-              aria-label={`Set ${field.label} decorative`}
+              aria-label={`设置「${field.label}」为装饰元素`}
               checked={field.decorative}
               className="ml-auto data-[state=checked]:bg-[#7A5AF8] data-[state=unchecked]:bg-[#D0D5DD]"
               onCheckedChange={onDecorativeChange}
@@ -576,14 +594,13 @@ function SchemaFieldRow({
           </div>
           {field.decorative ? (
             <div className="rounded-[4px] border border-[#E7E8EC] bg-[#F8F8FA] px-[10px] py-[8px] text-[11px] leading-4 tracking-normal text-[#667085]">
-              Decorative elements are read-only. Turn off Decorative to edit
-              their content or constraints.
+              装饰元素为只读。关闭「装饰元素」后，才能编辑内容和字数限制。
             </div>
           ) : null}
           {field.type === "text" || field.type === "text-list" ? (
             <>
               <label className="flex h-[30px] items-center rounded-[4px] border border-[#E7E8EC] bg-[#FEFEFF] px-[10px] text-[14px] font-normal tracking-[0.56px] text-[#17181E]">
-                <span>Min Chars</span>
+                <span>最少字数</span>
                 <input
                   className={cn(
                     "ml-auto h-[24px] w-[76px] rounded-[4px] border border-transparent bg-transparent text-right text-[#191919] outline-none transition-colors focus:border-[#D9D6FE] focus:bg-[#F8F6FF]",
@@ -600,7 +617,7 @@ function SchemaFieldRow({
                 />
               </label>
               <label className="flex h-[30px] items-center rounded-[4px] border border-[#E7E8EC] bg-[#FEFEFF] px-[10px] text-[14px] font-normal tracking-[0.56px] text-[#17181E]">
-                <span>Max Chars</span>
+                <span>最多字数</span>
                 <input
                   className={cn(
                     "ml-auto h-[24px] w-[76px] rounded-[4px] border border-transparent bg-transparent text-right text-[#191919] outline-none transition-colors focus:border-[#D9D6FE] focus:bg-[#F8F6FF]",
@@ -620,7 +637,7 @@ function SchemaFieldRow({
           ) : null}
           {field.type !== "element" ? (
             <label className="flex flex-col gap-[6px] rounded-[4px] border border-[#E7E8EC] bg-[#FEFEFF] px-[10px] py-[8px] text-[14px] font-normal tracking-[0.56px] text-[#17181E]">
-              <span>{field.type === "image" ? "Prompt" : "Content"}</span>
+              <span>{field.type === "image" ? "提示词" : "内容"}</span>
               {field.type === "image" ? (
                 <input
                   className={cn(
@@ -647,8 +664,7 @@ function SchemaFieldRow({
             </label>
           ) : (
             <p className="rounded-[4px] border border-[#E7E8EC] bg-[#F8F8FA] px-[10px] py-[8px] text-[11px] leading-4 tracking-normal text-[#667085]">
-              This element has no editable content. Its decorative role can
-              still be changed.
+              该元素没有可编辑内容，但仍可调整是否作为装饰元素。
             </p>
           )}
         </div>

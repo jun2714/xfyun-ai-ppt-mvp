@@ -101,6 +101,10 @@ const presentationGenerationSlice = createSlice({
     setPresentationId: (state, action: PayloadAction<string>) => {
       if (state.presentation_id !== action.payload) {
         state.chatHtmlSelection = null;
+        // Outlines belong to a specific presentation. Clearing them here
+        // prevents a newly created deck from reusing the previous deck's
+        // outline and incorrectly skipping its outline stream.
+        state.outlines = [];
       }
       state.presentation_id = action.payload;
       state.error = null;

@@ -1,7 +1,7 @@
 "use client";
 
 import Wrapper from "@/components/Wrapper";
-import React from "react";
+import React, { type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
@@ -19,7 +19,7 @@ function pathMatches(pathname: string | null, base: string) {
   return pathname === base || pathname?.startsWith(`${base}/`) === true;
 }
 
-const Header = () => {
+const Header = ({ rightSlot }: { rightSlot?: ReactNode }) => {
   const pathname = usePathname();
   const showHeaderBack = PATHS_WITH_HEADER_BACK.some((p) => pathMatches(pathname, p));
 
@@ -35,15 +35,15 @@ const Header = () => {
       : "返回项目";
 
   return (
-    <div className="w-full   sticky top-0 z-50 py-7 "
+    <div
+      className="sticky top-0 z-50 w-full py-7"
       style={{
         background: "linear-gradient(180deg, #FFF 0%, rgba(255, 255, 255, 0.00) 110.67%)",
-
       }}
     >
       <Wrapper className="px-5 sm:px-10 lg:px-20">
-        <div className="flex items-center justify-between py-1">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-4 py-1">
+          <div className="flex flex-col items-start gap-2">
             <Link
               className="flex items-center gap-3"
               href="/dashboard"
@@ -58,21 +58,20 @@ const Header = () => {
                 <span className="text-sm font-semibold text-[#4f4b5d]">幼教PPT</span>
               </span>
             </Link>
-          </div>
-          <div className="flex items-center">
             {showHeaderBack ? (
               <Link
                 href={backHref}
-                className="text-[#333333] text-xs font-syne font-semibold flex items-center gap-2"
+                className="ml-1 flex items-center gap-1.5 font-syne text-xs font-semibold text-[#667085] transition-colors hover:text-[#333333] sm:ml-0.5"
                 onClick={() =>
                   trackEvent(MixpanelEvent.Navigation, { from: pathname, to: backHref })
                 }
               >
-                <ArrowLeft className="w-4 h-4 shrink-0 text-[#333333]" aria-hidden />
+                <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>{backLabel}</span>
               </Link>
             ) : null}
           </div>
+          <div className="flex shrink-0 items-center pt-1">{rightSlot}</div>
         </div>
       </Wrapper>
     </div>

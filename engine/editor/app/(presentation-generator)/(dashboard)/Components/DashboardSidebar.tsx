@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LayoutDashboard, Star, Brain, Settings, HelpCircle, UsersRound } from "lucide-react";
+import { LayoutDashboard, Star, Brain, Settings, HelpCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
@@ -12,10 +12,8 @@ export const defaultNavItems = [
     { key: "dashboard" as const, label: "项目", icon: LayoutDashboard },
     { key: "templates" as const, label: "模板", icon: Star },
     { key: "designs" as const, label: "智能设计", icon: Brain },
-    { key: "community" as const, label: "社区", icon: UsersRound },
-
-
-
+    // 社区入口暂不对外开放
+    // { key: "community" as const, label: "社区", icon: UsersRound },
 ];
 export const BelongingNavItems = [
     { key: "settings" as const, label: "设置", icon: Settings },
@@ -72,16 +70,18 @@ const DashboardSidebar = () => {
                                 <span className="text-[11px] text-slate-800">模板</span>
                             </div>
                         </Link>
+                        {/* 社区入口暂不对外开放
                         <Link
                             prefetch={false}
                             href="/community"
                             className="flex flex-col items-center gap-2 text-center transition-colors"
-                            aria-label="Community"
-                            title="Community"
+                            aria-label="社区"
+                            title="社区"
                         >
                             <UsersRound className={`h-4 w-4 ${pathname === "/community" ? "text-[#5146E5]" : "text-slate-600"}`} />
                             <span className="text-[11px] text-slate-800">社区</span>
                         </Link>
+                        */}
                         {/* <Link
                             prefetch={false}
                             href={`/theme`}

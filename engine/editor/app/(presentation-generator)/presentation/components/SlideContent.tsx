@@ -56,7 +56,10 @@ const SlideContent = ({
       className="main-slide relative flex w-full items-center justify-center max-md:mb-4"
     >
       {isStreaming && (
-        <Loader2 className="absolute right-2 top-2 z-30 h-8 w-8 animate-spin text-blue-800" />
+        <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-blue-800 shadow-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{selected ? "正在生成配图…" : "生成中…"}</span>
+        </div>
       )}
       <div
         data-layout={slide?.layout}
@@ -88,7 +91,7 @@ const SlideContent = ({
                     aria-hidden="true"
                   />
                   <span className="text-[13px] font-normal leading-[14px] tracking-[0.39px] text-[#666666]">
-                    Updating slides...
+                    正在更新幻灯片…
                   </span>
                 </span>
               </span>

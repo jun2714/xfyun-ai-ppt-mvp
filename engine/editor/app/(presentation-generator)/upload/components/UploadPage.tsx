@@ -11,11 +11,11 @@
 
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { clearOutlines, setPresentationId } from "@/store/slices/presentationGeneration";
 import { PromptInput } from "./PromptInput";
-import { LanguageType, PresentationConfig, ToneType, VerbosityType } from "../type";
+import { LanguageType, PresentationConfig } from "../type";
 import SupportingDoc from "./SupportingDoc";
 import { notify } from "@/components/ui/sonner";
 import { PresentationGenerationApi } from "../../services/api/presentation-generation";
@@ -23,7 +23,7 @@ import { OverlayLoader } from "@/components/ui/overlay-loader";
 import Wrapper from "@/components/Wrapper";
 import { setPptGenUploadState } from "@/store/slices/presentationGenUpload";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
-import { ConfigurationSelects } from "./ConfigurationSelects";
+import { ConfigurationSelects, LanguageSelectControl } from "./ConfigurationSelects";
 import { RootState } from "@/store/store";
 import { ImagesApi } from "../../services/api/images";
 import CurrentConfig from "./CurrentConfig";
@@ -32,13 +32,20 @@ import {
   clampSlideCountValue,
   parseLimitedSlideCount,
 } from "@/utils/presentationLimits";
-import CommunityReferencePicker from "./CommunityReferencePicker";
+import { type TeachingContextState } from "../../presentation/components/chat/chat-prompts";
+import Header from "@/app/(presentation-generator)/(dashboard)/dashboard/components/Header";
 import {
-  CommunityPresentationApi,
-  type CommunityPresentation,
-} from "../../services/api/community";
-
-type GenerationMode = "smart" | "standard";
+  buildTeachnovaPrompt,
+  createTeachnovaDefaultConfig,
+  getTeachnovaWebOutlineUrl,
+  TEACHNOVA_API_LANGUAGE,
+} from "../product-defaults";
+// 社区参考暂不对外开放
+// import CommunityReferencePicker from "./CommunityReferencePicker";
+// import {
+//   CommunityPresentationApi,
+//   type CommunityPresentation,
+// } from "../../services/api/community";
 
 const STOCK_IMAGE_PROVIDERS = new Set(["pexels", "pixabay"]);
 const FILE_TYPE_WORD = new Set([".doc", ".docx", ".docm", ".odt", ".rtf"]);
@@ -138,58 +145,35 @@ const getDocumentPaths = (files: unknown): string[] => {
 };
 
 const UploadPage = () => {
-  const router = useRouter();
   const pathname = usePathname();
   const dispatch = useDispatch();
   const llmConfig = useSelector((state: RootState) => state.userConfig.llm_config);
 
   const [files, setFiles] = useState<File[]>([]);
-  // Template mode is the default product path because it exposes outline
-  // confirmation plus built-in and custom template selection.
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("standard");
-  const [communityReference, setCommunityReference] =
-    useState<CommunityPresentation | null>(null);
-  const [config, setConfig] = useState<PresentationConfig>({
-    slides: null,
-    language: LanguageType.ChineseSimplified,
-    prompt: "",
-    tone: ToneType.Default,
-    verbosity: VerbosityType.Standard,
-    instructions: "",
-    includeTableOfContents: false,
-    includeTitleSlide: false,
-    webSearch: false,
+  // 新输入页只负责收集主题；创建后回到旧 Web 大纲页继续生成与排版。
+  const generationMode = "standard" as const;
+  const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
+    audience: "幼儿",
+    scene: "集体教学",
+    style: "明亮童趣",
   });
+  const [config, setConfig] = useState<PresentationConfig>(
+    createTeachnovaDefaultConfig
+  );
+
+  const continueToLegacyOutline = (presentationId: string) => {
+    const destination = getTeachnovaWebOutlineUrl(presentationId);
+    trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
+    window.location.assign(destination);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedPrompt = params.get("prompt")?.trim();
-    const requestedCommunityId = Number(params.get("communityId"));
-    let active = true;
 
-    if (params.get("mode") === "smart") {
-      setGenerationMode("smart");
-    }
     if (requestedPrompt) {
       setConfig((current) => ({ ...current, prompt: requestedPrompt }));
     }
-    if (Number.isSafeInteger(requestedCommunityId) && requestedCommunityId > 0) {
-      CommunityPresentationApi.getById(requestedCommunityId)
-        .then((presentation) => {
-          if (active) setCommunityReference(presentation);
-        })
-        .catch((loadError) => {
-          if (!active) return;
-          notify.error(
-            "Could not select the community design",
-            loadError instanceof Error ? loadError.message : undefined
-          );
-        });
-    }
-
-    return () => {
-      active = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -228,7 +212,7 @@ const UploadPage = () => {
       include_title_slide: !!config.includeTitleSlide,
       web_search: !!config.webSearch,
       generation_mode: generationMode,
-      community_reference_id: communityReference?.id ?? null,
+      community_reference_id: null,
       has_prompt: Boolean(trimmedPrompt),
       prompt_char_count: trimmedPrompt.length,
       prompt_word_count: trimmedPrompt ? trimmedPrompt.split(/\s+/).filter(Boolean).length : 0,
@@ -308,15 +292,11 @@ const UploadPage = () => {
       return false;
     }
 
-    if (
-      !config.prompt.trim() &&
-      files.length === 0 &&
-      !(generationMode === "smart" && communityReference)
-    ) {
+    if (!config.prompt.trim() && files.length === 0) {
       trackUploadValidationFailure("prompt_or_document_missing");
       notify.warning(
           "请输入内容",
-          "请输入主题、上传文档或选择一个社区设计。"
+          "请输入主题或上传文档后再生成。"
       );
       return false;
     }
@@ -331,8 +311,7 @@ const UploadPage = () => {
     trackEvent(MixpanelEvent.Upload_Generation_Started, getUploadSnapshotProps());
 
 
-    const isStockProviderReady =
-      generationMode === "smart" || (await ensureStockImageProviderReady());
+    const isStockProviderReady = await ensureStockImageProviderReady();
     if (!isStockProviderReady) {
       trackUploadValidationFailure("stock_image_provider_unreachable");
       return;
@@ -370,7 +349,11 @@ const UploadPage = () => {
       documents = uploadResponse;
     }
 
-    const selectedLanguage = config?.language ?? "";
+    const requestContext = teachingContext;
+    const requestContent = buildTeachnovaPrompt(
+      config.prompt ?? "",
+      requestContext
+    );
 
     const promises: Promise<any>[] = [];
 
@@ -378,7 +361,7 @@ const UploadPage = () => {
       promises.push(
         PresentationGenerationApi.decomposeDocuments(
           documents,
-          selectedLanguage
+          TEACHNOVA_API_LANGUAGE
         )
       );
     }
@@ -387,21 +370,18 @@ const UploadPage = () => {
 
     setLoadingState({
       isLoading: true,
-      message:
-        generationMode === "smart"
-          ? "正在开始智能演示…"
-          : "正在生成演示大纲…",
+      message: "正在生成演示大纲…",
       showProgress: true,
       duration: 40,
       extra_info: "",
     });
 
     const createResponse = await PresentationGenerationApi.createPresentation({
-      content: config?.prompt ?? "",
+      content: requestContent,
       version: "v2-standard",
       n_slides: parseLimitedSlideCount(config?.slides),
       file_paths: documentPaths,
-      language: selectedLanguage,
+      language: TEACHNOVA_API_LANGUAGE,
       tone: config?.tone,
       verbosity: config?.verbosity,
       instructions: config?.instructions || null,
@@ -409,40 +389,36 @@ const UploadPage = () => {
       include_title_slide: !!config?.includeTitleSlide,
       web_search: !!config?.webSearch,
       generation_mode: generationMode,
-      community_design_ids:
-        generationMode === "smart" && communityReference
-          ? [communityReference.id]
-          : undefined,
+      community_design_ids: undefined,
     });
 
-    dispatch(setPptGenUploadState({
-      config,
-      files: responses,
-    }));
+    dispatch(
+      setPptGenUploadState({
+        config,
+        files: responses,
+        generationMode,
+        requestContent,
+        requestContext,
+      })
+    );
     dispatch(clearOutlines());
     dispatch(setPresentationId(createResponse.id));
+    const destination = getTeachnovaWebOutlineUrl(createResponse.id);
     trackEvent(MixpanelEvent.Upload_Documents_Processed, {
       ...getUploadSnapshotProps(),
       uploaded_documents_count: documents.length,
       decompose_job_count: responses.length,
       extracted_document_count: documentPaths.length,
-      destination:
-        generationMode === "smart" ? "/presentation" : "/outline",
+      destination,
     });
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.id,
       uploaded_documents_count: documents.length,
       extracted_document_count: documentPaths.length,
-      destination:
-        generationMode === "smart" ? "/presentation" : "/outline",
+      destination,
     });
-    const destination =
-      generationMode === "smart"
-        ? `/presentation?id=${createResponse.id}&stream=true&type=smart`
-        : "/outline";
-    trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
-    router.push(destination);
+    continueToLegacyOutline(createResponse.id);
   };
 
   /**
@@ -451,23 +427,23 @@ const UploadPage = () => {
   const handleDirectPresentationGeneration = async () => {
     setLoadingState({
       isLoading: true,
-      message:
-        generationMode === "smart"
-          ? "正在开始智能演示…"
-          : "正在准备生成大纲…",
+      message: "正在准备生成大纲…",
       showProgress: true,
       duration: 30,
     });
 
-    const selectedLanguage = config?.language ?? "";
+    const requestContext = teachingContext;
+    const requestContent = buildTeachnovaPrompt(
+      config.prompt ?? "",
+      requestContext
+    );
 
-    // Standard mode continues to outline review; Smart mode streams the deck directly.
     const createResponse = await PresentationGenerationApi.createPresentation({
-      content: config?.prompt ?? "",
-
+      content: requestContent,
+      version: "v2-standard",
       n_slides: parseLimitedSlideCount(config?.slides),
       file_paths: [],
-      language: selectedLanguage,
+      language: TEACHNOVA_API_LANGUAGE,
       tone: config?.tone,
       verbosity: config?.verbosity,
       instructions: config?.instructions || null,
@@ -475,30 +451,27 @@ const UploadPage = () => {
       include_title_slide: !!config?.includeTitleSlide,
       web_search: !!config?.webSearch,
       generation_mode: generationMode,
-      community_design_ids:
-        generationMode === "smart" && communityReference
-          ? [communityReference.id]
-          : undefined,
+      community_design_ids: undefined,
     });
 
-    dispatch(setPptGenUploadState({
-      config,
-      files: [],
-    }));
+    dispatch(
+      setPptGenUploadState({
+        config,
+        files: [],
+        generationMode,
+        requestContent,
+        requestContext,
+      })
+    );
     dispatch(clearOutlines());
     dispatch(setPresentationId(createResponse.id));
+    const destination = getTeachnovaWebOutlineUrl(createResponse.id);
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.id,
-      destination:
-        generationMode === "smart" ? "/presentation" : "/outline",
+      destination,
     });
-    const destination =
-      generationMode === "smart"
-        ? `/presentation?id=${createResponse.id}&stream=true&type=smart`
-        : "/outline";
-    trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
-    router.push(destination);
+    continueToLegacyOutline(createResponse.id);
   };
 
   /**
@@ -519,7 +492,35 @@ const UploadPage = () => {
   };
 
   return (
-    <Wrapper className="w-full pb-10">
+    <div className="relative min-h-dvh">
+      <Header
+        rightSlot={
+          <LanguageSelectControl
+            value={config.language}
+            onValueChange={(value) => handleConfigChange("language", value)}
+            compact
+          />
+        }
+      />
+      <div className="mb-8 flex flex-col items-center justify-center px-4 text-center">
+        <h1 className="relative font-syne text-4xl font-semibold leading-[112%] text-[#101323] sm:text-5xl lg:text-[64px] min-[1920px]:text-[76px] min-[2560px]:text-[88px]">
+          生成幼教PPT
+          <svg className="absolute -left-6 -top-8 sm:-left-12 sm:-top-12 lg:-left-20 lg:-top-16" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M9.73497 5.85272C8.05237 5.69492 6.72098 4.39958 6.55904 2.76316L6.28582 0L6.0126 2.76316C5.85066 4.39985 4.51927 5.6952 2.83667 5.85272L0 6.11849L2.83667 6.38426C4.51927 6.54206 5.85066 7.8374 6.0126 9.47382L6.28582 12.237L6.55904 9.47382C6.72098 7.83713 8.05237 6.54178 9.73497 6.38426L12.5716 6.11849L9.73497 5.85272Z" fill="#09CCFE" />
+          </svg>
+          <svg className="absolute -left-2 -top-6 sm:-left-4 sm:-top-8" xmlns="http://www.w3.org/2000/svg" width="26" height="25" viewBox="0 0 26 25" fill="none">
+            <path d="M19.4699 11.7054C16.1047 11.3898 13.442 8.79915 13.1181 5.52632L12.5716 0L12.0252 5.52632C11.7013 8.79971 9.03854 11.3904 5.67335 11.7054L0 12.237L5.67335 12.7685C9.03854 13.0841 11.7013 15.6748 12.0252 18.9476L12.5716 24.474L13.1181 18.9476C13.442 15.6743 16.1047 13.0836 19.4699 12.7685L25.1433 12.237L19.4699 11.7054Z" fill="#09CCFE" />
+          </svg>
+          <svg className="absolute -right-7 bottom-0 sm:-right-10" xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 41 41" fill="none">
+            <path d="M31.6166 19.8734C26.275 19.3587 22.0484 15.134 21.5343 9.797L20.6669 0.785156L19.7995 9.797C19.2854 15.1349 15.0588 19.3596 9.71723 19.8734L0.711914 20.7401L9.71723 21.6069C15.0588 22.1216 19.2854 26.3462 19.7995 31.6833L20.6669 40.6951L21.5343 31.6833C22.0484 26.3453 26.275 22.1207 31.6166 21.6069L40.6219 20.7401L31.6166 19.8734Z" fill="#DF92FC" />
+          </svg>
+        </h1>
+        <p className="mt-2 max-w-2xl font-syne text-base text-[#101323CC] sm:text-lg lg:text-xl min-[1920px]:text-2xl">
+          输入主题或上传资料，生成可编辑、可导出的演示文稿
+        </p>
+      </div>
+
+      <Wrapper className="w-full pb-10">
       <OverlayLoader
         show={loadingState.isLoading}
         text={loadingState.message}
@@ -528,49 +529,33 @@ const UploadPage = () => {
         extra_info={loadingState.extra_info}
       />
       <div className="mx-auto mb-[75px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
-        <div className="flex min-h-[34px] w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <div
-              className="inline-flex items-center rounded-lg border border-[#EDEEEF] bg-white p-1 font-syne"
-              role="tablist"
-              aria-label="生成模式"
-            >
-              {(["smart", "standard"] as GenerationMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={generationMode === mode}
-                  onClick={() => setGenerationMode(mode)}
-                  className={`rounded-md px-3 py-1 text-xs font-medium capitalize leading-6 text-[#191919] transition-colors ${
-                    generationMode === mode ? "bg-[#F6F6F9]" : "hover:bg-[#FAFAFC]"
-                  }`}
-                >
-                  {mode === "smart" ? "智能创作" : "模板创作"}
-                </button>
-              ))}
-            </div>
-            <CurrentConfig webSearchEnabled={config.webSearch} />
-          </div>
-          <ConfigurationSelects
-            compact
-            config={config}
-            onConfigChange={handleConfigChange}
-          />
+        <div className="flex min-h-[34px] w-full flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-md bg-[#F4F1FF] px-3 py-1.5 font-syne text-xs font-semibold text-[#6847F4]">
+            标准生成流程
+          </span>
+          <CurrentConfig webSearchEnabled={config.webSearch} />
         </div>
+        <p className="text-xs text-[#667085]">
+          创建后进入原来的大纲页确认内容，默认使用通用模板完成排版。
+        </p>
 
         <PromptInput
           value={config.prompt}
           variant={generationMode}
-          references={
-            generationMode === "smart" && communityReference
-              ? [{ id: String(communityReference.id), label: communityReference.title || "社区设计" }]
-              : []
-          }
-          onRemoveReference={() => setCommunityReference(null)}
           onChange={(value) => handleConfigChange("prompt", value)}
           onSubmit={handleGeneratePresentation}
           hasAttachments={files.length > 0}
+          teachingContext={teachingContext}
+          onTeachingContextChange={setTeachingContext}
+          teachingContextDisabled={loadingState.isLoading}
+          toolbarRight={
+            <ConfigurationSelects
+              compact
+              hideLanguage
+              config={config}
+              onConfigChange={handleConfigChange}
+            />
+          }
           footer={
             <SupportingDoc
               files={files}
@@ -582,15 +567,15 @@ const UploadPage = () => {
         />
       </div>
 
+      {/* 社区参考暂不对外开放
       {generationMode === "smart" && (
         <div className="px-4 sm:px-6">
-          <CommunityReferencePicker
-            selectedId={communityReference?.id ?? null}
-            onSelect={setCommunityReference}
-          />
+          <CommunityReferencePicker ... />
         </div>
       )}
+      */}
     </Wrapper>
+    </div>
   );
 };
 
