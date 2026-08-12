@@ -1,8 +1,25 @@
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { TemplateV2HtmlSlidePreview } from "../../../components/TemplateV2HtmlSlidePreview";
-import { quickPromptGroups } from "./chat-prompts";
+import {
+  quickPromptGroups,
+  teachingContextGroups,
+  type TeachingContextKey,
+  type TeachingContextState,
+} from "./chat-prompts";
 import type { AssistantActivity, ChatEditPreview } from "./chat-types";
 
 const AssistantSparkleIcon = ({ size = 14 }: { size?: number }) => (
@@ -27,7 +44,7 @@ const AssistantSparkleIcon = ({ size = 14 }: { size?: number }) => (
 export const AssistantMarker = () => (
   <div className="mb-2 flex items-center gap-1.5 text-[#8A8F98]">
     <AssistantSparkleIcon size={14} />
-    <span className="text-[11px] font-medium leading-4">Assistant</span>
+    <span className="text-[11px] font-medium leading-4">助手</span>
   </div>
 );
 
@@ -40,7 +57,7 @@ export const ActivityStatusIcon = ({
     return (
       <span
         className="activity-flow-dots relative mt-1 h-[9px] w-[22px] shrink-0"
-        aria-label="Working"
+        aria-label="处理中"
       >
         <span className="absolute left-0 top-[1.5px] h-[6px] w-[6px] rounded-full bg-[#C3C3CB]" />
         <span className="absolute left-[8px] top-[1.5px] h-[6px] w-[6px] rounded-full bg-[#C3C3CB]" />
@@ -89,6 +106,119 @@ export const QuickPromptsPanel = ({
   </div>
 );
 
+export const TeachingContextBar = ({
+  value,
+  onChange,
+  disabled = false,
+  className,
+}: {
+  value: TeachingContextState;
+  onChange: (next: TeachingContextState) => void;
+  disabled?: boolean;
+  className?: string;
+}) => {
+  const [openKey, setOpenKey] = useState<TeachingContextKey | null>(null);
+
+  const selectOption = (key: TeachingContextKey, option: string | undefined) => {
+    onChange({
+      ...value,
+      [key]: option,
+    });
+    setOpenKey(null);
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-2",
+        className,
+      )}
+      aria-label="教学信息"
+    >
+      {teachingContextGroups.map((group) => {
+        const selected = value[group.key];
+        const open = openKey === group.key;
+        return (
+          <Popover
+            key={group.key}
+            open={open}
+            onOpenChange={(nextOpen) => {
+              if (disabled) return;
+              setOpenKey(nextOpen ? group.key : null);
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                role="combobox"
+                disabled={disabled}
+                aria-expanded={open}
+                aria-controls={`teaching-context-${group.key}`}
+                className={cn(
+                  "flex h-[28px] max-w-[140px] items-center gap-1 overflow-hidden rounded-full border bg-white px-2.5 font-syne font-semibold text-[#191919] shadow-none transition-colors focus-visible:ring-2 focus-visible:ring-[#5146E5]/25 disabled:cursor-not-allowed disabled:opacity-40",
+                  selected
+                    ? "border-[#D9D6FE] text-[#6941C6]"
+                    : "border-[#EDEEEF]",
+                )}
+              >
+                <span className="min-w-0 truncate text-[11px] font-semibold tracking-[-0.12px]">
+                  {selected || group.shortLabel || group.label}
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                  className="h-3 w-3 shrink-0 rotate-90"
+                />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              id={`teaching-context-${group.key}`}
+              className="w-[180px] p-0 font-syne"
+              align="end"
+            >
+              <Command>
+                <CommandList>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__clear__"
+                      onSelect={() => selectOption(group.key, undefined)}
+                      className="font-syne text-sm text-[#667085]"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !selected ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      不限
+                    </CommandItem>
+                    {group.options.map((option) => (
+                      <CommandItem
+                        key={option}
+                        value={option}
+                        onSelect={() => selectOption(group.key, option)}
+                        className="font-syne text-sm"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selected === option ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {option}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        );
+      })}
+    </div>
+  );
+};
+
 export const EditComparisonPreview = ({
   preview,
   fonts,
@@ -106,12 +236,12 @@ export const EditComparisonPreview = ({
 
   const cards = [
     {
-      label: "Original",
+      label: "原版",
       slides: preview.originalSlides,
       version: "original" as const,
     },
     {
-      label: "Modified",
+      label: "修改后",
       slides: preview.modifiedSlides,
       version: "modified" as const,
     },
@@ -127,9 +257,9 @@ export const EditComparisonPreview = ({
           height={14}
           className="h-[14px] w-[14px] shrink-0"
         />
-        <span className="font-semibold text-[#191919]">Select edits</span>
+        <span className="font-semibold text-[#191919]">选择修改结果</span>
         <span className="ml-auto text-[11px] font-medium leading-[normal] text-[#7A5AF8]">
-          {preview.changeCount} {preview.changeCount === 1 ? "Change" : "Changes"}
+          {preview.changeCount} 处修改
         </span>
       </div>
       <div className="grid grid-cols-2 gap-[5px]">
@@ -146,7 +276,7 @@ export const EditComparisonPreview = ({
                 : "border-[#EDEEEF]",
             )}
             aria-pressed={selectedVersion === card.version}
-            aria-label={`Restore ${card.label.toLowerCase()} slide state`}
+            aria-label={`恢复为「${card.label}」`}
           >
             <span className="mb-[7px] flex items-center justify-center gap-1 truncate text-center text-[13px] font-medium leading-[normal] text-[#191919]">
               {isApplying && selectedVersion === card.version && (

@@ -14,6 +14,10 @@ import {
   LayoutsBadge,
 } from "./TemplatePreviewComponents";
 import { TemplateTab } from "../hooks/useTemplateSummaries";
+import {
+  localizeTemplateDescription,
+  localizeTemplateName,
+} from "../utils/teachnovaLocale";
 
 export function TemplateThumbnailPreview({
   thumbnail,
@@ -95,9 +99,22 @@ export const TemplateListCard = memo(function TemplateListCard({
     status === "queued" ||
     status === "running" ||
     status === "in progress";
+  const displayName = localizeTemplateName(template.name, template.id);
+  const displayDescription = localizeTemplateDescription(
+    template.description,
+    template.name,
+    template.id,
+  );
+  const statusLabelMap: Record<string, string> = {
+    ready: "可用",
+    completed: "已完成",
+    failed: "失败",
+    error: "失败",
+    draft: "草稿",
+  };
   const statusLabel =
     status && !isGeneratingStatus
-      ? status.replace(/\b\w/g, (char) => char.toUpperCase())
+      ? statusLabelMap[status] || "处理中"
       : null;
 
   return (
@@ -105,7 +122,7 @@ export const TemplateListCard = memo(function TemplateListCard({
       role="button"
       tabIndex={0}
       aria-pressed={isSelected}
-      aria-label={`${showArrow ? "打开" : "选择"}${template.name}模板`}
+      aria-label={`${showArrow ? "打开" : "选择"}${displayName}模板`}
       className={cn(
         "group relative overflow-hidden border bg-white shadow-none outline-none transition-all duration-200",
         selectionPage ? "rounded-[12px]" : "rounded-[22px]",
@@ -140,7 +157,7 @@ export const TemplateListCard = memo(function TemplateListCard({
         />
         <TemplateThumbnailPreview
           thumbnail={template.thumbnail}
-          templateName={template.name}
+          templateName={displayName}
           selectionPage={selectionPage}
         />
       </TemplatePreviewStage>
@@ -153,7 +170,7 @@ export const TemplateListCard = memo(function TemplateListCard({
         <div className="min-w-0 flex-1">
           <h3
             className={cn(
-              "font-syne capitalize",
+              "font-syne",
               selectionPage
                 ? "text-sm font-semibold tracking-[0.14px] text-[#191919]"
                 : cn(
@@ -162,9 +179,9 @@ export const TemplateListCard = memo(function TemplateListCard({
                   )
             )}
           >
-            {template.name}
+            {displayName}
           </h3>
-          {template.description && (
+          {displayDescription && (
             <p
               className={cn(
                 "line-clamp-2 font-syne",
@@ -176,7 +193,7 @@ export const TemplateListCard = memo(function TemplateListCard({
                     )
               )}
             >
-              {template.description}
+              {displayDescription}
             </p>
           )}
           {statusLabel && (
@@ -325,7 +342,7 @@ export function TemplateTabSwitcher({
           color: tab === "custom" ? "#5146E5" : "#3A3A3A",
         }}
       >
-        Custom
+        自定义
       </button>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -347,7 +364,7 @@ export function TemplateTabSwitcher({
           color: tab === "default" ? "#5146E5" : "#3A3A3A",
         }}
       >
-        Built-in
+        内置
       </button>
     </div>
   );

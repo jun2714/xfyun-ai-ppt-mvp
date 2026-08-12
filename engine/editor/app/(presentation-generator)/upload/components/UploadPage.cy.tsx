@@ -207,7 +207,10 @@ describe('<UploadPage />', () => {
       cy.wait('@createPresentation', { timeout: 10000 })
 
       // Verify navigation to outline page
-      cy.get('@router.push').should('be.calledWith', '/outline')
+      cy.get('@router.push').should(
+        'be.calledWith',
+        '/outline?id=test-id&mode=standard'
+      )
     })
 
     it('should proceed to outline page with uploaded document', () => {
@@ -253,7 +256,10 @@ describe('<UploadPage />', () => {
         .and('deep.equal', ['/tmp/decomposed/example.txt'])
 
       // Verify navigation to outline page
-      cy.get('@router.push').should('be.calledWith', '/outline')
+      cy.get('@router.push').should(
+        'be.calledWith',
+        '/outline?id=test-id&mode=standard'
+      )
     })
   })
 

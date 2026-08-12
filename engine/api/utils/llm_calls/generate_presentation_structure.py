@@ -30,8 +30,15 @@ You need to select a layout for each slide based on the mentioned guidelines.
 - Identify if the content contains tables.
 
 # Selection Rules
-- If content contains table, then select either table layout or graph layout.
-- Don't select layout with image unless content contains image or the user explicitly requests imagery.
+- Prefer image + text / card / process layouts for teaching, stories, crafts,
+  activities, and young audiences. Do not invent chart layouts for classroom demos.
+- If content contains a table with numeric data AND the user explicitly asked for a
+  chart/graph/data report, select a graph layout. Otherwise prefer illustrated
+  image layouts or simple cards that a child can understand at a glance.
+- If content contains a text-only table, select a table layout.
+- Don't select layout with image unless content contains image cues, the slide
+  benefits from a scene illustration, or the user explicitly requests imagery.
+  For educational/children content, prefer layouts that support images.
 - Don't select table layout if content does not contain table.
 - Treat each slide's supplied markdown as an authoritative, isolated content contract.
 - Select a layout whose required field and item counts match that slide's content. Never
@@ -48,12 +55,18 @@ You need to select a layout for each slide based on the mentioned guidelines.
 - Must only select a layout with table if the table only contains text data.
 
 # Graph Layout Selection Rules
-- Must only select a layout with chart if the content contains table with numeric data.
+- Charts are optional, not default. Prefer scene illustrations over bar/pie charts
+  for kindergarten, preschool, craft, story, and activity decks.
+- Must only select a layout with chart if BOTH are true:
+  1) the content contains a table with numeric data, AND
+  2) the user asked for charts/data visualization OR the deck is explicitly a
+     metrics/report presentation.
+- Do not select chart layouts merely because a slide mentions counts, ages, or
+  simple numbers that could be shown as pictures or short text instead.
 - Identify how many columns are present in the table.
-- Must select a layout that supports n-1 charts for n columns.
-- Must prioritize layouts that support multiple charts.
-- Don't select metrics layout for content containing table with numeric data.
-- For example, if content contains table with 3 columns, then select a layout that supports 2 charts.
+- When a chart layout is required, select a layout that supports n-1 charts for n columns.
+- Don't select metrics layout for content containing table with numeric data unless
+  the user asked for metrics.
 
 {user_intent}
 
@@ -83,8 +96,9 @@ You're a professional presentation designer with creative freedom to design enga
 - Opening/closing → Title layouts
 - Processes/workflows → Visual process layouts  
 - Comparisons/contrasts → Side-by-side layouts
-- Data/metrics → Chart/graph layouts
+- Data/metrics → Chart/graph layouts ONLY when the user asked for charts or the deck is a data report; otherwise prefer illustrated image + text layouts
 - Concepts/ideas → Image + text layouts
+- Teaching/stories/crafts/young audiences → Illustrated image layouts, not charts
 - Key insights → Emphasis layouts
 
 2. **Visual variety**: Aim for diverse slide layouts across the presentation. 

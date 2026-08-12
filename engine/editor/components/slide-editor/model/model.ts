@@ -1189,7 +1189,7 @@ export function surfaceSelectionTarget(
         .map((component) => component.componentId)
         .filter((value): value is string => Boolean(value)),
       componentLabels: components.map((component) => component.componentLabel),
-      targetLabel: `${components.length} components selected`,
+      targetLabel: `${components.length} 个组件已选中`,
     };
   }
   if (selection.kind === "component") {
@@ -1211,11 +1211,31 @@ export function surfaceSelectionTarget(
     selection.componentIndex === ROOT_ELEMENTS_COMPONENT_INDEX
       ? ""
       : componentDisplayLabel(component, selection.componentIndex);
-  const elementType = readString(element?.type) || "Element";
+  const elementType = readString(element?.type) || "element";
   const elementName = readString(element?.name);
+  const elementTypeLabel =
+    (
+      {
+        text: "文本",
+        image: "图片",
+        chart: "图表",
+        table: "表格",
+        vector: "形状",
+        svg: "矢量图",
+        math: "公式",
+        container: "容器",
+        flex: "弹性布局",
+        grid: "网格",
+        group: "编组",
+        infographic: "信息图",
+        "text-list": "列表",
+      } as Record<string, string>
+    )[elementType] ?? elementType;
   const targetLabel =
     elementName ||
-    (componentLabel ? `${elementType} in ${componentLabel}` : elementType);
+    (componentLabel
+      ? `${componentLabel}中的${elementTypeLabel}`
+      : elementTypeLabel);
   return {
     kind: "element",
     slideIndex,
@@ -1233,12 +1253,42 @@ export function surfaceSelectionTarget(
 }
 
 export function componentDisplayLabel(component: UnknownRecord | null, index: number) {
-  return (
+  const raw =
     readString(component?.description) ||
     readString(component?.name) ||
     readString(component?.id) ||
-    `Component ${index + 1}`
-  );
+    `Component ${index + 1}`;
+  return localizeComponentDisplayLabel(raw, index);
+}
+
+function localizeComponentDisplayLabel(label: string, index: number) {
+  const value = label.trim();
+  if (!value) return `组件 ${index + 1}`;
+  if (/^component\s+\d+$/i.test(value)) {
+    return value.replace(/^component\s+/i, "组件 ");
+  }
+  if (/full[- ]?(slide|canvas)\s+white\s+background/i.test(value)) {
+    return "整页白色背景";
+  }
+  if (/white\s+background/i.test(value) && /decorative/i.test(value)) {
+    return "白色装饰背景";
+  }
+  if (/background/i.test(value) && !/[\u4e00-\u9fff]/.test(value)) {
+    return "背景";
+  }
+  if (
+    value.length > 28 &&
+    !/[\u4e00-\u9fff]/.test(value) &&
+    /[A-Za-z]{3,}/.test(value)
+  ) {
+    if (/title|heading|header/i.test(value)) return "标题";
+    if (/image|illustration|photo/i.test(value)) return "图片";
+    if (/chart|graph/i.test(value)) return "图表";
+    if (/card|callout/i.test(value)) return "卡片";
+    if (/text|paragraph|body|content/i.test(value)) return "文本";
+    return `组件 ${index + 1}`;
+  }
+  return value;
 }
 
 export function elementPathForSelection(ui: RawUi, selection: ElementSelection) {

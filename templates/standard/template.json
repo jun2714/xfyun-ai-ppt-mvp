@@ -1,17 +1,17 @@
 {
   "id": "standard",
-  "name": "Standard",
-  "description": "Balanced, adaptable layouts that keep business and everyday content clear, organized, and easy to follow.",
+  "name": "日常教学",
+  "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
   "thumbnail": "static/thumbnail.png",
   "icon_type": "bold",
   "merged_components": [
     {
       "id": "canvas_background",
-      "description": "Full-slide white base layer that provides neutral spacing behind the split content areas.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "canvas_background",
-          "description": "Full-slide white base layer that provides neutral spacing behind the split content areas.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -47,7 +47,7 @@
         },
         {
           "id": "plain_background",
-          "description": "A full-slide white canvas layer that provides a neutral backdrop for the foreground layout elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -84,7 +84,7 @@
         },
         {
           "id": "plain_background",
-          "description": "Full-canvas white background layer supporting a clean, spacious two-column composition.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -121,7 +121,7 @@
         },
         {
           "id": "page_background",
-          "description": "A full-slide white background layer providing a neutral canvas for the two-column composition.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -158,7 +158,7 @@
         },
         {
           "id": "base_canvas",
-          "description": "Full-slide white canvas provides the neutral foundation behind the upper title and lower visual sections.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -195,7 +195,7 @@
         },
         {
           "id": "plain_canvas",
-          "description": "Full slide white background creating a minimal canvas for the header and horizontally aligned card group.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -232,7 +232,7 @@
         },
         {
           "id": "background_canvas",
-          "description": "Full-slide neutral background layer spanning the canvas to provide a clean base for all foreground sections.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -269,7 +269,7 @@
         },
         {
           "id": "white_background",
-          "description": "Full-slide plain background establishing a clean white canvas behind all foreground content.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -306,7 +306,7 @@
         },
         {
           "id": "white_backdrop",
-          "description": "Full-slide white background panel establishing a clean canvas for all foreground header and grid elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -343,7 +343,7 @@
         },
         {
           "id": "slide_background",
-          "description": "Full-bleed white canvas forming the neutral base behind all header and card elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -382,11 +382,11 @@
     },
     {
       "id": "left_visual_panel",
-      "description": "Large inset image area occupying the left half of the slide with edge-to-edge photo placement.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "left_visual_panel",
-          "description": "Large inset image area occupying the left half of the slide with edge-to-edge photo placement.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 24
@@ -405,14 +405,14 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "large_side_photo",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_image_panel",
-          "description": "Large vertical image block aligned to the left margin, occupying most of the slide height.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 40
@@ -432,7 +432,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "main_visual",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
@@ -441,11 +441,11 @@
     },
     {
       "id": "right_text_stack",
-      "description": "Right-column headline and supporting paragraph arranged as a vertical content stack with generous spacing.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "right_text_stack",
-          "description": "Right-column headline and supporting paragraph arranged as a vertical content stack with generous spacing.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 696,
             "y": 88
@@ -494,7 +494,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "primary_heading",
+                  "name": "日常教学",
                   "max_length": 26,
                   "min_length": 13
                 },
@@ -526,12 +526,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "日常教学",
                   "max_length": 190,
                   "min_length": 95
                 }
               ],
-              "name": "intro_text_column",
+              "name": "日常教学",
               "max_children": 2,
               "min_children": 2
             }
@@ -539,7 +539,7 @@
         },
         {
           "id": "right_text_block",
-          "description": "A right-aligned vertical text area with a large wrapped heading above a smaller descriptive paragraph.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 688,
             "y": 244.81
@@ -579,7 +579,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading_text",
+              "name": "日常教学",
               "max_length": 20,
               "min_length": 10
             },
@@ -615,7 +615,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph_text",
+              "name": "日常教学",
               "max_length": 123,
               "min_length": 62
             }
@@ -623,7 +623,7 @@
         },
         {
           "id": "right_text_block",
-          "description": "A right-side feature block containing an oversized multiline headline and a muted rectangular supporting note below.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 744,
             "y": 66
@@ -663,7 +663,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "日常教学",
               "max_length": 22,
               "min_length": 11
             },
@@ -725,7 +725,7 @@
                   }
                 ],
                 "decorative": false,
-                "name": "supporting_note",
+                "name": "日常教学",
                 "max_length": 115,
                 "min_length": 58
               }
@@ -734,7 +734,7 @@
         },
         {
           "id": "right_text_block",
-          "description": "Right-side editorial copy block with an oversized two-line headline above a smaller muted paragraph.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 897.58,
             "y": 94
@@ -786,7 +786,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "large_heading",
+                  "name": "日常教学",
                   "max_length": 20,
                   "min_length": 6
                 },
@@ -818,12 +818,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "日常教学",
                   "max_length": 110,
                   "min_length": 55
                 }
               ],
-              "name": "copy_stack",
+              "name": "日常教学",
               "max_children": 2,
               "min_children": 2
             }
@@ -833,11 +833,11 @@
     },
     {
       "id": "metadata_card",
-      "description": "Outlined horizontal card with a square mark on the left and two text lines aligned beside it.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "metadata_card",
-          "description": "Outlined horizontal card with a square mark on the left and two text lines aligned beside it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 696,
             "y": 379.66
@@ -931,7 +931,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "square_mark_text",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 2
                     }
@@ -975,7 +975,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_primary_label",
+                        "name": "日常教学",
                         "max_length": 15,
                         "min_length": 8
                       },
@@ -1007,17 +1007,17 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_secondary_label",
+                        "name": "日常教学",
                         "max_length": 17,
                         "min_length": 9
                       }
                     ],
-                    "name": "card_text_column",
+                    "name": "日常教学",
                     "max_children": 2,
                     "min_children": 2
                   }
                 ],
-                "name": "card_horizontal_content",
+                "name": "日常教学",
                 "max_children": 2,
                 "min_children": 2
               }
@@ -1026,7 +1026,7 @@
         },
         {
           "id": "center_info_card",
-          "description": "Centered horizontal card overlays the image area with a left icon block and right-aligned text stack.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 190,
             "y": 357.69
@@ -1112,7 +1112,7 @@
               "data": "/static/icons/placeholder.svg",
               "fit": "fill",
               "decorative": false,
-              "name": "card_icon",
+              "name": "日常教学",
               "is_icon": true
             },
             {
@@ -1147,7 +1147,7 @@
                 }
               ],
               "decorative": false,
-              "name": "card_heading",
+              "name": "日常教学",
               "max_length": 30,
               "min_length": 15
             },
@@ -1183,7 +1183,7 @@
                 }
               ],
               "decorative": false,
-              "name": "card_body",
+              "name": "日常教学",
               "max_length": 231,
               "min_length": 116
             }
@@ -1193,11 +1193,11 @@
     },
     {
       "id": "left_chart_panel",
-      "description": "A left-side chart block centered vertically with a compact plotted area and axis title beneath it.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "left_chart_panel",
-          "description": "A left-side chart block centered vertically with a compact plotted area and axis title beneath it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 65,
             "y": 210
@@ -1229,7 +1229,7 @@
               ],
               "series": [
                 {
-                  "name": "value",
+                  "name": "日常教学",
                   "values": [
                     60,
                     42,
@@ -1244,7 +1244,7 @@
               "y_axis_grid": true,
               "grid_color": "#E5E7EB",
               "decorative": false,
-              "name": "primary_line_chart"
+              "name": "日常教学"
             }
           ]
         }
@@ -1252,11 +1252,11 @@
     },
     {
       "id": "right_text_column",
-      "description": "Right-side text column with a large heading and three stacked information groups separated by thin rules.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "right_text_column",
-          "description": "Right-side text column with a large heading and three stacked information groups separated by thin rules.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 744,
             "y": 40
@@ -1295,7 +1295,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "日常教学",
               "max_length": 26,
               "min_length": 13
             },
@@ -1343,7 +1343,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 7,
                   "min_length": 4
                 },
@@ -1380,7 +1380,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 46,
                   "min_length": 23
                 },
@@ -1438,7 +1438,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 5,
                   "min_length": 3
                 },
@@ -1475,7 +1475,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 15,
                   "min_length": 8
                 },
@@ -1533,7 +1533,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 7,
                   "min_length": 4
                 },
@@ -1570,12 +1570,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 16,
                   "min_length": 8
                 }
               ],
-              "name": "stacked_detail_groups"
+              "name": "日常教学"
             }
           ]
         }
@@ -1583,11 +1583,11 @@
     },
     {
       "id": "full_bleed_background",
-      "description": "Base slide background with a left-side photograph and a clean white area extending across the remaining canvas.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "full_bleed_background",
-          "description": "Base slide background with a left-side photograph and a clean white area extending across the remaining canvas.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -1634,7 +1634,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "left_photo",
+              "name": "日常教学",
               "is_icon": false
             },
             {
@@ -1651,7 +1651,7 @@
               "data": "static/image6-d77d5bd67ea3.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_photo_overlay",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
@@ -1660,11 +1660,11 @@
     },
     {
       "id": "top_accent_rule",
-      "description": "A short dark horizontal accent line positioned near the upper-left edge above the main visual area.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "top_accent_rule",
-          "description": "A short dark horizontal accent line positioned near the upper-left edge above the main visual area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 64,
             "y": 24
@@ -1711,7 +1711,7 @@
         },
         {
           "id": "top_divider",
-          "description": "A short dark horizontal rule aligned near the upper-left margin as a subtle decorative anchor.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 64,
             "y": 24
@@ -1748,7 +1748,7 @@
         },
         {
           "id": "top_accent_rule",
-          "description": "Short horizontal decorative rule near the upper-left edge, separated from the main timeline list below.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 56,
             "y": 24
@@ -1787,11 +1787,11 @@
     },
     {
       "id": "upper_right_heading",
-      "description": "Large two-line headline block placed in the white upper-right area with elegant serif styling.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "upper_right_heading",
-          "description": "Large two-line headline block placed in the white upper-right area with elegant serif styling.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 688,
             "y": 64
@@ -1831,7 +1831,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "日常教学",
               "max_length": 23,
               "min_length": 12
             }
@@ -1841,11 +1841,11 @@
     },
     {
       "id": "center_strategy_panel",
-      "description": "Wide light panel overlay containing four evenly spaced columns, each with a green label and centered descriptive copy.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "center_strategy_panel",
-          "description": "Wide light panel overlay containing four evenly spaced columns, each with a green label and centered descriptive copy.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 144,
             "y": 320
@@ -1957,7 +1957,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -1990,12 +1990,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -2054,7 +2054,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -2087,12 +2087,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -2151,7 +2151,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -2184,12 +2184,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -2248,7 +2248,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -2281,17 +2281,17 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "four_column_items",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -2301,11 +2301,11 @@
     },
     {
       "id": "left_text_stack",
-      "description": "A vertical stack of four similarly styled text labels arranged with generous spacing on the left side.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "left_text_stack",
-          "description": "A vertical stack of four similarly styled text labels arranged with generous spacing on the left side.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 228,
             "y": 66
@@ -2355,7 +2355,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -2387,7 +2387,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -2419,7 +2419,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -2451,12 +2451,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 }
               ],
-              "name": "vertical_label_stack",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -2466,11 +2466,11 @@
     },
     {
       "id": "top_title_band",
-      "description": "Upper header area contains a short decorative rule and two separately positioned centered headline lines.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "top_title_band",
-          "description": "Upper header area contains a short decorative rule and two separately positioned centered headline lines.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -2545,7 +2545,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_first_line",
+              "name": "日常教学",
               "max_length": 23,
               "min_length": 12
             },
@@ -2581,7 +2581,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_second_line",
+              "name": "日常教学",
               "max_length": 7,
               "min_length": 4
             }
@@ -2589,7 +2589,7 @@
         },
         {
           "id": "top_title_block",
-          "description": "Header section with a short horizontal rule near the upper left and a large centered serif title beneath it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 24
@@ -2654,7 +2654,7 @@
                 }
               ],
               "decorative": false,
-              "name": "centered_heading",
+              "name": "日常教学",
               "max_length": 21,
               "min_length": 11
             }
@@ -2664,11 +2664,11 @@
     },
     {
       "id": "lower_image_panel",
-      "description": "Lower portion uses a full-width image with a square translucent overlay to create a muted background area.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "lower_image_panel",
-          "description": "Lower portion uses a full-width image with a square translucent overlay to create a muted background area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 205.37
@@ -2689,7 +2689,7 @@
               "data": "static/image8-1bc3f07c9b32.png",
               "fit": "fill",
               "decorative": true,
-              "name": "backdrop_image",
+              "name": "日常教学",
               "is_icon": false
             },
             {
@@ -2729,11 +2729,11 @@
     },
     {
       "id": "three_card_row",
-      "description": "Centered row of three matching rounded cards, each with a title, smaller centered text, and large image area.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "three_card_row",
-          "description": "Centered row of three matching rounded cards, each with a title, smaller centered text, and large image area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 188,
             "y": 141.19
@@ -2835,7 +2835,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -2871,7 +2871,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -2932,11 +2932,11 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -3017,7 +3017,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -3053,7 +3053,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -3114,11 +3114,11 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -3199,7 +3199,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -3235,7 +3235,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -3296,14 +3296,14 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 }
               ],
-              "name": "card_grid",
+              "name": "日常教学",
               "max_children": 3,
               "min_children": 3
             }
@@ -3313,11 +3313,11 @@
     },
     {
       "id": "header_band",
-      "description": "Top-aligned heading area with a short accent rule, large title text, and a smaller descriptive subtitle line.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "header_band",
-          "description": "Top-aligned heading area with a short accent rule, large title text, and a smaller descriptive subtitle line.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 24
@@ -3390,7 +3390,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "日常教学",
               "max_length": 28,
               "min_length": 14
             },
@@ -3426,7 +3426,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_subtitle",
+              "name": "日常教学",
               "max_length": 115,
               "min_length": 58
             }
@@ -3434,7 +3434,7 @@
         },
         {
           "id": "top_title_block",
-          "description": "Left-aligned title area with a short accent rule above and supporting subtitle beneath the main headline.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 48,
             "y": 24
@@ -3507,7 +3507,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "日常教学",
               "max_length": 24,
               "min_length": 6
             },
@@ -3543,7 +3543,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_caption",
+              "name": "日常教学",
               "max_length": 80,
               "min_length": 16
             }
@@ -3551,7 +3551,7 @@
         },
         {
           "id": "header_block",
-          "description": "Upper-left title area with a short horizontal accent line, large headline, and smaller descriptive text beneath.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 48,
             "y": 24
@@ -3626,7 +3626,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_headline",
+              "name": "日常教学",
               "max_length": 38,
               "min_length": 19
             },
@@ -3662,7 +3662,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "日常教学",
               "max_length": 174,
               "min_length": 87
             }
@@ -3672,11 +3672,11 @@
     },
     {
       "id": "metric_card_grid",
-      "description": "Six consistent statistic cards arranged in two columns and three rows with even horizontal and vertical spacing.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "metric_card_grid",
-          "description": "Six consistent statistic cards arranged in two columns and three rows with even horizontal and vertical spacing.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 177.83
@@ -3772,7 +3772,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -3808,7 +3808,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -3844,7 +3844,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -3880,12 +3880,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -3960,7 +3960,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -3996,7 +3996,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -4032,7 +4032,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -4068,12 +4068,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -4148,7 +4148,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -4184,7 +4184,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -4220,7 +4220,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -4256,12 +4256,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -4336,7 +4336,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -4372,7 +4372,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -4408,7 +4408,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -4444,12 +4444,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -4524,7 +4524,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -4560,7 +4560,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -4596,7 +4596,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -4632,12 +4632,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -4712,7 +4712,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -4748,7 +4748,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -4784,7 +4784,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -4820,15 +4820,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "card_grid",
+              "name": "日常教学",
               "max_children": 6,
               "min_children": 6
             }
@@ -4836,7 +4836,7 @@
         },
         {
           "id": "card_row",
-          "description": "Four equal metric cards arranged in a single horizontal row with centered headings, circular badges, and captions.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 220.37
@@ -4932,7 +4932,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -5056,7 +5056,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -5092,12 +5092,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -5172,7 +5172,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -5296,7 +5296,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -5332,12 +5332,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -5412,7 +5412,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -5536,7 +5536,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -5572,12 +5572,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -5652,7 +5652,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -5776,7 +5776,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -5812,15 +5812,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "metric_card_list",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -5830,11 +5830,11 @@
     },
     {
       "id": "left_timeline_list",
-      "description": "Vertical sequence of four timeline rows with large labels aligned left and green numbered badges aligned right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "left_timeline_list",
-          "description": "Vertical sequence of four timeline rows with large labels aligned left and green numbered badges aligned right.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 24,
             "y": 83
@@ -5898,7 +5898,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -5952,13 +5952,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6002,7 +6002,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -6056,13 +6056,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6106,7 +6106,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -6160,13 +6160,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -6210,7 +6210,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -6264,18 +6264,18 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "timeline_rows",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -6285,11 +6285,11 @@
     },
     {
       "id": "central_image_panel",
-      "description": "Tall portrait image panel centered between the left sequence and right text block, filling most slide height.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "central_image_panel",
-          "description": "Tall portrait image panel centered between the left sequence and right text block, filling most slide height.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 435.19,
             "y": 30
@@ -6308,7 +6308,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "portrait_panel_image",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
@@ -6317,11 +6317,11 @@
     },
     {
       "id": "two_column_rows",
-      "description": "Repeated navigation rows arranged as a two-column by five-row grid, each with a small outlined number badge.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "variants": [
         {
           "id": "two_column_rows",
-          "description": "Repeated navigation rows arranged as a two-column by five-row grid, each with a small outlined number badge.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 194.78
@@ -6449,7 +6449,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -6485,12 +6485,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -6597,7 +6597,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -6633,12 +6633,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -6745,7 +6745,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -6781,12 +6781,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -6893,7 +6893,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -6929,12 +6929,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7041,7 +7041,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7077,12 +7077,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7189,7 +7189,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7225,12 +7225,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7337,7 +7337,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7373,12 +7373,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7485,7 +7485,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7521,12 +7521,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7633,7 +7633,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7669,12 +7669,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -7781,7 +7781,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -7817,15 +7817,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "row_card_grid",
+              "name": "日常教学",
               "max_children": 10,
               "min_children": 10
             }
@@ -7837,11 +7837,11 @@
   "layouts": [
     {
       "id": "left_image_right_cover_text_7212",
-      "description": "A split cover layout with a large visual panel on the left and stacked introduction content on the right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "canvas_background",
-          "description": "Full-slide white base layer that provides neutral spacing behind the split content areas.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -7877,7 +7877,7 @@
         },
         {
           "id": "left_visual_panel",
-          "description": "Large inset image area occupying the left half of the slide with edge-to-edge photo placement.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 24
@@ -7896,14 +7896,14 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "large_side_photo",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_stack",
-          "description": "Right-column headline and supporting paragraph arranged as a vertical content stack with generous spacing.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 696,
             "y": 88
@@ -7952,7 +7952,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "primary_heading",
+                  "name": "日常教学",
                   "max_length": 26,
                   "min_length": 13
                 },
@@ -7984,12 +7984,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "日常教学",
                   "max_length": 190,
                   "min_length": 95
                 }
               ],
-              "name": "intro_text_column",
+              "name": "日常教学",
               "max_children": 2,
               "min_children": 2
             }
@@ -7997,7 +7997,7 @@
         },
         {
           "id": "metadata_card",
-          "description": "Outlined horizontal card with a square mark on the left and two text lines aligned beside it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 696,
             "y": 379.66
@@ -8091,7 +8091,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "square_mark_text",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 2
                     }
@@ -8135,7 +8135,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_primary_label",
+                        "name": "日常教学",
                         "max_length": 15,
                         "min_length": 8
                       },
@@ -8167,17 +8167,17 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "card_secondary_label",
+                        "name": "日常教学",
                         "max_length": 17,
                         "min_length": 9
                       }
                     ],
-                    "name": "card_text_column",
+                    "name": "日常教学",
                     "max_children": 2,
                     "min_children": 2
                   }
                 ],
-                "name": "card_horizontal_content",
+                "name": "日常教学",
                 "max_children": 2,
                 "min_children": 2
               }
@@ -8188,11 +8188,11 @@
     },
     {
       "id": "left_chart_right_title_description_5880",
-      "description": "A clean split slide with a line chart on the left and stacked editorial text on the right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "plain_background",
-          "description": "A full-slide white canvas layer that provides a neutral backdrop for the foreground layout elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -8229,7 +8229,7 @@
         },
         {
           "id": "left_chart_panel",
-          "description": "A left-side chart block centered vertically with a compact plotted area and axis title beneath it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 65,
             "y": 210
@@ -8261,7 +8261,7 @@
               ],
               "series": [
                 {
-                  "name": "value",
+                  "name": "日常教学",
                   "values": [
                     60,
                     42,
@@ -8276,13 +8276,13 @@
               "y_axis_grid": true,
               "grid_color": "#E5E7EB",
               "decorative": false,
-              "name": "primary_line_chart"
+              "name": "日常教学"
             }
           ]
         },
         {
           "id": "right_text_block",
-          "description": "A right-aligned vertical text area with a large wrapped heading above a smaller descriptive paragraph.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 688,
             "y": 244.81
@@ -8322,7 +8322,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading_text",
+              "name": "日常教学",
               "max_length": 20,
               "min_length": 10
             },
@@ -8358,7 +8358,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph_text",
+              "name": "日常教学",
               "max_length": 123,
               "min_length": 62
             }
@@ -8368,11 +8368,11 @@
     },
     {
       "id": "left_image_right_details_2189",
-      "description": "A split slide layout with a large visual panel on the left and a structured text column on the right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "plain_background",
-          "description": "Full-canvas white background layer supporting a clean, spacious two-column composition.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -8409,7 +8409,7 @@
         },
         {
           "id": "left_image_panel",
-          "description": "Large vertical image block aligned to the left margin, occupying most of the slide height.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 40
@@ -8429,14 +8429,14 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "main_visual",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_column",
-          "description": "Right-side text column with a large heading and three stacked information groups separated by thin rules.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 744,
             "y": 40
@@ -8475,7 +8475,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "日常教学",
               "max_length": 26,
               "min_length": 13
             },
@@ -8523,7 +8523,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 7,
                   "min_length": 4
                 },
@@ -8560,7 +8560,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 46,
                   "min_length": 23
                 },
@@ -8618,7 +8618,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 5,
                   "min_length": 3
                 },
@@ -8655,7 +8655,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 15,
                   "min_length": 8
                 },
@@ -8713,7 +8713,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_label",
+                  "name": "日常教学",
                   "max_length": 7,
                   "min_length": 4
                 },
@@ -8750,12 +8750,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "detail_value",
+                  "name": "日常教学",
                   "max_length": 16,
                   "min_length": 8
                 }
               ],
-              "name": "stacked_detail_groups"
+              "name": "日常教学"
             }
           ]
         }
@@ -8763,11 +8763,11 @@
     },
     {
       "id": "left_image_right_title_strategy_cards_6875",
-      "description": "A split hero slide with a large left visual, oversized heading on the right, and a strategy card panel overlaying the center.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "full_bleed_background",
-          "description": "Base slide background with a left-side photograph and a clean white area extending across the remaining canvas.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -8814,7 +8814,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "left_photo",
+              "name": "日常教学",
               "is_icon": false
             },
             {
@@ -8831,14 +8831,14 @@
               "data": "static/image6-d77d5bd67ea3.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_photo_overlay",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
         },
         {
           "id": "top_accent_rule",
-          "description": "A short dark horizontal accent line positioned near the upper-left edge above the main visual area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 64,
             "y": 24
@@ -8885,7 +8885,7 @@
         },
         {
           "id": "upper_right_heading",
-          "description": "Large two-line headline block placed in the white upper-right area with elegant serif styling.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 688,
             "y": 64
@@ -8925,7 +8925,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "日常教学",
               "max_length": 23,
               "min_length": 12
             }
@@ -8933,7 +8933,7 @@
         },
         {
           "id": "center_strategy_panel",
-          "description": "Wide light panel overlay containing four evenly spaced columns, each with a green label and centered descriptive copy.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 144,
             "y": 320
@@ -9045,7 +9045,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -9078,12 +9078,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -9142,7 +9142,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -9175,12 +9175,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -9239,7 +9239,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -9272,12 +9272,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -9336,7 +9336,7 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "item_label",
+                        "name": "日常教学",
                         "max_length": 11,
                         "min_length": 6
                       }
@@ -9369,17 +9369,17 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_description",
+                      "name": "日常教学",
                       "max_length": 78,
                       "min_length": 39
                     }
                   ],
-                  "name": "column_item",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "four_column_items",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -9389,11 +9389,11 @@
     },
     {
       "id": "left_text_list_right_title_note_4909",
-      "description": "A clean split layout with a small top divider, stacked text list on the left, and large headline with note card on the right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "page_background",
-          "description": "A full-slide white background layer providing a neutral canvas for the two-column composition.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -9430,7 +9430,7 @@
         },
         {
           "id": "top_divider",
-          "description": "A short dark horizontal rule aligned near the upper-left margin as a subtle decorative anchor.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 64,
             "y": 24
@@ -9467,7 +9467,7 @@
         },
         {
           "id": "left_text_stack",
-          "description": "A vertical stack of four similarly styled text labels arranged with generous spacing on the left side.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 228,
             "y": 66
@@ -9517,7 +9517,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -9549,7 +9549,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -9581,7 +9581,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 },
@@ -9613,12 +9613,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "stacked_label",
+                  "name": "日常教学",
                   "max_length": 27,
                   "min_length": 10
                 }
               ],
-              "name": "vertical_label_stack",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -9626,7 +9626,7 @@
         },
         {
           "id": "right_text_block",
-          "description": "A right-side feature block containing an oversized multiline headline and a muted rectangular supporting note below.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 744,
             "y": 66
@@ -9666,7 +9666,7 @@
                 }
               ],
               "decorative": false,
-              "name": "large_heading",
+              "name": "日常教学",
               "max_length": 22,
               "min_length": 11
             },
@@ -9728,7 +9728,7 @@
                   }
                 ],
                 "decorative": false,
-                "name": "supporting_note",
+                "name": "日常教学",
                 "max_length": 115,
                 "min_length": 58
               }
@@ -9739,11 +9739,11 @@
     },
     {
       "id": "title_image_background_center_card_1475",
-      "description": "A clean presentation slide with a top title band, full-width muted image backdrop, and centered rectangular information card.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "base_canvas",
-          "description": "Full-slide white canvas provides the neutral foundation behind the upper title and lower visual sections.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -9780,7 +9780,7 @@
         },
         {
           "id": "top_title_band",
-          "description": "Upper header area contains a short decorative rule and two separately positioned centered headline lines.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -9855,7 +9855,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_first_line",
+              "name": "日常教学",
               "max_length": 23,
               "min_length": 12
             },
@@ -9891,7 +9891,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_second_line",
+              "name": "日常教学",
               "max_length": 7,
               "min_length": 4
             }
@@ -9899,7 +9899,7 @@
         },
         {
           "id": "lower_image_panel",
-          "description": "Lower portion uses a full-width image with a square translucent overlay to create a muted background area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 205.37
@@ -9920,7 +9920,7 @@
               "data": "static/image8-1bc3f07c9b32.png",
               "fit": "fill",
               "decorative": true,
-              "name": "backdrop_image",
+              "name": "日常教学",
               "is_icon": false
             },
             {
@@ -9958,7 +9958,7 @@
         },
         {
           "id": "center_info_card",
-          "description": "Centered horizontal card overlays the image area with a left icon block and right-aligned text stack.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 190,
             "y": 357.69
@@ -10044,7 +10044,7 @@
               "data": "/static/icons/placeholder.svg",
               "fit": "fill",
               "decorative": false,
-              "name": "card_icon",
+              "name": "日常教学",
               "is_icon": true
             },
             {
@@ -10079,7 +10079,7 @@
                 }
               ],
               "decorative": false,
-              "name": "card_heading",
+              "name": "日常教学",
               "max_length": 30,
               "min_length": 15
             },
@@ -10115,7 +10115,7 @@
                 }
               ],
               "decorative": false,
-              "name": "card_body",
+              "name": "日常教学",
               "max_length": 231,
               "min_length": 116
             }
@@ -10125,11 +10125,11 @@
     },
     {
       "id": "center_title_cards_2395",
-      "description": "A clean white slide with a centered oversized heading, decorative top rule, and evenly spaced vertical cards.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "plain_canvas",
-          "description": "Full slide white background creating a minimal canvas for the header and horizontally aligned card group.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -10166,7 +10166,7 @@
         },
         {
           "id": "top_title_block",
-          "description": "Header section with a short horizontal rule near the upper left and a large centered serif title beneath it.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 24
@@ -10231,7 +10231,7 @@
                 }
               ],
               "decorative": false,
-              "name": "centered_heading",
+              "name": "日常教学",
               "max_length": 21,
               "min_length": 11
             }
@@ -10239,7 +10239,7 @@
         },
         {
           "id": "three_card_row",
-          "description": "Centered row of three matching rounded cards, each with a title, smaller centered text, and large image area.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 188,
             "y": 141.19
@@ -10341,7 +10341,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -10377,7 +10377,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -10438,11 +10438,11 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -10523,7 +10523,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -10559,7 +10559,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -10620,11 +10620,11 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -10705,7 +10705,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "日常教学",
                       "max_length": 12,
                       "min_length": 6
                     },
@@ -10741,7 +10741,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 53,
                       "min_length": 27
                     },
@@ -10802,14 +10802,14 @@
                         "br": 4
                       },
                       "decorative": false,
-                      "name": "card_image",
+                      "name": "日常教学",
                       "is_icon": false
                     }
                   ],
-                  "name": "card_item"
+                  "name": "日常教学"
                 }
               ],
-              "name": "card_grid",
+              "name": "日常教学",
               "max_children": 3,
               "min_children": 3
             }
@@ -10819,11 +10819,11 @@
     },
     {
       "id": "title_metric_card_grid_7973",
-      "description": "A clean presentation layout with a large header and a uniform grid of metric cards beneath it.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full-slide neutral background layer spanning the canvas to provide a clean base for all foreground sections.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -10860,7 +10860,7 @@
         },
         {
           "id": "header_band",
-          "description": "Top-aligned heading area with a short accent rule, large title text, and a smaller descriptive subtitle line.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 24
@@ -10933,7 +10933,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "日常教学",
               "max_length": 28,
               "min_length": 14
             },
@@ -10969,7 +10969,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_subtitle",
+              "name": "日常教学",
               "max_length": 115,
               "min_length": 58
             }
@@ -10977,7 +10977,7 @@
         },
         {
           "id": "metric_card_grid",
-          "description": "Six consistent statistic cards arranged in two columns and three rows with even horizontal and vertical spacing.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 177.83
@@ -11073,7 +11073,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -11109,7 +11109,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -11145,7 +11145,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -11181,12 +11181,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -11261,7 +11261,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -11297,7 +11297,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -11333,7 +11333,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -11369,12 +11369,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -11449,7 +11449,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -11485,7 +11485,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -11521,7 +11521,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -11557,12 +11557,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -11637,7 +11637,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -11673,7 +11673,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -11709,7 +11709,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -11745,12 +11745,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -11825,7 +11825,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -11861,7 +11861,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -11897,7 +11897,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -11933,12 +11933,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -12013,7 +12013,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "日常教学",
                       "max_length": 3,
                       "min_length": 1
                     },
@@ -12049,7 +12049,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_unit",
+                      "name": "日常教学",
                       "max_length": 1,
                       "min_length": 1
                     },
@@ -12085,7 +12085,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 21,
                       "min_length": 7
                     },
@@ -12121,15 +12121,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "日常教学",
                       "max_length": 95,
                       "min_length": 44
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "card_grid",
+              "name": "日常教学",
               "max_children": 6,
               "min_children": 6
             }
@@ -12139,11 +12139,11 @@
     },
     {
       "id": "left_timeline_center_image_right_title_6170",
-      "description": "A journey slide with a timeline list on the left, tall central image, and headline copy on the right.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "white_background",
-          "description": "Full-slide plain background establishing a clean white canvas behind all foreground content.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -12180,7 +12180,7 @@
         },
         {
           "id": "top_accent_rule",
-          "description": "Short horizontal decorative rule near the upper-left edge, separated from the main timeline list below.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 56,
             "y": 24
@@ -12217,7 +12217,7 @@
         },
         {
           "id": "left_timeline_list",
-          "description": "Vertical sequence of four timeline rows with large labels aligned left and green numbered badges aligned right.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 24,
             "y": 83
@@ -12281,7 +12281,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -12335,13 +12335,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12385,7 +12385,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -12439,13 +12439,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12489,7 +12489,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -12543,13 +12543,13 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 },
@@ -12593,7 +12593,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "timeline_label",
+                      "name": "日常教学",
                       "max_length": 30,
                       "min_length": 10
                     },
@@ -12647,18 +12647,18 @@
                           }
                         ],
                         "decorative": false,
-                        "name": "badge_number",
+                        "name": "日常教学",
                         "max_length": 2,
                         "min_length": 1
                       }
                     }
                   ],
-                  "name": "timeline_row",
+                  "name": "日常教学",
                   "max_children": 2,
                   "min_children": 2
                 }
               ],
-              "name": "timeline_rows",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }
@@ -12666,7 +12666,7 @@
         },
         {
           "id": "central_image_panel",
-          "description": "Tall portrait image panel centered between the left sequence and right text block, filling most slide height.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 435.19,
             "y": 30
@@ -12685,14 +12685,14 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "fill",
               "decorative": false,
-              "name": "portrait_panel_image",
+              "name": "日常教学",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_block",
-          "description": "Right-side editorial copy block with an oversized two-line headline above a smaller muted paragraph.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 897.58,
             "y": 94
@@ -12744,7 +12744,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "large_heading",
+                  "name": "日常教学",
                   "max_length": 20,
                   "min_length": 6
                 },
@@ -12776,12 +12776,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "supporting_paragraph",
+                  "name": "日常教学",
                   "max_length": 110,
                   "min_length": 55
                 }
               ],
-              "name": "copy_stack",
+              "name": "日常教学",
               "max_children": 2,
               "min_children": 2
             }
@@ -12791,11 +12791,11 @@
     },
     {
       "id": "title_index_grid_3810",
-      "description": "A clean presentation slide with a large header area above a grid of bordered rows with index badges.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "white_backdrop",
-          "description": "Full-slide white background panel establishing a clean canvas for all foreground header and grid elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -12832,7 +12832,7 @@
         },
         {
           "id": "top_title_block",
-          "description": "Left-aligned title area with a short accent rule above and supporting subtitle beneath the main headline.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 48,
             "y": 24
@@ -12905,7 +12905,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "日常教学",
               "max_length": 24,
               "min_length": 6
             },
@@ -12941,7 +12941,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_caption",
+              "name": "日常教学",
               "max_length": 80,
               "min_length": 16
             }
@@ -12949,7 +12949,7 @@
         },
         {
           "id": "two_column_rows",
-          "description": "Repeated navigation rows arranged as a two-column by five-row grid, each with a small outlined number badge.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 194.78
@@ -13077,7 +13077,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13113,12 +13113,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13225,7 +13225,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13261,12 +13261,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13373,7 +13373,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13409,12 +13409,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13521,7 +13521,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13557,12 +13557,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13669,7 +13669,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13705,12 +13705,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13817,7 +13817,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13853,12 +13853,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -13965,7 +13965,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14001,12 +14001,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -14113,7 +14113,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14149,12 +14149,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -14261,7 +14261,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14297,12 +14297,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -14409,7 +14409,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "badge_number",
+                      "name": "日常教学",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14445,15 +14445,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "row_label",
+                      "name": "日常教学",
                       "max_length": 24,
                       "min_length": 2
                     }
                   ],
-                  "name": "indexed_row_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "row_card_grid",
+              "name": "日常教学",
               "max_children": 10,
               "min_children": 10
             }
@@ -14463,11 +14463,11 @@
     },
     {
       "id": "title_description_metric_cards_2015",
-      "description": "A white presentation slide with a large serif headline, supporting paragraph, and evenly spaced metric cards below.",
+      "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
       "components": [
         {
           "id": "slide_background",
-          "description": "Full-bleed white canvas forming the neutral base behind all header and card elements.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 0,
             "y": 0
@@ -14504,7 +14504,7 @@
         },
         {
           "id": "header_block",
-          "description": "Upper-left title area with a short horizontal accent line, large headline, and smaller descriptive text beneath.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 48,
             "y": 24
@@ -14579,7 +14579,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_headline",
+              "name": "日常教学",
               "max_length": 38,
               "min_length": 19
             },
@@ -14615,7 +14615,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "日常教学",
               "max_length": 174,
               "min_length": 87
             }
@@ -14623,7 +14623,7 @@
         },
         {
           "id": "card_row",
-          "description": "Four equal metric cards arranged in a single horizontal row with centered headings, circular badges, and captions.",
+          "description": "均衡通用的幼教版式，适合集体教学、区角介绍与常规课件。",
           "position": {
             "x": 40,
             "y": 220.37
@@ -14719,7 +14719,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -14843,7 +14843,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -14879,12 +14879,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -14959,7 +14959,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -15083,7 +15083,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -15119,12 +15119,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -15199,7 +15199,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -15323,7 +15323,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -15359,12 +15359,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 },
                 {
                   "type": "group",
@@ -15439,7 +15439,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_heading",
+                      "name": "日常教学",
                       "max_length": 11,
                       "min_length": 4
                     },
@@ -15563,7 +15563,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_metric_value",
+                      "name": "日常教学",
                       "max_length": 5,
                       "min_length": 2
                     },
@@ -15599,15 +15599,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_caption",
+                      "name": "日常教学",
                       "max_length": 39,
                       "min_length": 20
                     }
                   ],
-                  "name": "metric_card"
+                  "name": "日常教学"
                 }
               ],
-              "name": "metric_card_list",
+              "name": "日常教学",
               "max_children": 4,
               "min_children": 4
             }

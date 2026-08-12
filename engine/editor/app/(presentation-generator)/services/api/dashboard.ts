@@ -17,6 +17,10 @@ export interface PresentationResponse {
   file: string;
   n_slides: number;
   prompt: string;
+  content?: string;
+  language?: string;
+  tone?: string | null;
+  verbosity?: string | null;
   summary: string | null;
   theme: Record<string, any> | null;
   titles: string[];

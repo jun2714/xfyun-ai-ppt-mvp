@@ -3,12 +3,23 @@ import { IMAGE_PROVIDERS, LLM_PROVIDERS, WEB_SEARCH_PROVIDERS } from '@/utils/pr
 import React from 'react'
 import { useSelector } from 'react-redux';
 
+const PROVIDER_LABEL_ZH: Record<string, string> = {
+  Custom: "自定义",
+  OpenAI: "OpenAI",
+  Google: "Google",
+  "Default (Model)": "默认（模型）",
+};
+
+const localizeProviderLabel = (label: string) =>
+  PROVIDER_LABEL_ZH[label] || label;
+
 const CurrentConfig = ({ webSearchEnabled }: { webSearchEnabled: boolean }) => {
     const userConfigState = useSelector((state: RootState) => state.userConfig);
     const llmConfig = userConfigState.llm_config;
     const textProviderKey = llmConfig.LLM || "openai";
-    const textProviderLabel =
-        LLM_PROVIDERS[textProviderKey]?.label || textProviderKey;
+    const textProviderLabel = localizeProviderLabel(
+        LLM_PROVIDERS[textProviderKey]?.label || textProviderKey,
+    );
     const selectedTextModel =
         textProviderKey === "openai"
             ? llmConfig.OPENAI_MODEL
@@ -44,18 +55,21 @@ const CurrentConfig = ({ webSearchEnabled }: { webSearchEnabled: boolean }) => {
                                                 ? llmConfig.CODEX_MODEL
                                                 : "";
     const textSummary = selectedTextModel
-        ? `${textProviderLabel} (${selectedTextModel})`
+        ? `${textProviderLabel}（${selectedTextModel}）`
         : textProviderLabel;
 
     const imageSummary = llmConfig.DISABLE_IMAGE_GENERATION
-        ? "Image generation disabled"
+        ? "已关闭图片生成"
         : llmConfig.IMAGE_PROVIDER
-            ? IMAGE_PROVIDERS[llmConfig.IMAGE_PROVIDER]?.label || llmConfig.IMAGE_PROVIDER
-            : "No image provider";
+            ? localizeProviderLabel(
+                IMAGE_PROVIDERS[llmConfig.IMAGE_PROVIDER]?.label || llmConfig.IMAGE_PROVIDER,
+              )
+            : "未配置图片服务";
     const webSearchProviderKey = (llmConfig.WEB_SEARCH_PROVIDER || "auto").toLowerCase();
-    const webSearchProvider =
-        WEB_SEARCH_PROVIDERS[webSearchProviderKey]?.label || webSearchProviderKey;
-    const webSearchSummary = `Web: ${webSearchProvider} (${webSearchEnabled ? "On" : "Off"})`;
+    const webSearchProvider = localizeProviderLabel(
+        WEB_SEARCH_PROVIDERS[webSearchProviderKey]?.label || webSearchProviderKey,
+    );
+    const webSearchSummary = `联网：${webSearchProvider}（${webSearchEnabled ? "开" : "关"}）`;
 
     return (
         <p className="rounded-[50px] border border-[#EDEEEF] px-2.5 py-0.5 text-[10px] font-medium text-[#7A5AF8] min-[1800px]:px-3 min-[1800px]:py-1 min-[1800px]:text-[11px] min-[2200px]:px-4 min-[2200px]:text-xs">

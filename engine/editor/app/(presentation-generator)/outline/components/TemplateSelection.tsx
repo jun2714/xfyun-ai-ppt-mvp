@@ -10,6 +10,7 @@ import {
   TemplateListSection,
 } from "../../components/TemplateListUi";
 import { MixpanelEvent, trackEvent } from "@/utils/mixpanel";
+import { writePreferredTemplateId } from "../../utils/preferredTemplate";
 
 interface TemplateSelectionProps {
   presentationId: string | null;
@@ -54,6 +55,7 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
             template_id: template.id,
             template_source: source,
           });
+          writePreferredTemplateId(template.id);
           onSelectTemplate({
             id: template.id,
             name: template.name,
@@ -64,39 +66,12 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
       />
     );
 
-    if (customTemplates.length === 0) {
-      return (
-        <div className="mb-8">
-          <TemplateListSection label="选择模板" selectionPage>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <CreateCustomTemplate
-                selectionPage
-                onClick={onCreateTemplate}
-              />
-              {defaultTemplates.map((template, index) =>
-                renderTemplateCard(template, index, "default")
-              )}
-            </div>
-          </TemplateListSection>
-        </div>
-      );
-    }
-
     return (
       <div className="mb-8 space-y-[30px]">
-        <TemplateListSection label="自定义模板" selectionPage>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <CreateCustomTemplate
-              selectionPage
-              onClick={onCreateTemplate}
-            />
-            {customTemplates.map((template, index) =>
-              renderTemplateCard(template, index, "custom")
-            )}
-          </div>
-        </TemplateListSection>
-
         <TemplateListSection label="内置模板" selectionPage>
+          <p className="mb-3 text-[12px] leading-4 text-[#667085]">
+            由平台提供，所有用户可见可用
+          </p>
           {defaultTemplates.length === 0 ? (
             <TemplateListEmptyState message="暂无可用的内置模板。" />
           ) : (
@@ -106,6 +81,26 @@ const TemplateSelection: React.FC<TemplateSelectionProps> = memo(
               )}
             </div>
           )}
+        </TemplateListSection>
+
+        <TemplateListSection label="我的模板" selectionPage>
+          <p className="mb-3 text-[12px] leading-4 text-[#667085]">
+            老师自行上传，仅当前账号可见
+          </p>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <CreateCustomTemplate
+              selectionPage
+              onClick={onCreateTemplate}
+            />
+            {customTemplates.map((template, index) =>
+              renderTemplateCard(template, index, "custom")
+            )}
+          </div>
+          {customTemplates.length === 0 ? (
+            <p className="mt-3 text-[12px] text-[#98A2B3]">
+              还没有个人模板。可上传后在此使用，或先选择上方内置模板。
+            </p>
+          ) : null}
         </TemplateListSection>
       </div>
     );

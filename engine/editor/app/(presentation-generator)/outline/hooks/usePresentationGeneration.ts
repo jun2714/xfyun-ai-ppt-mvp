@@ -22,8 +22,7 @@ const DEFAULT_LOADING_STATE: LoadingState = {
 };
 
 export const usePresentationGeneration = (
-  presentationId: string | null,
-  selectedTemplateId: string | null
+  presentationId: string | null
 ) => {
   const dispatch = useDispatch();
   const router = useRouter();
@@ -33,34 +32,37 @@ export const usePresentationGeneration = (
   );
 
   const validateInputs = useCallback(
-    (currentOutlines: { content: string }[] | null) => {
+    (
+      currentOutlines: { content: string }[] | null,
+      selectedTemplateId?: string | null
+    ) => {
       if (!currentOutlines || currentOutlines.length === 0) {
         notify.warning(
-          "Outlines not ready",
-          "Please wait for your outlines to finish generating before continuing."
+          "大纲尚未就绪",
+          "请等待大纲生成完成后再继续。"
         );
         return false;
       }
 
-      if (!selectedTemplateId) {
+      if (selectedTemplateId === null) {
         notify.warning(
-          "Template not selected",
-          "Choose a template before generating your presentation."
+          "尚未选择模板",
+          "请选择模板后再生成演示文稿。"
         );
         return false;
       }
 
       if (currentOutlines.length > MAX_NUMBER_OF_SLIDES) {
         notify.warning(
-          "Slide limit reached",
-          `Use ${MAX_NUMBER_OF_SLIDES} or fewer outline slides before generating.`
+          "大纲页数超出限制",
+          `请将大纲控制在 ${MAX_NUMBER_OF_SLIDES} 页以内。`
         );
         return false;
       }
 
       return true;
     },
-    [selectedTemplateId]
+    []
   );
 
   const clearTheme = () => {
@@ -84,9 +86,9 @@ export const usePresentationGeneration = (
     element.style.removeProperty("--graph-9");
   };
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (selectedTemplateId: string) => {
     const latestOutlines = store.getState().presentationGeneration.outlines;
-    if (!validateInputs(latestOutlines)) return;
+    if (!validateInputs(latestOutlines, selectedTemplateId)) return;
     const preparedOutlines = limitOutlines(latestOutlines);
 
     trackEvent(MixpanelEvent.Outline_Presentation_Generation_Started, {
@@ -97,17 +99,25 @@ export const usePresentationGeneration = (
     });
 
     setLoadingState({
-      message: "Generating presentation data...",
+      message: "正在准备模板排版与配图…",
       isLoading: true,
       showProgress: true,
       duration: 30,
     });
 
     try {
+      const title =
+        preparedOutlines[0]?.content
+          .split(/\r?\n/)
+          .find((line) => line.trim())
+          ?.replace(/^\s{0,3}#{1,6}\s*/, "")
+          .replace(/\*\*|__/g, "")
+          .trim() || undefined;
       const response = await PresentationGenerationApi.presentationPrepare({
         presentation_id: presentationId,
         outlines: preparedOutlines,
         layout: selectedTemplateId,
+        title,
       });
 
       if (response) {
@@ -140,14 +150,41 @@ export const usePresentationGeneration = (
     } finally {
       setLoadingState(DEFAULT_LOADING_STATE);
     }
-  }, [
-    validateInputs,
-    presentationId,
-    dispatch,
-    router,
-    selectedTemplateId,
-    pathname,
-  ]);
+  }, [validateInputs, presentationId, dispatch, router, pathname]);
 
-  return { loadingState, handleSubmit };
+  const handleSmartSubmit = useCallback(async () => {
+    const latestOutlines = store.getState().presentationGeneration.outlines;
+    if (!validateInputs(latestOutlines)) return;
+    if (!presentationId) return;
+    const preparedOutlines = limitOutlines(latestOutlines);
+
+    setLoadingState({
+      message: "正在根据大纲准备主题排版…",
+      isLoading: true,
+      showProgress: true,
+      duration: 20,
+    });
+
+    try {
+      await PresentationGenerationApi.updateOutlines(
+        presentationId,
+        preparedOutlines
+      );
+      dispatch(clearPresentationData());
+      clearTheme();
+      router.replace(
+        `/presentation?id=${presentationId}&stream=true&type=smart`
+      );
+    } catch (error: any) {
+      console.error("Error preparing Smart presentation.", error);
+      notify.error(
+        "生成错误",
+        error.message || "根据大纲准备主题排版时发生错误。"
+      );
+    } finally {
+      setLoadingState(DEFAULT_LOADING_STATE);
+    }
+  }, [dispatch, presentationId, router, validateInputs]);
+
+  return { loadingState, handleSubmit, handleSmartSubmit };
 };

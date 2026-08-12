@@ -71,14 +71,19 @@ SLIDE_CONTENT_USER_PROMPT = """
 {current_date_time}
 
 # Icon Query And Image Prompt Language:
-English
+Chinese
 
 # Image Prompt Contract:
+- Write image_prompt fields in Chinese.
 - Image prompt language and slide visible language are independent.
 - Image prompts describe visuals only. Never request visible text, letters, numbers,
   labels, captions, answers, logos, watermarks, signatures, or pseudo-text.
 - Put every audience-facing title, label, option, answer, and annotation in editable
   slide text fields supplied by the response schema, never inside an image prompt.
+- If people appear in the image, they must all be Chinese people with East Asian /
+  Chinese facial features, clothing, and classroom/life context suitable for Chinese
+  kindergarten teaching. Do not depict Western / Caucasian people.
+- Prefer warm, child-friendly Chinese illustration style for teaching slides.
 
 # Slide Language:
 {language}

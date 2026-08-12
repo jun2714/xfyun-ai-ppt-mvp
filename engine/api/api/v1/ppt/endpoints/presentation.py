@@ -120,10 +120,7 @@ from services.community_presentations import (
     merge_reference_fonts,
     normalize_community_ids,
 )
-from utils.llm_calls.generate_smart_presentation import (
-    generate_smart_presentation,
-    resolve_smart_slide_count,
-)
+from utils.llm_calls.generate_smart_presentation import generate_smart_presentation
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -324,6 +321,72 @@ def _hydrate_template_slide_ui(
     if not isinstance(ui, dict):
         ui = _template_slide_ui(layout_payload, slide.layout)
     slide.ui = _apply_template_content_to_ui(ui, slide.content)
+
+
+_TEMPLATE_PLACEHOLDER_MARKERS = (
+    "Custom Software",
+    "Digital Consulting",
+    "Support Services",
+    "Scalable Marketing",
+    "Inefficiency",
+    "High Costs",
+    "We create tailored software",
+    "Our consultants guide organizations",
+    "We provide ongoing support",
+    "Our data-driven strategies",
+    "Businesses struggle to find digital tools",
+    "Outdated systems increase expenses",
+)
+
+
+def _collect_template_ui_texts(node: Any, texts: list[str]) -> None:
+    if isinstance(node, dict):
+        if node.get("type") == "text":
+            text = "".join(
+                run.get("text", "")
+                for run in (node.get("runs") or [])
+                if isinstance(run, dict)
+            )
+            if text:
+                texts.append(text)
+        for key in ("children", "components", "elements"):
+            value = node.get(key)
+            if isinstance(value, list):
+                for child in value:
+                    _collect_template_ui_texts(child, texts)
+        child = node.get("child")
+        if isinstance(child, dict):
+            _collect_template_ui_texts(child, texts)
+    elif isinstance(node, list):
+        for child in node:
+            _collect_template_ui_texts(child, texts)
+
+
+def _ui_has_template_placeholders(ui: Any) -> bool:
+    texts: list[str] = []
+    _collect_template_ui_texts(ui, texts)
+    joined = "\n".join(texts)
+    return any(marker in joined for marker in _TEMPLATE_PLACEHOLDER_MARKERS)
+
+
+def _repair_template_placeholder_slides(
+    presentation: PresentationModel,
+    slides: list[SlideModel],
+) -> bool:
+    """Re-apply slide.content onto UI when English template placeholders remain."""
+    if not _is_template_layout_payload(presentation.layout):
+        return False
+
+    changed = False
+    for slide in slides:
+        if not isinstance(slide.content, dict) or not slide.content:
+            continue
+        if not _ui_has_template_placeholders(slide.ui):
+            continue
+        fresh_ui = _template_slide_ui(presentation.layout, slide.layout)
+        slide.ui = _apply_template_content_to_ui(fresh_ui or slide.ui, slide.content)
+        changed = True
+    return changed
 
 
 def _coerce_presentation_font_map(value: Any) -> Optional[dict[str, str]]:
@@ -650,6 +713,21 @@ def _apply_template_content_to_element(
         children = element.get("children")
         if not isinstance(children, list):
             children = []
+
+        # Repeated grid/flex items are flattened in the content schema: the
+        # array item already contains sibling child fields (icon/title/body).
+        # Nesting through the group name is wrong when that name collides with
+        # the first child (common when templates reuse "基础通用"), because the
+        # first field steals the lookup and English placeholders remain.
+        if direct_value and isinstance(content, dict) and not isinstance(value, list):
+            updated["children"] = _apply_template_content_to_element_list(
+                children,
+                content_values,
+                direct_value=False,
+                name_occurrences={},
+            )
+            return updated
+
         updated["children"] = _apply_template_content_to_children(
             children,
             value,
@@ -1408,6 +1486,12 @@ async def get_presentation(
         .order_by(SlideModel.index)
     )
     slides = list(slides_result)
+    if _repair_template_placeholder_slides(presentation, slides):
+        for slide in slides:
+            sql_session.add(slide)
+        await sql_session.commit()
+        for slide in slides:
+            await sql_session.refresh(slide)
     return PresentationWithSlides(
         **_presentation_response_data(presentation),
         slides=slides,
@@ -1776,7 +1860,22 @@ async def _stream_smart_presentation(
         if len(source_context) > 90_000:
             source_context = source_context[:90_000]
 
-        slide_count = resolve_smart_slide_count(presentation.n_slides)
+        if not presentation.outlines:
+            raise HTTPException(
+                status_code=400,
+                detail="请先生成并确认大纲，再生成演示文稿",
+            )
+        reviewed_outline = presentation.get_presentation_outline()
+        if not reviewed_outline.slides:
+            raise HTTPException(
+                status_code=400,
+                detail="已确认的大纲不能为空",
+            )
+        slide_count = len(reviewed_outline.slides)
+        confirmed_outline = json.dumps(
+            presentation.outlines,
+            ensure_ascii=False,
+        )
         presentation.n_slides = slide_count
         presentation.fonts = reference_fonts or {
             "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
@@ -1831,6 +1930,7 @@ async def _stream_smart_presentation(
                 include_table_of_contents=presentation.include_table_of_contents,
                 source_context=source_context,
                 community_design_context=community_context,
+                confirmed_outline=confirmed_outline,
                 fonts=presentation.fonts,
                 on_slide=emit_slide,
                 on_metrics=emit_metrics,
@@ -2305,7 +2405,13 @@ async def stream_presentation(
         await persist_asset_checkpoint(slides, generated_assets)
 
         for slide in slides:
-            slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
+            # Always rebuild from the template shell so text placeholders cannot
+            # survive a previous failed content-apply pass.
+            fresh_ui = _template_slide_ui(presentation.layout, slide.layout)
+            slide.ui = _apply_template_content_to_ui(
+                fresh_ui or slide.ui,
+                slide.content,
+            )
             yield SSEResponse(
                 event="response",
                 data=json.dumps(
@@ -2317,6 +2423,9 @@ async def stream_presentation(
                     }
                 ),
             ).to_string()
+
+        if _repair_template_placeholder_slides(presentation, slides):
+            await persist_asset_checkpoint(slides, generated_assets)
 
         response = PresentationWithSlides(
             **_presentation_response_data(presentation),

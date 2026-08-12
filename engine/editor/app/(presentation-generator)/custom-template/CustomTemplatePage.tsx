@@ -1795,7 +1795,10 @@ const CustomTemplatePage = () => {
           // blocked. Assigning href requests top-level navigation without
           // accessing a cross-origin method.
           if (window.top) {
-            window.top.location.href = new URL("/templates", document.referrer).toString();
+            window.top.location.href = new URL(
+              "/templates?tab=custom",
+              document.referrer,
+            ).toString();
           }
         } else {
           router.push("/templates?tab=custom");

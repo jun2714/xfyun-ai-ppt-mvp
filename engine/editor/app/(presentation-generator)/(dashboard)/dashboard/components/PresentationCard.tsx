@@ -19,6 +19,7 @@ import {
 } from "@/app/(presentation-generator)/components/TemplateV2HtmlSlidePreview";
 import MarkdownRenderer from "@/components/MarkDownRender";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
+import { generationModeLabel } from "@/app/(presentation-generator)/utils/teachnovaLocale";
 
 export const PresentationCard = ({
   id,
@@ -118,7 +119,7 @@ export const PresentationCard = ({
       suppressHydrationWarning={true}
       onClick={handlePreview}
       aria-disabled={isUnsupported}
-      title={isUnsupported ? "Unsupported in this version of Presenton" : undefined}
+      title={isUnsupported ? "当前版本不支持打开此演示文稿" : undefined}
       className={`bg-[#F8FBFB] font-syne relative shadow-none sm:shadow-none presentation-card rounded-[12px] p-0 group transition-all duration-500 slide-theme overflow-hidden flex flex-col ${
         isUnsupported
           ? "cursor-not-allowed border-[#EDEEEF]"
@@ -164,13 +165,13 @@ export const PresentationCard = ({
           )}
         </div>
         <p
-          className={`absolute left-2 top-2 z-40 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize shadow-sm backdrop-blur-sm ${
+          className={`absolute left-2 top-2 z-40 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur-sm ${
             presentationType === "smart"
               ? "bg-[#F4F0FF]/95 text-[#6941C6]"
               : "bg-white/90 text-[#475467]"
           }`}
         >
-          {presentationType}
+          {generationModeLabel(presentationType)}
         </p>
         <p className="absolute right-2 top-2 z-40 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-[#191919] shadow-sm backdrop-blur-sm">
           {presentation.n_slides ?? presentation?.slides?.length ?? 0}

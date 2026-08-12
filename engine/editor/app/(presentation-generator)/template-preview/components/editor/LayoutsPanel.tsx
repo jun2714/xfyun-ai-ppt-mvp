@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  localizeLayoutDescription,
+  localizeLayoutDisplayName,
   readLayoutDescription,
   readLayoutId,
   readLayoutIdValue,
@@ -48,13 +50,17 @@ export function LayoutsPanel({
 
   const layoutItems = useMemo<LayoutPanelItem[]>(
     () =>
-      layouts.map((layout, index) => ({
-        description: readLayoutDescription(layout),
-        displayName: readLayoutId(layout, index),
-        id: readLayoutId(layout, index),
-        idValue: readLayoutIdValue(layout, index),
-        index,
-      })),
+      layouts.map((layout, index) => {
+        const description = readLayoutDescription(layout);
+        const id = readLayoutId(layout, index);
+        return {
+          description,
+          displayName: localizeLayoutDisplayName(id, description, index),
+          id,
+          idValue: readLayoutIdValue(layout, index),
+          index,
+        };
+      }),
     [layouts],
   );
 
@@ -67,6 +73,7 @@ export function LayoutsPanel({
         item.displayName,
         item.idValue,
         item.description,
+        localizeLayoutDescription(item.description),
         item.id,
         String(item.index + 1),
       ]
@@ -81,16 +88,16 @@ export function LayoutsPanel({
     <aside className="hidden w-[299px] shrink-0 bg-[#FEFEFF] lg:flex lg:flex-col">
       <div className="flex min-h-0 flex-1 flex-col px-3 pb-6 pt-8">
         <h2 className="text-[16px] font-medium leading-5 text-[#101828]">
-          Deck Layouts
+          页面布局
         </h2>
 
         <label className="relative mt-5 block">
           <Search className="pointer-events-none absolute left-[10px] top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#4C4C4C]" />
           <Input
-            aria-label="Search slides"
+            aria-label="搜索页面"
             className="h-[30px] rounded-[8px] border-[rgba(219,219,219,0.6)] bg-white pl-[30px] pr-3 text-[12px] font-normal text-[#191919] shadow-none placeholder:text-[#4C4C4C] focus-visible:ring-0"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search Slides"
+            placeholder="搜索页面"
             value={searchQuery}
           />
         </label>
@@ -98,7 +105,7 @@ export function LayoutsPanel({
         <div className="mt-7 min-h-0 flex-1 overflow-y-auto pr-0.5">
           {filteredLayouts.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-[#DCDCE1] px-4 py-8 text-center text-[13px] text-[#808080]">
-              No layouts found.
+              未找到布局。
             </div>
           ) : (
             <div className="flex flex-col gap-0 rounded-[12px]">
@@ -155,6 +162,16 @@ function LayoutRow({
   onIdChange: (value: string) => void;
   onSelect: () => void;
 }) {
+  const localizedDescription = localizeLayoutDescription(description);
+  const descriptionDisplay =
+    !description.trim() || description.trim() === localizedDescription.trim()
+      ? description
+      : localizedDescription;
+  const shouldNormalizeDescription =
+    Boolean(description.trim()) &&
+    description.trim() !== localizedDescription.trim() &&
+    /[A-Za-z]/.test(description);
+
   return (
     <div
       className={cn(
@@ -176,19 +193,19 @@ function LayoutRow({
 
         <div className="flex shrink-0 items-center gap-[10px]">
           <button
-            aria-label={`Copy layout ${index + 1} ID`}
+            aria-label={`复制第 ${index + 1} 页 ID`}
             className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-[#191919] transition-colors hover:bg-[#F7F6F9] hover:text-[#7A5AF8]"
             onClick={(event) => {
               event.stopPropagation();
               onCopy();
             }}
-            title="Copy ID"
+            title="复制 ID"
             type="button"
           >
             <Copy className="h-[14px] w-[14px]" />
           </button>
           <button
-            aria-label={`Select layout ${index + 1}`}
+            aria-label={`选择第 ${index + 1} 页`}
             className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-[#191919] transition-colors hover:bg-[#F7F6F9]"
             onClick={onSelect}
             type="button"
@@ -206,13 +223,13 @@ function LayoutRow({
       {isActive ? (
         <div className="mt-5 flex flex-col gap-[14px]">
           <label className="flex flex-col gap-2 text-[14px] font-normal text-[#333333]">
-            Slide ID
+            页面 ID
             <div className="relative min-h-[52px] rounded-[8px] border border-[rgba(219,219,219,0.6)] bg-white px-[10px] pb-[20px] pt-[10px]">
               <input
                 className="w-full bg-transparent pr-[48px] text-[14px] font-normal leading-normal text-[#191919] outline-none placeholder:text-[#191919]"
                 maxLength={LAYOUT_ID_MAX_LENGTH}
                 onChange={(event) => onIdChange(event.target.value)}
-                placeholder="Add Slide ID"
+                placeholder="填写页面 ID"
                 type="text"
                 value={idValue}
               />
@@ -220,20 +237,33 @@ function LayoutRow({
                 {idValue.length}/{LAYOUT_ID_MAX_LENGTH}
               </span>
             </div>
+            <span className="text-[12px] leading-4 text-[#98A2B3]">
+              技术标识可保留英文；列表名称与页面说明已按中文展示。
+            </span>
           </label>
 
           <label className="flex flex-col gap-2 text-[14px] font-normal text-[#333333]">
-            Slide Description
+            页面说明
             <div className="relative">
               <Textarea
                 className="min-h-[70px] resize-none rounded-[8px] border-[rgba(219,219,219,0.6)] bg-white px-[10px] pb-[22px] pt-[10px] text-[14px] font-normal leading-[18px] text-[#191919] shadow-none placeholder:text-[#191919] focus-visible:ring-0"
                 maxLength={LAYOUT_DESCRIPTION_MAX_LENGTH}
                 onChange={(event) => onDescriptionChange(event.target.value)}
-                placeholder="Add Source Text"
-                value={description}
+                onFocus={() => {
+                  if (shouldNormalizeDescription) {
+                    onDescriptionChange(
+                      limitText(
+                        localizedDescription,
+                        LAYOUT_DESCRIPTION_MAX_LENGTH,
+                      ),
+                    );
+                  }
+                }}
+                placeholder="填写页面说明"
+                value={descriptionDisplay}
               />
               <span className="pointer-events-none absolute bottom-[8px] right-[10px] text-[10px] leading-none text-[#666666]">
-                {description.length}/{LAYOUT_DESCRIPTION_MAX_LENGTH}
+                {descriptionDisplay.length}/{LAYOUT_DESCRIPTION_MAX_LENGTH}
               </span>
             </div>
           </label>

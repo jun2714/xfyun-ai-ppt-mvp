@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, localizeError } from "../../api/client";
 import type { TemplateItem, TemplateList } from "../../entities/types";
+import { clearReturnTo, peekReturnTo } from "../../navigation/returnTo";
 import { Shell } from "../create/CreateAndGenerate";
-import { ArrowRightIcon } from "../../components/Icons";
+import { ArrowLeftIcon, ArrowRightIcon } from "../../components/Icons";
 
 const DISPLAY_NAMES: Record<string, string> = {
   dynamic: "动感橙黑",
   executive: "柔光紫",
-  general: "清爽白紫",
+  general: "通用模板",
   modern: "现代蓝",
   momentum: "商务蓝",
   standard: "经典图文",
@@ -54,9 +55,22 @@ function TemplateCard({ template }: { template: TemplateItem }) {
   </a>;
 }
 
+function TemplateReturnLink() {
+  const returnTo = peekReturnTo();
+  if (!returnTo) return null;
+  return <a className="template-return-link" href={returnTo} onClick={() => clearReturnTo()}>
+    <ArrowLeftIcon />返回大纲
+  </a>;
+}
+
 export function TemplateLibrary() {
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
-  const [tab, setTab] = useState<"built-in" | "custom">("built-in");
+  const [tab, setTab] = useState<"built-in" | "custom">(() => {
+    if (typeof window === "undefined") return "built-in";
+    return new URLSearchParams(window.location.search).get("tab") === "custom"
+      ? "custom"
+      : "built-in";
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -67,6 +81,13 @@ export function TemplateLibrary() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (tab === "custom") url.searchParams.set("tab", "custom");
+    else url.searchParams.delete("tab");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [tab]);
+
   const visibleTemplates = useMemo(
     () => templates.filter((template) => tab === "built-in" ? template.is_default !== false : template.is_default === false),
     [tab, templates],
@@ -74,7 +95,12 @@ export function TemplateLibrary() {
 
   return <Shell><main className="templates-page">
     <header className="templates-heading">
-      <div><span>模板中心</span><h1>选择一套合适的设计</h1><p>模板只决定视觉和布局，不限制你的主题、页数和内容结构。</p></div>
+      <div>
+        <TemplateReturnLink />
+        <span>模板中心</span>
+        <h1>选择一套合适的设计</h1>
+        <p>模板只决定视觉和布局，不限制你的主题、页数和内容结构。</p>
+      </div>
       <a className="primary" href="/templates/new">制作模板 <ArrowRightIcon /></a>
     </header>
     <nav className="template-tabs" aria-label="模板分类">
@@ -93,6 +119,7 @@ export function TemplateBuilder() {
   const fastApiUrl = import.meta.env.VITE_ENGINE_API_URL ?? "http://127.0.0.1:8000";
   const studioUrl = `${base}/custom-template?embed=teachnova&fastapiUrl=${encodeURIComponent(fastApiUrl)}`;
   return <Shell><main className="template-builder-page">
+    <div className="template-builder-toolbar"><TemplateReturnLink /></div>
     <iframe title="制作模板" src={studioUrl} />
   </main></Shell>;
 }

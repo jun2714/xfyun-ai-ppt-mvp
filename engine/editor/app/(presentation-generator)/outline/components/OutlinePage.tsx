@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 
@@ -29,10 +29,14 @@ import Chat from "../../presentation/components/Chat";
 import {
   LanguageType,
   PresentationConfig,
-  ToneType,
-  VerbosityType,
 } from "../../upload/type";
+import {
+  buildTeachnovaPrompt,
+  createTeachnovaDefaultConfig,
+  parseTeachnovaPrompt,
+} from "../../upload/product-defaults";
 import { PresentationGenerationApi } from "../../services/api/presentation-generation";
+import { DashboardApi } from "../../services/api/dashboard";
 import { useOutlineManagement } from "../hooks/useOutlineManagement";
 import { useOutlineStreaming } from "../hooks/useOutlineStreaming";
 import { usePresentationGeneration } from "../hooks/usePresentationGeneration";
@@ -42,18 +46,10 @@ import OutlineContent from "./OutlineContent";
 import OutlinePromptBar from "./OutlinePromptBar";
 import OutlineStandardHeader from "./OutlineStandardHeader";
 import TemplateSelection from "./TemplateSelection";
+import { readPreferredTemplateId } from "../../utils/preferredTemplate";
 
-const DEFAULT_OUTLINE_CONFIG: PresentationConfig = {
-  slides: null,
-  language: LanguageType.ChineseSimplified,
-  prompt: "",
-  tone: ToneType.Default,
-  verbosity: VerbosityType.Standard,
-  instructions: "",
-  includeTableOfContents: false,
-  includeTitleSlide: false,
-  webSearch: false,
-};
+const DEFAULT_OUTLINE_CONFIG: PresentationConfig =
+  createTeachnovaDefaultConfig();
 
 const normalizeOutlineConfig = (
   config: PresentationConfig
@@ -123,17 +119,31 @@ const scrollToPageTop = () => {
 const OutlinePage: React.FC = () => {
   const dispatch = useDispatch();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { presentation_id, outlines } = useSelector(
     (state: RootState) => state.presentationGeneration
   );
-  const { config: savedConfig, files } = useSelector(
-    (state: RootState) => state.pptGenUpload
-  );
+  const {
+    config: savedConfig,
+    files,
+    generationMode,
+    requestContent,
+    requestContext,
+  } = useSelector((state: RootState) => state.pptGenUpload);
 
-  const [isTemplateStage, setIsTemplateStage] = useState(true);
+  // Both creation modes start by generating and reviewing the outline.
+  // Template selection happens only after the outline is confirmed.
+  const [isTemplateStage, setIsTemplateStage] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null
   );
+
+  useEffect(() => {
+    const preferred = readPreferredTemplateId();
+    if (preferred) {
+      setSelectedTemplateId(preferred);
+    }
+  }, []);
   const [draftConfig, setDraftConfig] = useState<PresentationConfig>(
     savedConfig ? normalizeOutlineConfig(savedConfig) : DEFAULT_OUTLINE_CONFIG
   );
@@ -141,28 +151,35 @@ const OutlinePage: React.FC = () => {
   const [hasOutlineStreamFinished, setHasOutlineStreamFinished] =
     useState(false);
 
-  const hasSelectedTemplate = selectedTemplateId !== null;
+  useEffect(() => {
+    const urlPresentationId = searchParams.get("id");
+    const urlMode = searchParams.get("mode");
+    if (urlPresentationId && urlPresentationId !== presentation_id) {
+      dispatch(setPresentationId(urlPresentationId));
+    }
+    if (urlMode === "smart" || urlMode === "standard") {
+      dispatch(setPptGenUploadState({ generationMode: urlMode }));
+    }
+  }, [dispatch, presentation_id, searchParams]);
+
   const streamState = useOutlineStreaming(
     presentation_id,
-    !isTemplateStage && hasSelectedTemplate
+    !isTemplateStage
   );
   const { handleDragEnd, handleAddSlide } = useOutlineManagement(outlines);
-  const { loadingState, handleSubmit } = usePresentationGeneration(
-    presentation_id,
-    selectedTemplateId
-  );
+  const { loadingState, handleSubmit, handleSmartSubmit } =
+    usePresentationGeneration(presentation_id);
 
   const documentPaths = useMemo(() => getDocumentPaths(files), [files]);
   const outlineControlsBusy =
     isRegeneratingOutline || streamState.isLoading || streamState.isStreaming;
-  const isOutlineReady =
-    hasSelectedTemplate && hasOutlineStreamFinished && !outlineControlsBusy;
-  const isOutlineAssistantVisible = !isTemplateStage && hasSelectedTemplate;
+  const isOutlineReady = hasOutlineStreamFinished && !outlineControlsBusy;
+  const isOutlineAssistantVisible = !isTemplateStage;
   const isRegenerateDisabled = !isOutlineReady;
   const outlineStreamFinished =
     !isTemplateStage &&
     !outlineControlsBusy &&
-    (outlines.length > 0 || streamState.statusMessage === "Outline ready");
+    streamState.statusMessage === "大纲已就绪";
 
   useEffect(() => {
     if (savedConfig) {
@@ -171,11 +188,68 @@ const OutlinePage: React.FC = () => {
   }, [savedConfig]);
 
   useEffect(() => {
+    if (!presentation_id || savedConfig) return;
+    let cancelled = false;
+
+    void DashboardApi.getPresentation(presentation_id, { cache: "no-store" })
+      .then((presentation) => {
+        if (cancelled) return;
+        const defaults = createTeachnovaDefaultConfig();
+        const requestContent =
+          typeof presentation.content === "string"
+            ? presentation.content
+            : presentation.prompt || "";
+        const parsed = parseTeachnovaPrompt(requestContent);
+        const restoredConfig = normalizeOutlineConfig({
+          ...defaults,
+          slides:
+            typeof presentation.n_slides === "number" &&
+            presentation.n_slides > 0
+              ? String(presentation.n_slides)
+              : null,
+          language:
+            presentation.language?.trim()
+              ? (presentation.language as PresentationConfig["language"])
+              : defaults.language,
+          prompt: parsed.topic,
+          tone:
+            presentation.tone
+              ? (presentation.tone as PresentationConfig["tone"])
+              : defaults.tone,
+          verbosity:
+            presentation.verbosity
+              ? (presentation.verbosity as PresentationConfig["verbosity"])
+              : defaults.verbosity,
+        });
+
+        setDraftConfig(restoredConfig);
+        dispatch(
+          setPptGenUploadState({
+            config: restoredConfig,
+            generationMode:
+              presentation.generation_mode === "smart"
+                ? "smart"
+                : "standard",
+            requestContent,
+            requestContext: parsed.teachingContext,
+          })
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to restore outline generation config", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, presentation_id, savedConfig]);
+
+  useEffect(() => {
     setHasOutlineStreamFinished(false);
   }, [presentation_id]);
 
   useEffect(() => {
-    if (!presentation_id || !hasSelectedTemplate) {
+    if (!presentation_id) {
       setHasOutlineStreamFinished(false);
       return;
     }
@@ -183,11 +257,10 @@ const OutlinePage: React.FC = () => {
     if (outlineStreamFinished) {
       setHasOutlineStreamFinished(true);
     }
-  }, [hasSelectedTemplate, outlineStreamFinished, presentation_id]);
+  }, [outlineStreamFinished, presentation_id]);
 
-  const handleReturnToTemplates = () => {
-    if (streamState.isStreaming) return;
-    setIsTemplateStage(true);
+  const handleReturnToOutline = () => {
+    setIsTemplateStage(false);
     scrollToPageTop();
   };
 
@@ -207,26 +280,30 @@ const OutlinePage: React.FC = () => {
   };
 
   const handleTemplateSelect = useCallback(
-    (template: {
+    async (template: {
       id: string;
       name: string;
       source: "default" | "custom";
       position: number;
     }) => {
       setSelectedTemplateId(template.id);
-      setIsTemplateStage(false);
-      scrollToPageTop();
+      await handleSubmit(template.id);
     },
-    []
+    [handleSubmit]
   );
+
+  const handleOutlineContinue = useCallback(async () => {
+    if (!isOutlineReady) return;
+    if (generationMode === "smart") {
+      await handleSmartSubmit();
+      return;
+    }
+    setIsTemplateStage(true);
+    scrollToPageTop();
+  }, [generationMode, handleSmartSubmit, isOutlineReady]);
 
   const handleRegenerateOutline = useCallback(async () => {
     if (outlineControlsBusy) {
-      return;
-    }
-
-    if (!hasSelectedTemplate) {
-      toast.error("请先选择模板");
       return;
     }
 
@@ -253,7 +330,7 @@ const OutlinePage: React.FC = () => {
     setHasOutlineStreamFinished(false);
     trackEvent(MixpanelEvent.TemplateV2_Outline_Regeneration_Started, {
       presentation_id,
-      template_id: selectedTemplateId,
+      generation_mode: generationMode,
       prompt_present: draftConfig.prompt.trim().length > 0,
       document_count: documentPaths.length,
       slide_count: parseLimitedSlideCount(draftConfig.slides),
@@ -266,8 +343,18 @@ const OutlinePage: React.FC = () => {
     });
 
     try {
+      const regenerationContent =
+        savedConfig &&
+        draftConfig.prompt === savedConfig.prompt &&
+        requestContent
+          ? requestContent
+          : buildTeachnovaPrompt(
+              draftConfig.prompt,
+              requestContext || {}
+            );
       const createResponse = await PresentationGenerationApi.createPresentation({
-        content: draftConfig.prompt ?? "",
+        content: regenerationContent,
+        version: "v2-standard",
         n_slides: parseLimitedSlideCount(draftConfig.slides),
         file_paths: documentPaths,
         language: draftConfig.language ?? "",
@@ -277,25 +364,36 @@ const OutlinePage: React.FC = () => {
         include_table_of_contents: !!draftConfig.includeTableOfContents,
         include_title_slide: !!draftConfig.includeTitleSlide,
         web_search: !!draftConfig.webSearch,
+        generation_mode: generationMode,
       });
 
-      dispatch(setPptGenUploadState({ config: draftConfig, files }));
+      dispatch(
+        setPptGenUploadState({
+          config: draftConfig,
+          files,
+          generationMode,
+          requestContent: regenerationContent,
+          requestContext,
+        })
+      );
       dispatch(clearOutlines());
       dispatch(setPresentationId(createResponse.id));
+      router.replace(
+        `/outline?id=${createResponse.id}&mode=${generationMode}`
+      );
       trackEvent(MixpanelEvent.TemplateV2_Outline_Regeneration_Completed, {
         old_presentation_id: presentation_id,
         new_presentation_id: createResponse.id,
-        template_id: selectedTemplateId,
+        generation_mode: generationMode,
       });
-      setIsTemplateStage(false);
     } catch (error: unknown) {
       console.error("Error regenerating outline", error);
       trackEvent(MixpanelEvent.TemplateV2_Outline_Regeneration_Failed, {
         presentation_id,
-        template_id: selectedTemplateId,
+        generation_mode: generationMode,
         error_message: sanitizeAnalyticsError(
           error,
-        "重新生成大纲失败"
+          "重新生成大纲失败"
         ),
       });
       toast.error("大纲错误", {
@@ -312,11 +410,14 @@ const OutlinePage: React.FC = () => {
     documentPaths,
     draftConfig,
     files,
-    hasSelectedTemplate,
+    generationMode,
     isOutlineReady,
     outlineControlsBusy,
     presentation_id,
-    selectedTemplateId,
+    requestContent,
+    requestContext,
+    router,
+    savedConfig,
   ]);
 
   const handleUpdateOutline = (index: number, newContent: string) => {
@@ -389,10 +490,10 @@ const OutlinePage: React.FC = () => {
         title={isTemplateStage ? "选择模板" : "确认大纲"}
         onBack={() => {
           if (isTemplateStage) {
-            router.push("/dashboard");
+            handleReturnToOutline();
             return;
           }
-          handleReturnToTemplates();
+          router.push("/upload");
         }}
       />
 
@@ -463,6 +564,7 @@ const OutlinePage: React.FC = () => {
                 <Chat
                   key={presentation_id}
                   presentationId={presentation_id}
+                  presentationType={generationMode}
                   variant="outline"
                   useEditorLayout
                   inputDisabled={!isOutlineReady}
@@ -478,8 +580,8 @@ const OutlinePage: React.FC = () => {
               <GenerateButton
                 loadingState={loadingState}
                 streamState={streamState}
-                selectedTemplateId={selectedTemplateId}
-                onSubmit={handleSubmit}
+                canContinue={isOutlineReady}
+                onSubmit={() => void handleOutlineContinue()}
               />
             </div>
           </div>

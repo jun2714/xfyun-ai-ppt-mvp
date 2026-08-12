@@ -754,7 +754,7 @@ class ChatTools:
         return {
             "count": len(generated_assets),
             "assets": generated_assets,
-            "message": f"Generated {len(generated_assets)} asset(s).",
+            "message": f"已生成 {len(generated_assets)} 个素材。",
         }
 
     async def _save_slide(self, args: dict[str, Any]) -> dict[str, Any]:

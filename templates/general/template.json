@@ -1,16 +1,16 @@
 {
   "id": "general",
-  "name": "General",
-  "description": "General template best for simple presentations, great spacing and clean layout.",
+  "name": "基础通用",
+  "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
   "thumbnail": "static/thumbnail.png",
   "merged_components": [
     {
       "id": "background_canvas",
-      "description": "Full slide white canvas that establishes the minimal presentation backdrop.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "background_canvas",
-          "description": "Full slide white canvas that establishes the minimal presentation backdrop.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -46,7 +46,7 @@
         },
         {
           "id": "slide_background",
-          "description": "Full-canvas white background that provides a neutral base for the two-column content arrangement.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -83,7 +83,7 @@
         },
         {
           "id": "slide_background",
-          "description": "Full canvas background layer establishing the clean white presentation surface.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -119,7 +119,7 @@
         },
         {
           "id": "background_canvas",
-          "description": "Full slide white canvas that provides a neutral presentation background for the structured content layout.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -158,11 +158,11 @@
     },
     {
       "id": "image_showcase_card",
-      "description": "Large rounded visual card placed on the left side with subtle depth.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "image_showcase_card",
-          "description": "Large rounded visual card placed on the left side with subtle depth.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 208
@@ -227,14 +227,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "main_visual",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_visual_card",
-          "description": "Large rounded image panel positioned on the left with subtle shadow treatment for visual emphasis.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 184
@@ -300,14 +300,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "main_visual_image",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_visual_card",
-          "description": "Rounded rectangular photo card layered over the decorative grid on the left side of the slide.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 120,
             "y": 254
@@ -371,14 +371,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_photo",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_image_card",
-          "description": "Rounded visual card with shadow holding a large primary image on the left side.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 176
@@ -444,7 +444,7 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_visual",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -453,11 +453,11 @@
     },
     {
       "id": "right_text_panel",
-      "description": "Right aligned content panel containing headline, accent divider, body copy, and a compact attribution card.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "right_text_panel",
-          "description": "Right aligned content panel containing headline, accent divider, body copy, and a compact attribution card.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 163
@@ -499,7 +499,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 25,
               "min_length": 8
             },
@@ -565,7 +565,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_copy",
+              "name": "基础通用",
               "max_length": 275,
               "min_length": 105
             },
@@ -686,7 +686,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "avatar_initials",
+                  "name": "基础通用",
                   "max_length": 2,
                   "min_length": 1
                 },
@@ -726,7 +726,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "attribution_name",
+                  "name": "基础通用",
                   "max_length": 30,
                   "min_length": 4,
                   "rotation": 0
@@ -767,19 +767,19 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "attribution_detail",
+                  "name": "基础通用",
                   "max_length": 45,
                   "min_length": 7,
                   "rotation": 0
                 }
               ],
-              "name": "attribution_card_group"
+              "name": "基础通用"
             }
           ]
         },
         {
           "id": "right_text_stack",
-          "description": "Right-side vertical content stack containing a prominent title, short accent rule, and supporting paragraph.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 199.47
@@ -821,7 +821,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "基础通用",
               "max_length": 25,
               "min_length": 8,
               "rotation": 0
@@ -890,7 +890,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "基础通用",
               "max_length": 274,
               "min_length": 105,
               "rotation": 0
@@ -899,7 +899,7 @@
         },
         {
           "id": "left_intro_block",
-          "description": "Large headline, short accent divider, and paragraph arranged as a vertically stacked introduction area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 212
@@ -952,7 +952,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "intro_heading",
+                  "name": "基础通用",
                   "max_length": 25,
                   "min_length": 8
                 },
@@ -1015,12 +1015,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "intro_body",
+                  "name": "基础通用",
                   "min_length": 64,
                   "max_length": 250
                 }
               ],
-              "name": "intro_vertical_stack",
+              "name": "基础通用",
               "min_children": 1,
               "max_children": 1
             }
@@ -1030,11 +1030,11 @@
     },
     {
       "id": "background_accents",
-      "description": "Full-slide white background with subtle fixed decorative wave and sparkle accents around the canvas edges.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "background_accents",
-          "description": "Full-slide white background with subtle fixed decorative wave and sparkle accents around the canvas edges.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -1080,7 +1080,7 @@
               "data": "static/image2-ec1c92dee7a3.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_edge_wave",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -1097,7 +1097,7 @@
               "data": "static/image3-82be19a88965.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_wave_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -1115,7 +1115,7 @@
               "fit": "fill",
               "color": "#FFFFFF",
               "decorative": true,
-              "name": "top_sparkle_accent",
+              "name": "基础通用",
               "is_icon": true
             },
             {
@@ -1132,14 +1132,14 @@
               "data": "static/image9-68eb2d8ed47c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "top_wave_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "background_canvas",
-          "description": "Full slide background with subtle decorative corner accents framing the content area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -1186,7 +1186,7 @@
               "data": "static/image22-6dd2f52e896c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_corner_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -1203,14 +1203,14 @@
               "data": "static/image23-f21b824d69c7.png",
               "fit": "fill",
               "decorative": true,
-              "name": "top_corner_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "background_canvas",
-          "description": "Full-slide white background with a soft decorative footer shape anchored at the bottom edge.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -1256,14 +1256,14 @@
               "data": "static/image26-6ba37bd671c7.png",
               "fit": "fill",
               "decorative": true,
-              "name": "footer_accent_image",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "background_canvas",
-          "description": "Full-slide white background with a subtle decorative wave accent anchored along the lower-left edge.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -1308,7 +1308,7 @@
               "data": "static/image33-ae1f10d83bac.png",
               "fit": "fill",
               "decorative": true,
-              "name": "lower_left_wave",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -1317,11 +1317,11 @@
     },
     {
       "id": "large_title_area",
-      "description": "Prominent headline area aligned to the upper-left with generous whitespace below.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "large_title_area",
-          "description": "Prominent headline area aligned to the upper-left with generous whitespace below.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -1363,7 +1363,7 @@
                 }
               ],
               "decorative": false,
-              "name": "slide_headline",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 5,
               "rotation": 0
@@ -1372,7 +1372,7 @@
         },
         {
           "id": "headline_area",
-          "description": "Large single-line heading placed in the upper-left corner with generous margin and bold typography.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -1414,7 +1414,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 4
             }
@@ -1424,11 +1424,11 @@
     },
     {
       "id": "feature_grid_area",
-      "description": "Two-by-two grid of service feature groups, each pairing a circular icon with title and descriptive text.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "feature_grid_area",
-          "description": "Two-by-two grid of service feature groups, each pairing a circular icon with title and descriptive text.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 96,
             "y": 291.75
@@ -1499,7 +1499,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -1538,7 +1538,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -1578,12 +1578,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -1633,7 +1633,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -1672,7 +1672,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -1712,12 +1712,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -1767,7 +1767,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -1806,7 +1806,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -1846,12 +1846,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -1901,7 +1901,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -1940,7 +1940,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -1980,15 +1980,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "feature_grid",
+              "name": "基础通用",
               "max_children": 6,
               "min_children": 3,
               "rotation": 0
@@ -1997,7 +1997,7 @@
         },
         {
           "id": "right_info_cards",
-          "description": "Right column containing three evenly spaced rounded cards with icon, title, and description content.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 880,
             "y": 101.75
@@ -2077,7 +2077,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -2116,7 +2116,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -2156,12 +2156,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -2221,7 +2221,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -2260,7 +2260,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -2300,12 +2300,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -2365,7 +2365,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -2404,7 +2404,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -2444,15 +2444,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "stacked_card_list",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 2
             }
@@ -2462,11 +2462,11 @@
     },
     {
       "id": "right_image_panel",
-      "description": "Rounded rectangular photo panel on the right side with a soft drop shadow behind it.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "right_image_panel",
-          "description": "Rounded rectangular photo panel on the right side with a soft drop shadow behind it.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 816,
             "y": 208
@@ -2531,14 +2531,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_photo",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "top_right_image",
-          "description": "Rounded rectangular image placeholder positioned in the upper-right corner of the slide.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 880,
             "y": 48
@@ -2564,7 +2564,7 @@
                 "br": 8
               },
               "decorative": false,
-              "name": "corner_photo",
+              "name": "基础通用",
               "is_icon": false,
               "focus_x": 50.28,
               "focus_y": 50.27,
@@ -2576,11 +2576,11 @@
     },
     {
       "id": "slide_background",
-      "description": "Full canvas white background with a decorative grid accent behind the visual area.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "slide_background",
-          "description": "Full canvas white background with a decorative grid accent behind the visual area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -2625,7 +2625,7 @@
               "data": "static/image11-6ce50168d7ec.png",
               "fit": "fill",
               "decorative": true,
-              "name": "grid_accent_image",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -2641,14 +2641,14 @@
               "data": "static/image12-2ed5eba60707.png",
               "fit": "fill",
               "decorative": true,
-              "name": "sparkle_accent_icon",
+              "name": "基础通用",
               "is_icon": true
             }
           ]
         },
         {
           "id": "background_stage",
-          "description": "Full slide background image with dark overlay and decorative accent shapes fixed to the template.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -2694,7 +2694,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "cover",
               "decorative": false,
-              "name": "background_photo",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -2849,11 +2849,11 @@
     },
     {
       "id": "right_content_column",
-      "description": "Right-aligned narrative section containing an introductory paragraph and two repeated icon-led feature descriptions.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "right_content_column",
-          "description": "Right-aligned narrative section containing an introductory paragraph and two repeated icon-led feature descriptions.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 143.72
@@ -2895,7 +2895,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "基础通用",
               "max_length": 124,
               "min_length": 62
             },
@@ -2975,7 +2975,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -3014,7 +3014,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 40,
                       "min_length": 6
                     },
@@ -3080,12 +3080,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 48
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -3147,7 +3147,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -3186,7 +3186,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 40,
                       "min_length": 6
                     },
@@ -3252,15 +3252,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 48
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "feature_list",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 2
             }
@@ -3275,7 +3275,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "grid_1",
+              "name": "基础通用",
               "position": {
                 "x": 0,
                 "y": 0
@@ -3292,7 +3292,7 @@
               "children": [
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 0
@@ -3338,7 +3338,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -3378,7 +3378,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -3418,7 +3418,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -3426,7 +3426,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 576,
                     "y": 0
@@ -3472,7 +3472,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -3512,7 +3512,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -3552,7 +3552,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -3560,7 +3560,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 162
@@ -3606,7 +3606,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -3646,7 +3646,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -3686,7 +3686,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -3694,7 +3694,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 576,
                     "y": 162
@@ -3740,7 +3740,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -3780,7 +3780,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -3820,7 +3820,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -3831,7 +3831,7 @@
               "max_children": 6
             }
           ],
-          "description": "Two-by-two grid of bullet points, each pairing a number with title and descriptive text."
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。"
         },
         {
           "id": "table_of_content_items_grid",
@@ -3842,7 +3842,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "items_grid",
+              "name": "基础通用",
               "position": {
                 "x": 0,
                 "y": 0
@@ -3930,7 +3930,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -3968,7 +3968,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4006,7 +4006,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4042,12 +4042,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 0
@@ -4126,7 +4126,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4164,7 +4164,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4200,7 +4200,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4236,12 +4236,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 80
@@ -4320,7 +4320,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4356,7 +4356,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4392,7 +4392,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4428,12 +4428,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 160
@@ -4512,7 +4512,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4548,7 +4548,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4584,7 +4584,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4620,12 +4620,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 240
@@ -4704,7 +4704,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4740,7 +4740,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4776,7 +4776,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4812,12 +4812,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 320
@@ -4896,7 +4896,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -4932,7 +4932,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -4968,7 +4968,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5004,12 +5004,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 0
@@ -5088,7 +5088,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5124,7 +5124,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -5160,7 +5160,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5196,12 +5196,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 80
@@ -5280,7 +5280,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5316,7 +5316,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -5352,7 +5352,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5388,12 +5388,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 160
@@ -5472,7 +5472,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5508,7 +5508,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -5544,7 +5544,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5580,12 +5580,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 240
@@ -5664,7 +5664,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5700,7 +5700,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -5736,7 +5736,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -5772,12 +5772,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 320
@@ -5790,11 +5790,11 @@
               "min_children": 2
             }
           ],
-          "description": "A grid with two columns and 5 rows of item with number in rounded rectangle box, text and page number."
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。"
         },
         {
           "id": "profile_card_grid",
-          "description": "Four similarly structured profile cards arranged in a balanced two-by-two grid on the right side.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 101.5
@@ -5882,7 +5882,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -5921,7 +5921,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -5961,7 +5961,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -6001,12 +6001,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -6073,7 +6073,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -6112,7 +6112,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -6152,7 +6152,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -6192,12 +6192,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -6264,7 +6264,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -6303,7 +6303,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -6343,7 +6343,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -6383,12 +6383,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -6455,7 +6455,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -6494,7 +6494,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -6534,7 +6534,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -6574,15 +6574,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 }
               ],
-              "name": "profile_grid",
+              "name": "基础通用",
               "max_children": 4,
               "min_children": 4
             }
@@ -6592,11 +6592,11 @@
     },
     {
       "id": "header_text_block",
-      "description": "Top-left header area containing a prominent title and supporting subtitle paragraph.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "header_text_block",
-          "description": "Top-left header area containing a prominent title and supporting subtitle paragraph.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 32
@@ -6638,7 +6638,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 6,
               "rotation": 0
@@ -6679,7 +6679,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "基础通用",
               "max_length": 273,
               "min_length": 62,
               "rotation": 0
@@ -6688,7 +6688,7 @@
         },
         {
           "id": "right_text_block",
-          "description": "Right-side narrative block with prominent headline and supporting paragraph aligned above metrics.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 190
@@ -6730,7 +6730,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 21,
               "min_length": 11
             },
@@ -6770,7 +6770,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_text",
+              "name": "基础通用",
               "max_length": 186,
               "min_length": 93
             }
@@ -6780,11 +6780,11 @@
     },
     {
       "id": "large_chart_card",
-      "description": "Primary content card on the left designed to hold a large comparison chart.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "large_chart_card",
-          "description": "Primary content card on the left designed to hold a large comparison chart.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 192
@@ -6860,7 +6860,7 @@
               ],
               "series": [
                 {
-                  "name": "Comparison values",
+                  "name": "基础通用",
                   "values": [
                     5,
                     5,
@@ -6873,13 +6873,13 @@
               "y_axis_grid": true,
               "grid_color": "#A855F7",
               "decorative": false,
-              "name": "primary_bar_chart"
+              "name": "基础通用"
             }
           ]
         },
         {
           "id": "comparison_table_card",
-          "description": "Central rounded card holding a four-column comparison matrix with purple header and alternating light-gray cell backgrounds.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 242
@@ -7361,7 +7361,7 @@
                 ]
               ],
               "decorative": false,
-              "name": "comparison_matrix_table",
+              "name": "基础通用",
               "min_columns": 4,
               "max_columns": 4,
               "min_rows": 4,
@@ -7373,11 +7373,11 @@
     },
     {
       "id": "decorative_background",
-      "description": "Full slide background with white canvas and pale ornamental side image panels fixed at both edges.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "decorative_background",
-          "description": "Full slide background with white canvas and pale ornamental side image panels fixed at both edges.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -7423,7 +7423,7 @@
               "data": "static/image20-6875b30b26c2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_edge_panel",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -7440,14 +7440,14 @@
               "data": "static/image21-f2b82e740bc2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "right_edge_panel",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "background_accents",
-          "description": "Full-slide background with white base and subtle decorative vertical side artwork framing the central content.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -7495,7 +7495,7 @@
               "data": "static/image20-6875b30b26c2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_background_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -7513,7 +7513,7 @@
               "data": "static/image21-f2b82e740bc2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "right_background_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -7522,11 +7522,11 @@
     },
     {
       "id": "centered_title",
-      "description": "Large centered headline placed in the upper-middle of the slide with strong bold typography.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "centered_title",
-          "description": "Large centered headline placed in the upper-middle of the slide with strong bold typography.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 206
@@ -7568,7 +7568,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 8
             }
@@ -7576,7 +7576,7 @@
         },
         {
           "id": "title_header",
-          "description": "Large left-aligned title area with a short colored underline accent below it.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -7618,7 +7618,7 @@
                 }
               ],
               "decorative": false,
-              "name": "header_title",
+              "name": "基础通用",
               "max_length": 21,
               "min_length": 9
             },
@@ -7652,7 +7652,7 @@
         },
         {
           "id": "title_header",
-          "description": "Centered title section with a large bold heading and small purple underline accent directly below.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -7694,7 +7694,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_title",
+              "name": "基础通用",
               "max_length": 17,
               "min_length": 9
             },
@@ -7729,7 +7729,7 @@
         },
         {
           "id": "centered_title_block",
-          "description": "Centered title area with a bold single-line heading and a small decorative accent positioned directly underneath.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 88
@@ -7771,7 +7771,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 9
             },
@@ -7789,7 +7789,7 @@
               "data": "static/image32-e024f0f6ca8c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "center_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -7798,11 +7798,11 @@
     },
     {
       "id": "three_metric_grid",
-      "description": "Three equal metric blocks arranged in a horizontal grid with labels, large values, and purple description callouts.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "three_metric_grid",
-          "description": "Three equal metric blocks arranged in a horizontal grid with labels, large values, and purple description callouts.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 314
@@ -7868,7 +7868,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -7945,13 +7945,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -7996,7 +7996,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -8073,13 +8073,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -8124,7 +8124,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -8201,16 +8201,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 }
               ],
-              "name": "metric_columns",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 3
             }
@@ -8218,7 +8218,7 @@
         },
         {
           "id": "metric_pair_grid",
-          "description": "Two centered metric callouts placed in an even horizontal grid beneath the narrative text.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 470
@@ -8287,7 +8287,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "基础通用",
                       "max_length": 30,
                       "min_length": 9
                     },
@@ -8327,12 +8327,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 8,
                       "min_length": 2
                     }
                   ],
-                  "name": "metric_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -8381,7 +8381,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "基础通用",
                       "max_length": 30,
                       "min_length": 9
                     },
@@ -8421,15 +8421,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 8,
                       "min_length": 2
                     }
                   ],
-                  "name": "metric_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "metrics_grid",
+              "name": "基础通用",
               "rotation": 0,
               "max_children": 4,
               "min_children": 2
@@ -8440,11 +8440,11 @@
     },
     {
       "id": "center_quote_content",
-      "description": "Centered vertical quote composition with title, divider, quotation mark icon, quote text, and author line.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "variants": [
         {
           "id": "center_quote_content",
-          "description": "Centered vertical quote composition with title, divider, quotation mark icon, quote text, and author line.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 198
@@ -8486,7 +8486,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 15,
               "min_length": 8
             },
@@ -8531,7 +8531,7 @@
               "fit": "fill",
               "color": "#9333EA",
               "decorative": false,
-              "name": "quote_mark_icon",
+              "name": "基础通用",
               "is_icon": true
             },
             {
@@ -8570,7 +8570,7 @@
                 }
               ],
               "decorative": false,
-              "name": "quote_body_text",
+              "name": "基础通用",
               "max_length": 159,
               "min_length": 80
             },
@@ -8629,7 +8629,7 @@
                 }
               ],
               "decorative": false,
-              "name": "attribution_text",
+              "name": "基础通用",
               "max_length": 17,
               "min_length": 9
             },
@@ -8656,7 +8656,7 @@
         },
         {
           "id": "bottom_note",
-          "description": "Centered explanatory paragraph near the bottom with subdued gray typography and wide line length.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 640
@@ -8698,7 +8698,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_note",
+              "name": "基础通用",
               "max_length": 210,
               "min_length": 105
             }
@@ -8710,11 +8710,11 @@
   "layouts": [
     {
       "id": "title_intro",
-      "description": "A clean split presentation layout with a large rounded image card and a structured text panel with attribution card.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full slide white canvas that establishes the minimal presentation backdrop.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -8750,7 +8750,7 @@
         },
         {
           "id": "image_showcase_card",
-          "description": "Large rounded visual card placed on the left side with subtle depth.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 208
@@ -8815,14 +8815,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "main_visual",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_panel",
-          "description": "Right aligned content panel containing headline, accent divider, body copy, and a compact attribution card.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 163
@@ -8864,7 +8864,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 25,
               "min_length": 8
             },
@@ -8930,7 +8930,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_copy",
+              "name": "基础通用",
               "max_length": 275,
               "min_length": 105
             },
@@ -9051,7 +9051,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "avatar_initials",
+                  "name": "基础通用",
                   "max_length": 2,
                   "min_length": 1
                 },
@@ -9091,7 +9091,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "attribution_name",
+                  "name": "基础通用",
                   "max_length": 30,
                   "min_length": 4,
                   "rotation": 0
@@ -9132,13 +9132,13 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "attribution_detail",
+                  "name": "基础通用",
                   "max_length": 45,
                   "min_length": 7,
                   "rotation": 0
                 }
               ],
-              "name": "attribution_card_group"
+              "name": "基础通用"
             }
           ]
         }
@@ -9146,11 +9146,11 @@
     },
     {
       "id": "title_description_image",
-      "description": "A clean split presentation layout with a large rounded visual card on the left and stacked headline copy on the right.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "slide_background",
-          "description": "Full-canvas white background that provides a neutral base for the two-column content arrangement.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -9187,7 +9187,7 @@
         },
         {
           "id": "left_visual_card",
-          "description": "Large rounded image panel positioned on the left with subtle shadow treatment for visual emphasis.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 184
@@ -9253,14 +9253,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "main_visual_image",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_stack",
-          "description": "Right-side vertical content stack containing a prominent title, short accent rule, and supporting paragraph.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 199.47
@@ -9302,7 +9302,7 @@
                 }
               ],
               "decorative": false,
-              "name": "primary_heading",
+              "name": "基础通用",
               "max_length": 25,
               "min_length": 8,
               "rotation": 0
@@ -9371,7 +9371,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_paragraph",
+              "name": "基础通用",
               "max_length": 274,
               "min_length": 105,
               "rotation": 0
@@ -9382,11 +9382,11 @@
     },
     {
       "id": "title_image_bullet_points_1",
-      "description": "A clean asymmetric slide with a large title, service feature blocks, decorative accents, and a rounded image panel on the right.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_accents",
-          "description": "Full-slide white background with subtle fixed decorative wave and sparkle accents around the canvas edges.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -9432,7 +9432,7 @@
               "data": "static/image2-ec1c92dee7a3.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_edge_wave",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -9449,7 +9449,7 @@
               "data": "static/image3-82be19a88965.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_wave_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -9467,7 +9467,7 @@
               "fit": "fill",
               "color": "#FFFFFF",
               "decorative": true,
-              "name": "top_sparkle_accent",
+              "name": "基础通用",
               "is_icon": true
             },
             {
@@ -9484,14 +9484,14 @@
               "data": "static/image9-68eb2d8ed47c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "top_wave_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "large_title_area",
-          "description": "Prominent headline area aligned to the upper-left with generous whitespace below.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -9533,7 +9533,7 @@
                 }
               ],
               "decorative": false,
-              "name": "slide_headline",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 5,
               "rotation": 0
@@ -9542,7 +9542,7 @@
         },
         {
           "id": "feature_grid_area",
-          "description": "Two-by-two grid of service feature groups, each pairing a circular icon with title and descriptive text.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 96,
             "y": 291.75
@@ -9613,7 +9613,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -9652,7 +9652,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -9692,12 +9692,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -9747,7 +9747,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -9786,7 +9786,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -9826,12 +9826,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -9881,7 +9881,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -9920,7 +9920,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -9960,12 +9960,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -10015,7 +10015,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -10054,7 +10054,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 23,
                       "min_length": 8
                     },
@@ -10094,15 +10094,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 95,
                       "min_length": 38
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "feature_grid",
+              "name": "基础通用",
               "max_children": 6,
               "min_children": 3,
               "rotation": 0
@@ -10111,7 +10111,7 @@
         },
         {
           "id": "right_image_panel",
-          "description": "Rounded rectangular photo panel on the right side with a soft drop shadow behind it.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 816,
             "y": 208
@@ -10176,7 +10176,7 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_photo",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -10185,11 +10185,11 @@
     },
     {
       "id": "title_description_bullet_points",
-      "description": "A clean split presentation layout with a large visual panel on the left and explanatory feature blocks on the right.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "slide_background",
-          "description": "Full canvas white background with a decorative grid accent behind the visual area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -10234,7 +10234,7 @@
               "data": "static/image11-6ce50168d7ec.png",
               "fit": "fill",
               "decorative": true,
-              "name": "grid_accent_image",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -10250,14 +10250,14 @@
               "data": "static/image12-2ed5eba60707.png",
               "fit": "fill",
               "decorative": true,
-              "name": "sparkle_accent_icon",
+              "name": "基础通用",
               "is_icon": true
             }
           ]
         },
         {
           "id": "headline_area",
-          "description": "Large single-line heading placed in the upper-left corner with generous margin and bold typography.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -10299,7 +10299,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 4
             }
@@ -10307,7 +10307,7 @@
         },
         {
           "id": "left_visual_card",
-          "description": "Rounded rectangular photo card layered over the decorative grid on the left side of the slide.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 120,
             "y": 254
@@ -10371,14 +10371,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_photo",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_content_column",
-          "description": "Right-aligned narrative section containing an introductory paragraph and two repeated icon-led feature descriptions.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 143.72
@@ -10420,7 +10420,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "基础通用",
               "max_length": 124,
               "min_length": 62
             },
@@ -10500,7 +10500,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -10539,7 +10539,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 40,
                       "min_length": 6
                     },
@@ -10605,12 +10605,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 48
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -10672,7 +10672,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": false,
-                      "name": "feature_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -10711,7 +10711,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_title",
+                      "name": "基础通用",
                       "max_length": 40,
                       "min_length": 6
                     },
@@ -10777,15 +10777,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "feature_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 48
                     }
                   ],
-                  "name": "feature_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "feature_list",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 2
             }
@@ -10795,11 +10795,11 @@
     },
     {
       "id": "title_description_chart_cards",
-      "description": "A clean presentation layout with a top-left header, large chart panel, and stacked rounded information cards in a right sidebar.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "slide_background",
-          "description": "Full canvas background layer establishing the clean white presentation surface.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -10835,7 +10835,7 @@
         },
         {
           "id": "header_text_block",
-          "description": "Top-left header area containing a prominent title and supporting subtitle paragraph.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 32
@@ -10877,7 +10877,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 6,
               "rotation": 0
@@ -10918,7 +10918,7 @@
                 }
               ],
               "decorative": false,
-              "name": "intro_paragraph",
+              "name": "基础通用",
               "max_length": 273,
               "min_length": 62,
               "rotation": 0
@@ -10927,7 +10927,7 @@
         },
         {
           "id": "large_chart_card",
-          "description": "Primary content card on the left designed to hold a large comparison chart.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 192
@@ -11003,7 +11003,7 @@
               ],
               "series": [
                 {
-                  "name": "Comparison values",
+                  "name": "基础通用",
                   "values": [
                     5,
                     5,
@@ -11016,13 +11016,13 @@
               "y_axis_grid": true,
               "grid_color": "#A855F7",
               "decorative": false,
-              "name": "primary_bar_chart"
+              "name": "基础通用"
             }
           ]
         },
         {
           "id": "right_info_cards",
-          "description": "Right column containing three evenly spaced rounded cards with icon, title, and description content.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 880,
             "y": 101.75
@@ -11102,7 +11102,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -11141,7 +11141,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -11181,12 +11181,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -11246,7 +11246,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -11285,7 +11285,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -11325,12 +11325,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -11390,7 +11390,7 @@
                       "fit": "fill",
                       "color": "#FFFFFF",
                       "decorative": true,
-                      "name": "card_icon",
+                      "name": "基础通用",
                       "is_icon": true
                     },
                     {
@@ -11429,7 +11429,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_title",
+                      "name": "基础通用",
                       "max_length": 27,
                       "min_length": 14
                     },
@@ -11469,15 +11469,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "card_body",
+                      "name": "基础通用",
                       "max_length": 63,
                       "min_length": 32
                     }
                   ],
-                  "name": "info_card_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "stacked_card_list",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 2
             }
@@ -11487,11 +11487,11 @@
     },
     {
       "id": "title_metrics_description",
-      "description": "A clean centered slide with decorative side panels, a prominent title, and evenly spaced metric cards across the middle.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "decorative_background",
-          "description": "Full slide background with white canvas and pale ornamental side image panels fixed at both edges.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -11537,7 +11537,7 @@
               "data": "static/image20-6875b30b26c2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_edge_panel",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -11554,14 +11554,14 @@
               "data": "static/image21-f2b82e740bc2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "right_edge_panel",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "centered_title",
-          "description": "Large centered headline placed in the upper-middle of the slide with strong bold typography.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 206
@@ -11603,7 +11603,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 8
             }
@@ -11611,7 +11611,7 @@
         },
         {
           "id": "three_metric_grid",
-          "description": "Three equal metric blocks arranged in a horizontal grid with labels, large values, and purple description callouts.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 314
@@ -11677,7 +11677,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -11754,13 +11754,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -11805,7 +11805,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -11882,13 +11882,13 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -11933,7 +11933,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 10,
                       "min_length": 2
                     },
@@ -12010,16 +12010,16 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_description",
+                      "name": "基础通用",
                       "max_length": 200,
                       "min_length": 45,
                       "rotation": 0
                     }
                   ],
-                  "name": "metric_block"
+                  "name": "基础通用"
                 }
               ],
-              "name": "metric_columns",
+              "name": "基础通用",
               "max_children": 3,
               "min_children": 3
             }
@@ -12029,11 +12029,11 @@
     },
     {
       "id": "title_image_description_metrics",
-      "description": "A clean split layout with a large visual card on the left and headline, body copy, and metrics on the right.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full slide background with subtle decorative corner accents framing the content area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -12080,7 +12080,7 @@
               "data": "static/image22-6dd2f52e896c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "bottom_corner_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -12097,14 +12097,14 @@
               "data": "static/image23-f21b824d69c7.png",
               "fit": "fill",
               "decorative": true,
-              "name": "top_corner_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_image_card",
-          "description": "Rounded visual card with shadow holding a large primary image on the left side.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 88,
             "y": 176
@@ -12170,14 +12170,14 @@
                 "br": 16
               },
               "decorative": false,
-              "name": "primary_visual",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "right_text_block",
-          "description": "Right-side narrative block with prominent headline and supporting paragraph aligned above metrics.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 190
@@ -12219,7 +12219,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 21,
               "min_length": 11
             },
@@ -12259,7 +12259,7 @@
                 }
               ],
               "decorative": false,
-              "name": "body_text",
+              "name": "基础通用",
               "max_length": 186,
               "min_length": 93
             }
@@ -12267,7 +12267,7 @@
         },
         {
           "id": "metric_pair_grid",
-          "description": "Two centered metric callouts placed in an even horizontal grid beneath the narrative text.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 470
@@ -12336,7 +12336,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "基础通用",
                       "max_length": 30,
                       "min_length": 9
                     },
@@ -12376,12 +12376,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 8,
                       "min_length": 2
                     }
                   ],
-                  "name": "metric_item"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -12430,7 +12430,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_label",
+                      "name": "基础通用",
                       "max_length": 30,
                       "min_length": 9
                     },
@@ -12470,15 +12470,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "metric_value",
+                      "name": "基础通用",
                       "max_length": 8,
                       "min_length": 2
                     }
                   ],
-                  "name": "metric_item"
+                  "name": "基础通用"
                 }
               ],
-              "name": "metrics_grid",
+              "name": "基础通用",
               "rotation": 0,
               "max_children": 4,
               "min_children": 2
@@ -12489,11 +12489,11 @@
     },
     {
       "id": "title_image_bullet_points",
-      "description": "A clean presentation layout with a large title, supporting image, structured text sections, and a decorative footer accent.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full-slide white background with a soft decorative footer shape anchored at the bottom edge.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -12539,14 +12539,14 @@
               "data": "static/image26-6ba37bd671c7.png",
               "fit": "fill",
               "decorative": true,
-              "name": "footer_accent_image",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "title_header",
-          "description": "Large left-aligned title area with a short colored underline accent below it.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -12588,7 +12588,7 @@
                 }
               ],
               "decorative": false,
-              "name": "header_title",
+              "name": "基础通用",
               "max_length": 21,
               "min_length": 9
             },
@@ -12622,7 +12622,7 @@
         },
         {
           "id": "top_right_image",
-          "description": "Rounded rectangular image placeholder positioned in the upper-right corner of the slide.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 880,
             "y": 48
@@ -12648,7 +12648,7 @@
                 "br": 8
               },
               "decorative": false,
-              "name": "corner_photo",
+              "name": "基础通用",
               "is_icon": false,
               "focus_x": 50.28,
               "focus_y": 50.27,
@@ -12665,7 +12665,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "grid_1",
+              "name": "基础通用",
               "position": {
                 "x": 0,
                 "y": 0
@@ -12682,7 +12682,7 @@
               "children": [
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 0
@@ -12728,7 +12728,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -12768,7 +12768,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -12808,7 +12808,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -12816,7 +12816,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 576,
                     "y": 0
@@ -12862,7 +12862,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -12902,7 +12902,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -12942,7 +12942,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -12950,7 +12950,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 162
@@ -12996,7 +12996,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13036,7 +13036,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -13076,7 +13076,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -13084,7 +13084,7 @@
                 },
                 {
                   "type": "group",
-                  "name": "group_1",
+                  "name": "基础通用",
                   "position": {
                     "x": 576,
                     "y": 162
@@ -13130,7 +13130,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -13170,7 +13170,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_heading",
+                      "name": "基础通用",
                       "max_length": 17,
                       "min_length": 9
                     },
@@ -13210,7 +13210,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_body",
+                      "name": "基础通用",
                       "max_length": 107,
                       "min_length": 63
                     }
@@ -13221,18 +13221,18 @@
               "max_children": 6
             }
           ],
-          "description": "Two-by-two grid of bullet points, each pairing a number with title and descriptive text."
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。"
         }
       ],
       "elements": []
     },
     {
       "id": "title_quote_image",
-      "description": "A full-bleed photographic hero slide with dark overlay, decorative corner circles, and centered quote content stack.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_stage",
-          "description": "Full slide background image with dark overlay and decorative accent shapes fixed to the template.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -13278,7 +13278,7 @@
               "data": "/static/images/replaceable_template_image.png",
               "fit": "cover",
               "decorative": false,
-              "name": "background_photo",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -13431,7 +13431,7 @@
         },
         {
           "id": "center_quote_content",
-          "description": "Centered vertical quote composition with title, divider, quotation mark icon, quote text, and author line.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 198
@@ -13473,7 +13473,7 @@
                 }
               ],
               "decorative": false,
-              "name": "headline_text",
+              "name": "基础通用",
               "max_length": 15,
               "min_length": 8
             },
@@ -13518,7 +13518,7 @@
               "fit": "fill",
               "color": "#9333EA",
               "decorative": false,
-              "name": "quote_mark_icon",
+              "name": "基础通用",
               "is_icon": true
             },
             {
@@ -13557,7 +13557,7 @@
                 }
               ],
               "decorative": false,
-              "name": "quote_body_text",
+              "name": "基础通用",
               "max_length": 159,
               "min_length": 80
             },
@@ -13616,7 +13616,7 @@
                 }
               ],
               "decorative": false,
-              "name": "attribution_text",
+              "name": "基础通用",
               "max_length": 17,
               "min_length": 9
             },
@@ -13645,11 +13645,11 @@
     },
     {
       "id": "title_table_description",
-      "description": "A centered presentation layout with subtle side accents, prominent heading, rounded comparison card, and explanatory note beneath.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_accents",
-          "description": "Full-slide background with white base and subtle decorative vertical side artwork framing the central content.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -13697,7 +13697,7 @@
               "data": "static/image20-6875b30b26c2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "left_background_accent",
+              "name": "基础通用",
               "is_icon": false
             },
             {
@@ -13715,14 +13715,14 @@
               "data": "static/image21-f2b82e740bc2.png",
               "fit": "fill",
               "decorative": true,
-              "name": "right_background_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "title_header",
-          "description": "Centered title section with a large bold heading and small purple underline accent directly below.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 48
@@ -13764,7 +13764,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_title",
+              "name": "基础通用",
               "max_length": 17,
               "min_length": 9
             },
@@ -13799,7 +13799,7 @@
         },
         {
           "id": "comparison_table_card",
-          "description": "Central rounded card holding a four-column comparison matrix with purple header and alternating light-gray cell backgrounds.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 242
@@ -14281,7 +14281,7 @@
                 ]
               ],
               "decorative": false,
-              "name": "comparison_matrix_table",
+              "name": "基础通用",
               "min_columns": 4,
               "max_columns": 4,
               "min_rows": 4,
@@ -14291,7 +14291,7 @@
         },
         {
           "id": "bottom_note",
-          "description": "Centered explanatory paragraph near the bottom with subdued gray typography and wide line length.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 192,
             "y": 640
@@ -14333,7 +14333,7 @@
                 }
               ],
               "decorative": false,
-              "name": "supporting_note",
+              "name": "基础通用",
               "max_length": 210,
               "min_length": 105
             }
@@ -14343,11 +14343,11 @@
     },
     {
       "id": "table_of_contents",
-      "description": "A clean contents slide with centered heading, small decorative accent, and balanced columns of navigation rows.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full slide white canvas that provides a neutral presentation background for the structured content layout.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -14384,7 +14384,7 @@
         },
         {
           "id": "centered_title_block",
-          "description": "Centered title area with a bold single-line heading and a small decorative accent positioned directly underneath.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 88
@@ -14426,7 +14426,7 @@
                 }
               ],
               "decorative": false,
-              "name": "main_heading",
+              "name": "基础通用",
               "max_length": 30,
               "min_length": 9
             },
@@ -14444,7 +14444,7 @@
               "data": "static/image32-e024f0f6ca8c.png",
               "fit": "fill",
               "decorative": true,
-              "name": "center_accent",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
@@ -14458,7 +14458,7 @@
           "elements": [
             {
               "type": "grid",
-              "name": "items_grid",
+              "name": "基础通用",
               "position": {
                 "x": 0,
                 "y": 0
@@ -14546,7 +14546,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14584,7 +14584,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -14622,7 +14622,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14658,12 +14658,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 0
@@ -14742,7 +14742,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14780,7 +14780,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -14816,7 +14816,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14852,12 +14852,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 80
@@ -14936,7 +14936,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -14972,7 +14972,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15008,7 +15008,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15044,12 +15044,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 160
@@ -15128,7 +15128,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15164,7 +15164,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15200,7 +15200,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15236,12 +15236,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 240
@@ -15320,7 +15320,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15356,7 +15356,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15392,7 +15392,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15428,12 +15428,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 0,
                     "y": 320
@@ -15512,7 +15512,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15548,7 +15548,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15584,7 +15584,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15620,12 +15620,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 0
@@ -15704,7 +15704,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15740,7 +15740,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15776,7 +15776,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15812,12 +15812,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 80
@@ -15896,7 +15896,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -15932,7 +15932,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -15968,7 +15968,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -16004,12 +16004,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 160
@@ -16088,7 +16088,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -16124,7 +16124,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -16160,7 +16160,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -16196,12 +16196,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 240
@@ -16280,7 +16280,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -16316,7 +16316,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "item_label",
+                      "name": "基础通用",
                       "max_length": 22,
                       "min_length": 4
                     },
@@ -16352,7 +16352,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "page_number",
+                      "name": "基础通用",
                       "max_length": 2,
                       "min_length": 1
                     },
@@ -16388,12 +16388,12 @@
                         }
                       ],
                       "decorative": true,
-                      "name": "page_dots",
+                      "name": "基础通用",
                       "max_length": 5,
                       "min_length": 3
                     }
                   ],
-                  "name": "item",
+                  "name": "基础通用",
                   "position": {
                     "x": 584,
                     "y": 320
@@ -16406,18 +16406,18 @@
               "min_children": 2
             }
           ],
-          "description": "A grid with two columns and 5 rows of item with number in rounded rectangle box, text and page number."
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。"
         }
       ],
       "elements": []
     },
     {
       "id": "title_description_team_cards",
-      "description": "A clean split presentation layout with introductory copy on the left and a profile card grid on the right.",
+      "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
       "components": [
         {
           "id": "background_canvas",
-          "description": "Full-slide white background with a subtle decorative wave accent anchored along the lower-left edge.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 0,
             "y": 0
@@ -16462,14 +16462,14 @@
               "data": "static/image33-ae1f10d83bac.png",
               "fit": "fill",
               "decorative": true,
-              "name": "lower_left_wave",
+              "name": "基础通用",
               "is_icon": false
             }
           ]
         },
         {
           "id": "left_intro_block",
-          "description": "Large headline, short accent divider, and paragraph arranged as a vertically stacked introduction area.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 80,
             "y": 212
@@ -16522,7 +16522,7 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "intro_heading",
+                  "name": "基础通用",
                   "max_length": 25,
                   "min_length": 8
                 },
@@ -16585,12 +16585,12 @@
                     }
                   ],
                   "decorative": false,
-                  "name": "intro_body",
+                  "name": "基础通用",
                   "min_length": 64,
                   "max_length": 250
                 }
               ],
-              "name": "intro_vertical_stack",
+              "name": "基础通用",
               "min_children": 1,
               "max_children": 1
             }
@@ -16598,7 +16598,7 @@
         },
         {
           "id": "profile_card_grid",
-          "description": "Four similarly structured profile cards arranged in a balanced two-by-two grid on the right side.",
+          "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
           "position": {
             "x": 672,
             "y": 101.5
@@ -16686,7 +16686,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -16725,7 +16725,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -16765,7 +16765,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -16805,12 +16805,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -16877,7 +16877,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -16916,7 +16916,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -16956,7 +16956,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -16996,12 +16996,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -17068,7 +17068,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -17107,7 +17107,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -17147,7 +17147,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -17187,12 +17187,12 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 },
                 {
                   "type": "group",
@@ -17259,7 +17259,7 @@
                         "br": 8
                       },
                       "decorative": false,
-                      "name": "profile_photo",
+                      "name": "基础通用",
                       "is_icon": false
                     },
                     {
@@ -17298,7 +17298,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_name",
+                      "name": "基础通用",
                       "max_length": 20,
                       "min_length": 7
                     },
@@ -17338,7 +17338,7 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_role",
+                      "name": "基础通用",
                       "max_length": 25,
                       "min_length": 2
                     },
@@ -17378,15 +17378,15 @@
                         }
                       ],
                       "decorative": false,
-                      "name": "profile_description",
+                      "name": "基础通用",
                       "max_length": 100,
                       "min_length": 45
                     }
                   ],
-                  "name": "profile_card"
+                  "name": "基础通用"
                 }
               ],
-              "name": "profile_grid",
+              "name": "基础通用",
               "max_children": 4,
               "min_children": 4
             }

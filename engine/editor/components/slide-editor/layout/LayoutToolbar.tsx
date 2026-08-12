@@ -359,10 +359,10 @@ export function TemplateV2LayoutToolbar({
           <>
             <div
               className="inline-flex h-7 items-center gap-1 rounded-[6px] px-2 hover:bg-[#F6F6F9] cursor-pointer text-[14px] font-manrope font-medium leading-4 text-[#191919]"
-              title="Ungroup"
+              title="取消编组"
               onClick={ungroupAction.onUngroup}
             >
-              <span>Ungroup</span>
+              <span>取消编组</span>
             </div>
             <ToolbarDivider />
           </>

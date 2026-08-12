@@ -170,8 +170,8 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
           }
         }
         if (route === '/') {
-          router.push('/upload');
-          setLoadingToFalseAfterNavigatingTo('/upload');
+          router.push('/dashboard');
+          setLoadingToFalseAfterNavigatingTo('/dashboard');
         } else {
           setIsLoading(false);
         }
@@ -205,8 +205,8 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
         console.error("Failed to fetch runtime configuration:", error);
       }
       if (route === '/') {
-        router.push('/upload');
-        setLoadingToFalseAfterNavigatingTo('/upload');
+        router.push('/dashboard');
+        setLoadingToFalseAfterNavigatingTo('/dashboard');
       } else {
         setIsLoading(false);
       }

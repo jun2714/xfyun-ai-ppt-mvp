@@ -308,6 +308,7 @@ def get_smart_messages(
     include_table_of_contents: bool,
     source_context: str,
     community_design_context: str,
+    confirmed_outline: str = "",
     fonts: Optional[dict[str, str]] = None,
     completed_slides: Optional[Sequence[dict[str, str]]] = None,
     retry_error: Optional[str] = None,
@@ -334,12 +335,22 @@ def get_smart_messages(
         if community_design_context.strip()
         else ""
     )
+    narrative_instruction = (
+        f"""Use the following user-confirmed outline as the fixed deck plan.
+Generate slide {len(completed_slides) + 1} onward in exactly this order.
+Do not add, remove, merge, split, rename, reorder, or reinterpret slides.
+Each generated slide must faithfully cover its corresponding outline entry:
+
+{confirmed_outline.strip()}"""
+        if confirmed_outline.strip()
+        else """Plan the narrative, slide sequence, titles, content, and visual variety
+internally."""
+    )
     user_prompt = (
         f"""
 {"Continue the presentation in one response." if completed_slides else "Generate the complete presentation in one response."}
-Plan the narrative, slide sequence, titles, content, and visual variety
-internally. Do not output an outline, manifest, plan, commentary, JSON, or
-markdown fences.
+{narrative_instruction}
+Do not output an outline, manifest, plan, commentary, JSON, or markdown fences.
 
 Original user prompt:
 {content.strip() or "Create a presentation from the supplied references."}
@@ -718,6 +729,7 @@ async def generate_smart_presentation(
     include_table_of_contents: bool,
     source_context: str = "",
     community_design_context: str = "",
+    confirmed_outline: str = "",
     fonts: Optional[dict[str, str]] = None,
     on_slide: SmartSlideCallback | None = None,
     on_metrics: SmartMetricsCallback | None = None,
@@ -742,6 +754,7 @@ async def generate_smart_presentation(
             include_table_of_contents=include_table_of_contents,
             source_context=source_context,
             community_design_context=community_design_context,
+            confirmed_outline=confirmed_outline,
             fonts=fonts,
             completed_slides=accepted_slides,
             retry_error=retry_error,

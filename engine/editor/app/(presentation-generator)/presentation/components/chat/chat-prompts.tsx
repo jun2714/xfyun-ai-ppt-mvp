@@ -39,7 +39,7 @@ export const suggestions: {
         </defs>
       </svg>
     ),
-    suggestion: "Generate a full presentation from my topic",
+    suggestion: "根据我的主题生成完整演示文稿",
   },
   {
     id: "improve",
@@ -71,7 +71,7 @@ export const suggestions: {
         </defs>
       </svg>
     ),
-    suggestion: "Improve this slide content",
+    suggestion: "优化本页内容",
   },
   {
     id: "rewrite",
@@ -86,7 +86,7 @@ export const suggestions: {
         />
       </svg>
     ),
-    suggestion: "Rewrite this content professionally",
+    suggestion: "改成更专业的表述",
   },
   {
     id: "notes",
@@ -98,98 +98,143 @@ export const suggestions: {
         <path d="M4 8.5V7" stroke="#E17100" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    suggestion: "Add speaker notes to this slide",
+    suggestion: "为本页添加讲稿备注",
   },
 ];
 
 export const outlineQuickPrompts = [
-  "Expand outline",
-  "Shorten outline",
-  "Reorder sections",
-  "Merge similar slides",
-  "Split large sections",
-  "Improve conclusion",
-  "Improve introduction",
+  "扩展大纲内容",
+  "精简大纲内容",
+  "调整章节顺序",
+  "合并相似页面",
+  "拆分内容过多的页面",
+  "优化结尾页",
+  "优化开场页",
 ];
 
 export const presentationQuickPrompts = [
-  "Create an executive summary",
-  "Strengthen the story flow",
-  "Add data and citations",
-  "Create speaker notes",
+  "生成一页内容摘要",
+  "加强叙事连贯性",
+  "补充数据与依据",
+  "生成讲稿备注",
 ];
 
 export const templateV2QuickPrompts = [
-  "Improve this slide's layout",
-  "Rewrite this slide for executives",
-  "Add a supporting visual",
-  "Make the deck visually consistent",
-  "Add data and source citations",
-  "Create speaker notes for this slide",
+  "优化本页版式",
+  "改成更适合汇报的表述",
+  "补充一张配图",
+  "统一整套视觉风格",
+  "补充数据与来源说明",
+  "为本页生成讲稿备注",
 ];
 
 export const editorQuickPrompts = [
-  "Rewrite for executives",
-  "Improve slide layout",
-  "Add data & citations",
-  "Create speaker notes",
-  "Make the deck consistent",
+  "改成更适合汇报的表述",
+  "优化本页版式",
+  "补充数据与依据",
+  "生成讲稿备注",
+  "统一整套视觉风格",
 ];
 
 export const outlineEditorQuickPrompts = [
-  "Strengthen the story flow",
-  "Make the outline concise",
-  "Reorder the sections",
-  "Merge similar slides",
-  "Improve the conclusion",
+  "加强叙事连贯性",
+  "让大纲更简洁",
+  "调整章节顺序",
+  "合并相似页面",
+  "优化结尾页",
 ];
 
 export const quickPromptGroups = [
   {
-    label: "Popular",
+    label: "常用",
     prompts: [
-      "Make it shorter",
-      "Make this smaller",
-      "Generate a new image and replace this one",
+      "写得更短一些，适合幼儿理解",
+      "让内容更精炼",
+      "重新生成图片并替换",
     ],
   },
   {
-    label: "Add Data",
-    prompts: ["Add data and citations", "Add a chart", "Add a table"],
+    label: "幼教调整",
+    prompts: [
+      "改成更适合幼儿的表述",
+      "补充互动提问",
+      "按中班适龄重写本页",
+    ],
   },
   {
-    label: "Add Visuals",
+    label: "补充视觉",
     prompts: [
-      "Generate a new image and replace this one",
-      "Add a chart",
-      "Add a table",
+      "重新生成插画并替换",
+      "换成更童趣的图片",
+      "去掉图表改用插画",
     ],
   },
 ];
 
+/** 对话输入区可选教学信息（下拉选择后作为发送上下文） */
+export const teachingContextGroups = [
+  {
+    key: "audience" as const,
+    label: "观众",
+    shortLabel: "观众",
+    options: ["幼儿", "家长", "教师", "幼儿与家长", "教研团队"],
+  },
+  {
+    key: "age" as const,
+    label: "年龄班级",
+    shortLabel: "年龄",
+    options: ["托班 2—3 岁", "小班 3—4 岁", "中班 4—5 岁", "大班 5—6 岁", "混龄班"],
+  },
+  {
+    key: "scene" as const,
+    label: "使用场景",
+    shortLabel: "场景",
+    options: ["集体教学", "区角活动", "主题活动", "家长会", "教研分享", "户外活动"],
+  },
+  {
+    key: "style" as const,
+    label: "视觉风格",
+    shortLabel: "风格",
+    options: ["明亮童趣", "自然温馨", "简洁清晰", "活泼卡通"],
+  },
+];
+
+export type TeachingContextKey = (typeof teachingContextGroups)[number]["key"];
+export type TeachingContextState = Partial<Record<TeachingContextKey, string>>;
+
+export function formatTeachingContext(context: TeachingContextState) {
+  const lines = teachingContextGroups
+    .map((group) => {
+      const value = context[group.key]?.trim();
+      return value ? `${group.label}：${value}` : "";
+    })
+    .filter(Boolean);
+  return lines.length ? `【教学信息】\n${lines.join("\n")}` : "";
+}
+
 export const outlineQuickPromptGroups = [
   {
-    label: "Popular",
+    label: "常用",
     prompts: [
-      "Make the outline shorter",
-      "Expand the outline",
-      "Strengthen the story flow",
+      "让大纲更简洁",
+      "扩展大纲内容",
+      "加强叙事连贯性",
     ],
   },
   {
-    label: "Structure",
+    label: "结构调整",
     prompts: [
-      "Reorder the sections",
-      "Merge similar slides",
-      "Split large sections",
+      "调整章节顺序",
+      "合并相似页面",
+      "拆分内容过多的页面",
     ],
   },
   {
-    label: "Refine Content",
+    label: "内容润色",
     prompts: [
-      "Rewrite for executives",
-      "Improve the introduction",
-      "Improve the conclusion",
+      "改成更适合汇报的表述",
+      "优化开场页",
+      "优化结尾页",
     ],
   },
 ];

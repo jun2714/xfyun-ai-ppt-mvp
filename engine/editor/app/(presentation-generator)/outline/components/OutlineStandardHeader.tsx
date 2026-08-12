@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
 
 interface OutlineStandardHeaderProps {
   title: string;
@@ -18,8 +19,11 @@ const OutlineStandardHeader = ({
       <div className="flex min-w-0 items-center gap-3">
         <Link
           href="/dashboard"
-          aria-label="Go to dashboard"
+          aria-label="返回项目列表"
           className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]/30"
+          onClick={(event) => {
+            if (requestTeachnovaHome()) event.preventDefault();
+          }}
         >
           <Image
             src="/teachnova-mark.png"
@@ -37,10 +41,10 @@ const OutlineStandardHeader = ({
       <button
         type="button"
         onClick={onBack}
-        className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.96px] text-[#333333] transition-colors hover:text-[#7A5AF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]/30"
+        className="flex shrink-0 items-center gap-2 text-xs font-semibold tracking-[0.96px] text-[#333333] transition-colors hover:text-[#7A5AF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A5AF8]/30"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back
+        返回
       </button>
     </div>
   </header>

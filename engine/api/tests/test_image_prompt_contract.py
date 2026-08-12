@@ -1,32 +1,42 @@
-from models.image_prompt import ImagePrompt, NO_EMBEDDED_TEXT_INSTRUCTION
+from models.image_prompt import (
+    CHINESE_PEOPLE_INSTRUCTION,
+    ImagePrompt,
+    NO_EMBEDDED_TEXT_INSTRUCTION,
+)
 from utils.llm_calls.generate_presentation_outlines import get_system_prompt
 from utils.llm_calls.generate_slide_content import get_user_prompt
 
 
 def test_generated_image_prompt_forbids_embedded_text_by_default():
-    prompt = ImagePrompt(prompt="A child observing a butterfly")
+    prompt = ImagePrompt(prompt="中国幼儿园里，孩子观察蝴蝶")
 
     provider_prompt = prompt.get_image_prompt()
 
     assert NO_EMBEDDED_TEXT_INSTRUCTION in provider_prompt
+    assert CHINESE_PEOPLE_INSTRUCTION in provider_prompt
     assert prompt.allow_embedded_text is False
     assert prompt.ocr_policy == "reject-on-detection"
+    assert prompt.prompt_language == "zh-CN"
 
 
 def test_embedded_text_can_only_be_enabled_explicitly():
     prompt = ImagePrompt(
-        prompt="A real storefront sign supplied by the user",
+        prompt="用户提供的真实店招照片",
         allow_embedded_text=True,
     )
 
-    assert prompt.get_image_prompt() == prompt.prompt
+    provider_prompt = prompt.get_image_prompt()
+    assert prompt.prompt in provider_prompt
+    assert NO_EMBEDDED_TEXT_INSTRUCTION not in provider_prompt
+    assert CHINESE_PEOPLE_INSTRUCTION in provider_prompt
 
 
 def test_slide_content_prompt_separates_visible_language_from_image_prompt():
     prompt = get_user_prompt("## 蝴蝶的一生", "zh-CN")
 
     assert "Image Prompt Contract" in prompt
-    assert "pseudo-text" in prompt
+    assert "Write image_prompt fields in Chinese" in prompt
+    assert "must all be Chinese people" in prompt
     assert "# Slide Language:\nzh-CN" in prompt
 
 

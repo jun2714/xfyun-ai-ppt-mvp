@@ -113,10 +113,10 @@ const DEFAULT_LOADING_STATE: LoadingState = {
 
 const STREAM_LOADING_STATE: LoadingState = {
   isLoading: true,
-  message: "正在生成演示文稿",
+  message: "正在生成演示文稿与配图",
   showProgress: true,
   duration: 90,
-  extra_info: "生成时间取决于页面数量，请稍候。",
+  extra_info: "页面结构生成后会继续补齐插画与配图，请稍候。",
 };
 
 const IDLE_LOADING_STATE: LoadingState = {
@@ -173,13 +173,16 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
   );
   const presentationDataRef = useRef(presentationData);
   const slidesLength = presentationData?.slides?.length ?? 0;
-  const isSmartPresentation =
-    searchParams.get("type") === "smart" ||
-    presentationData?.generation_mode === "smart";
   const isTemplateV2Presentation =
     presentationData?.version === "v2-standard" ||
     hasTemplateV2Layouts(presentationData?.layout) ||
     hasTemplateV2Slides(presentationData?.slides);
+  // 模板幻灯片应显示完整插入工具；勿因 URL 残留 type=smart 误判为智能创作。
+  const isSmartPresentation =
+    presentationData?.generation_mode === "smart" ||
+    (searchParams.get("type") === "smart" &&
+      presentationData?.generation_mode !== "standard" &&
+      !isTemplateV2Presentation);
   const editingDisabled = isStreaming === true;
 
   useEffect(() => {
@@ -792,7 +795,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
             aria-label={isMobileAssistantOpen ? "AI 助手" : undefined}
             aria-modal={isMobileAssistantOpen ? true : undefined}
             className={cn(
-              "h-screen w-[calc(100vw-16px)] max-w-[375px] shrink-0 flex-col bg-white shadow-[-12px_0_32px_rgba(16,24,40,0.18)] xl:static xl:z-auto xl:flex xl:h-full xl:w-[375px] xl:max-w-none xl:self-start xl:shadow-none",
+              "h-screen w-[calc(100vw-16px)] max-w-[440px] shrink-0 flex-col bg-white shadow-[-12px_0_32px_rgba(16,24,40,0.18)] xl:static xl:z-auto xl:flex xl:h-full xl:w-[420px] xl:max-w-none xl:self-start xl:shadow-none",
               isMobileAssistantOpen
                 ? "fixed inset-y-0 right-0 z-[70] flex"
                 : "hidden"
