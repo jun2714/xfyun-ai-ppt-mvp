@@ -84,11 +84,31 @@ if os.path.isdir(static_dir):
 # runtime Next.js origin is available, use that exact origin so credentialed
 # requests remain standards-compliant. Docker stays same-origin behind nginx;
 # the wildcard fallback preserves standalone FastAPI development behavior.
-next_public_origin = (os.getenv("NEXT_PUBLIC_URL") or "").strip().rstrip("/")
-origins = [next_public_origin] if next_public_origin else ["*"]
+# Local web may open the editor as either 127.0.0.1 or localhost; allow both.
+def _cors_origins() -> list[str]:
+    next_public_origin = (os.getenv("NEXT_PUBLIC_URL") or "").strip().rstrip("/")
+    if not next_public_origin:
+        return ["*"]
+    origins = [next_public_origin]
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(next_public_origin)
+        if parsed.hostname in ("127.0.0.1", "localhost"):
+            alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
+            alt = f"{parsed.scheme}://{alt_host}"
+            if parsed.port:
+                alt = f"{alt}:{parsed.port}"
+            if alt not in origins:
+                origins.append(alt)
+    except Exception:
+        pass
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

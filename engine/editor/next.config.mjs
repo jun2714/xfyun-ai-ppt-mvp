@@ -9,6 +9,11 @@ const nextConfig = {
   output: "standalone",
   // 产品通过 iframe 嵌入编辑器，开发提示浮层不应暴露给最终用户。
   devIndicators: false,
+  // Custom template PPTX + font uploads often exceed the default 10MB proxy body
+  // limit when requests still go through the Next.js rewrite to FastAPI.
+  experimental: {
+    middlewareClientMaxBodySize: "64mb",
+  },
   turbopack: {
     root: nextjsRoot,
   },
