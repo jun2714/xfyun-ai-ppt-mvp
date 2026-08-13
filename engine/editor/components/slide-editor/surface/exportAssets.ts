@@ -18,6 +18,16 @@ export function loadKonvaImage(src: string): Promise<HTMLImageElement | null> {
     };
 
     const image = new window.Image();
+    // Cross-origin absolute URLs must opt into CORS so Konva workers can
+    // transfer ImageBitmaps without DataCloneError.
+    try {
+      const parsed = new URL(src, window.location.href);
+      if (parsed.origin !== window.location.origin) {
+        image.crossOrigin = "anonymous";
+      }
+    } catch {
+      // Keep default image loading for non-URL sources.
+    }
     image.onload = () => done(image);
     image.onerror = () => done(null);
     image.src = src;

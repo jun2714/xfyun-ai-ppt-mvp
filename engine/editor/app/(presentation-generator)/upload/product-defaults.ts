@@ -86,12 +86,27 @@ export function parseTeachnovaPrompt(content: string) {
   };
 }
 
-export function getTeachnovaWebOutlineUrl(presentationId: string) {
+export function getTeachnovaWebOutlineUrl(
+  presentationId: string,
+  options: {
+    templateId?: string | null;
+    createMode?: "topic" | "template";
+  } = {},
+) {
   const base =
     (typeof window !== "undefined" &&
       (window as Window & { env?: { NEXT_PUBLIC_WEB_APP_URL?: string } }).env
         ?.NEXT_PUBLIC_WEB_APP_URL) ||
     process.env.NEXT_PUBLIC_WEB_APP_URL ||
     "http://127.0.0.1:5173";
-  return `${base.replace(/\/$/, "")}/presentations/${presentationId}/outline`;
+  const url = new URL(
+    `${base.replace(/\/$/, "")}/presentations/${presentationId}/outline`,
+  );
+  if (options.createMode) {
+    url.searchParams.set("mode", options.createMode);
+  }
+  if (options.templateId) {
+    url.searchParams.set("template", options.templateId);
+  }
+  return url.toString();
 }

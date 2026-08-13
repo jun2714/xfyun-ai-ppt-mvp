@@ -40,12 +40,27 @@ import {
   getTeachnovaWebOutlineUrl,
   TEACHNOVA_API_LANGUAGE,
 } from "../product-defaults";
+import UploadTemplateGallery from "./UploadTemplateGallery";
 // 社区参考暂不对外开放
 // import CommunityReferencePicker from "./CommunityReferencePicker";
 // import {
 //   CommunityPresentationApi,
 //   type CommunityPresentation,
 // } from "../../services/api/community";
+
+type CreateFlowMode = "topic" | "template";
+const CREATE_FLOW_TABS: Array<{ id: CreateFlowMode; label: string; hint: string }> = [
+  {
+    id: "topic",
+    label: "主题生成",
+    hint: "输入主题后生成大纲，再用通用或自选模板排版",
+  },
+  {
+    id: "template",
+    label: "模板生成",
+    hint: "先输入信息生成大纲，再在大纲页选择模板进行排版",
+  },
+];
 
 const STOCK_IMAGE_PROVIDERS = new Set(["pexels", "pixabay"]);
 const FILE_TYPE_WORD = new Set([".doc", ".docx", ".docm", ".odt", ".rtf"]);
@@ -152,6 +167,7 @@ const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([]);
   // 新输入页只负责收集主题；创建后回到旧 Web 大纲页继续生成与排版。
   const generationMode = "standard" as const;
+  const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
     audience: "幼儿",
     scene: "集体教学",
@@ -162,9 +178,15 @@ const UploadPage = () => {
   );
 
   const continueToLegacyOutline = (presentationId: string) => {
-    const destination = getTeachnovaWebOutlineUrl(presentationId);
+    const destination = getTeachnovaWebOutlineUrl(presentationId, {
+      createMode: createFlowMode,
+    });
     trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
     window.location.assign(destination);
+  };
+
+  const handleCreateFlowModeChange = (mode: CreateFlowMode) => {
+    setCreateFlowMode(mode);
   };
 
   useEffect(() => {
@@ -212,6 +234,7 @@ const UploadPage = () => {
       include_title_slide: !!config.includeTitleSlide,
       web_search: !!config.webSearch,
       generation_mode: generationMode,
+      create_flow_mode: createFlowMode,
       community_reference_id: null,
       has_prompt: Boolean(trimmedPrompt),
       prompt_char_count: trimmedPrompt.length,
@@ -403,7 +426,9 @@ const UploadPage = () => {
     );
     dispatch(clearOutlines());
     dispatch(setPresentationId(createResponse.id));
-    const destination = getTeachnovaWebOutlineUrl(createResponse.id);
+    const destination = getTeachnovaWebOutlineUrl(createResponse.id, {
+      createMode: createFlowMode,
+    });
     trackEvent(MixpanelEvent.Upload_Documents_Processed, {
       ...getUploadSnapshotProps(),
       uploaded_documents_count: documents.length,
@@ -465,7 +490,9 @@ const UploadPage = () => {
     );
     dispatch(clearOutlines());
     dispatch(setPresentationId(createResponse.id));
-    const destination = getTeachnovaWebOutlineUrl(createResponse.id);
+    const destination = getTeachnovaWebOutlineUrl(createResponse.id, {
+      createMode: createFlowMode,
+    });
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.id,
@@ -516,7 +543,7 @@ const UploadPage = () => {
           </svg>
         </h1>
         <p className="mt-2 max-w-2xl font-syne text-base text-[#101323CC] sm:text-lg lg:text-xl min-[1920px]:text-2xl">
-          输入主题或上传资料，生成可编辑、可导出的演示文稿
+          主题生成或模板生成，都先确认大纲再排版
         </p>
       </div>
 
@@ -528,15 +555,43 @@ const UploadPage = () => {
         duration={loadingState.duration}
         extra_info={loadingState.extra_info}
       />
-      <div className="mx-auto mb-[75px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+      <div className="mx-auto mb-6 flex max-w-[760px] justify-center px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+        <div
+          role="tablist"
+          aria-label="生成方式"
+          className="inline-flex rounded-lg bg-[#F6F6F9] p-1"
+        >
+          {CREATE_FLOW_TABS.map((tab) => {
+            const active = createFlowMode === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`rounded-md px-4 py-2 font-syne text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-white text-[#6847F4] shadow-[0_1px_3px_rgba(16,19,35,0.08)]"
+                    : "text-[#667085] hover:text-[#344054]"
+                }`}
+                onClick={() => handleCreateFlowModeChange(tab.id)}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mx-auto mb-[40px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
         <div className="flex min-h-[34px] w-full flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-md bg-[#F4F1FF] px-3 py-1.5 font-syne text-xs font-semibold text-[#6847F4]">
-            标准生成流程
+            {createFlowMode === "template" ? "模板生成" : "主题生成"}
           </span>
           <CurrentConfig webSearchEnabled={config.webSearch} />
         </div>
         <p className="text-xs text-[#667085]">
-          创建后进入原来的大纲页确认内容，默认使用通用模板完成排版。
+          {CREATE_FLOW_TABS.find((tab) => tab.id === createFlowMode)?.hint}
         </p>
 
         <PromptInput
@@ -566,6 +621,12 @@ const UploadPage = () => {
           }
         />
       </div>
+
+      {createFlowMode === "template" ? (
+        <div className="px-0 pb-8">
+          <UploadTemplateGallery />
+        </div>
+      ) : null}
 
       {/* 社区参考暂不对外开放
       {generationMode === "smart" && (

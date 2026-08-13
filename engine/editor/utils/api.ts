@@ -92,15 +92,28 @@ function normalizeFastApiOrigin(raw: string): string {
   }
 }
 
-function resolveBackendPathForRuntime(path: string): string {
+/**
+ * Canvas/Konva must load images same-origin. Local web and Docker should keep
+ * /app_data and /static on the Next/nginx origin even when API calls go direct
+ * to FastAPI; Electron still needs the FastAPI origin.
+ */
+function shouldUseSameOriginAssetsInBrowser(): boolean {
+  return typeof window !== "undefined" && !isElectronRuntime();
+}
+
+function resolveBackendPathForRuntime(
+  path: string,
+  kind: "api" | "asset" = "api"
+): string {
   const normalizedPath = withLeadingSlash(path);
 
-  // Docker/web runtime should stay same-origin and use nginx reverse proxy.
-  if (
-    typeof window !== "undefined" &&
-    !shouldUseDirectFastApiOriginInBrowser()
-  ) {
-    return normalizedPath;
+  if (typeof window !== "undefined") {
+    if (kind === "asset" && shouldUseSameOriginAssetsInBrowser()) {
+      return normalizedPath;
+    }
+    if (kind === "api" && !shouldUseDirectFastApiOriginInBrowser()) {
+      return normalizedPath;
+    }
   }
 
   return `${getFastAPIUrl()}${normalizedPath}`;
@@ -247,7 +260,7 @@ export function resolveBackendAssetUrl(path?: string): string {
       const parsed = new URL(trimmedPath);
       const servedPath = toBackendServedPath(decodeURIComponent(parsed.pathname));
       if (hasBackendAssetPrefix(servedPath)) {
-        return resolveBackendPathForRuntime(servedPath);
+        return resolveBackendPathForRuntime(servedPath, "asset");
       }
       return trimmedPath;
     } catch {
@@ -261,7 +274,8 @@ export function resolveBackendAssetUrl(path?: string): string {
       const servedPath = toBackendServedPath(parsed.pathname);
       if (hasBackendAssetPrefix(servedPath)) {
         return resolveBackendPathForRuntime(
-          `${servedPath}${parsed.search}${parsed.hash}`
+          `${servedPath}${parsed.search}${parsed.hash}`,
+          "asset"
         );
       }
       return trimmedPath;
@@ -273,7 +287,7 @@ export function resolveBackendAssetUrl(path?: string): string {
   const { path: pathPart, suffix } = splitPathAndSuffix(trimmedPath);
   const servedPath = toBackendServedPath(withLeadingSlash(pathPart));
   if (hasBackendAssetPrefix(servedPath)) {
-    return resolveBackendPathForRuntime(`${servedPath}${suffix}`);
+    return resolveBackendPathForRuntime(`${servedPath}${suffix}`, "asset");
   }
 
   return trimmedPath;
