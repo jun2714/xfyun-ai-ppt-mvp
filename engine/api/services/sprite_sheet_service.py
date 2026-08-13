@@ -37,7 +37,7 @@ def crop_sprite_sheet(
         bottom = source.height if row == rows - 1 else top + cell_height
         cell = source.crop((left, top, right, bottom))
         cutout = remove_edge_connected_background(cell)
-        _validate_cutout(cutout)
+        _validate_cutout(cutout, allow_edge_touch=True)
         output = destination / f"{uuid.uuid4()}.png"
         cutout.save(output, format="PNG")
         outputs.append(str(output))
@@ -47,11 +47,18 @@ def crop_sprite_sheet(
 def create_transparent_cutout(source_path: str, output_directory: str) -> str:
     source = Image.open(source_path).convert("RGBA")
     cutout = remove_edge_connected_background(source)
-    _validate_cutout(cutout)
+    # Edge-touch is a quality warning for generative images; aborting the whole
+    # presentation stream after a few successful slides is worse than keeping a
+    # slightly tight cutout (or falling back to the original).
+    try:
+        _validate_cutout(cutout, allow_edge_touch=True)
+        image_to_save = cutout
+    except ValueError:
+        image_to_save = source
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
     output = destination / f"{uuid.uuid4()}.png"
-    cutout.save(output, format="PNG")
+    image_to_save.save(output, format="PNG")
     return str(output)
 
 
@@ -130,13 +137,15 @@ def remove_edge_connected_background(image: Image.Image) -> Image.Image:
     return rgba
 
 
-def _validate_cutout(image: Image.Image) -> None:
+def _validate_cutout(image: Image.Image, *, allow_edge_touch: bool = False) -> None:
     alpha = image.getchannel("A")
     bounds = alpha.getbbox()
     if bounds is None:
         raise ValueError("Sprite cell has no visible subject")
     if alpha.getextrema()[0] == 255:
         raise ValueError("Sprite cutout has no transparent background")
+    if allow_edge_touch:
+        return
     left, top, right, bottom = bounds
     margin_x = max(2, image.width // 100)
     margin_y = max(2, image.height // 100)

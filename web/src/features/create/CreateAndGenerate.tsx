@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, consumeStream, localizeError, localizeStatus } from "../../api/client";
 import type { Presentation, PresentationOutline, TemplateItem, TemplateList } from "../../entities/types";
 import { clearReturnTo, peekReturnTo, rememberReturnTo } from "../../navigation/returnTo";
@@ -83,6 +83,17 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
   const [streaming, setStreaming] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState<number | null>(null);
   const started = useRef(false);
+  const outlineQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const templateId = params.get("template")?.trim() || null;
+    const mode = params.get("mode")?.trim();
+    return {
+      templateId,
+      createMode: (mode === "template" ? "template" : "topic") as
+        | "topic"
+        | "template",
+    };
+  }, []);
 
   useEffect(() => {
     if (started.current) return;
@@ -184,6 +195,8 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         streaming={streaming}
         status={status}
         activeSlideIndex={activeSlideIndex}
+        preferredTemplateId={outlineQuery.templateId}
+        createMode={outlineQuery.createMode}
       />
     </Shell>
   );
