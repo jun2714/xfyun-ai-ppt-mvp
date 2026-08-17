@@ -94,14 +94,11 @@ export function getTeachnovaWebOutlineUrl(
   } = {},
 ) {
   const base =
-    (typeof window !== "undefined" &&
-      (window as Window & { env?: { NEXT_PUBLIC_WEB_APP_URL?: string } }).env
-        ?.NEXT_PUBLIC_WEB_APP_URL) ||
-    process.env.NEXT_PUBLIC_WEB_APP_URL ||
-    "http://127.0.0.1:5173";
-  const url = new URL(
-    `${base.replace(/\/$/, "")}/presentations/${presentationId}/outline`,
-  );
+    (typeof window !== "undefined" && window.location.origin) ||
+    process.env.NEXT_PUBLIC_URL ||
+    "http://127.0.0.1:5001";
+  const url = new URL(`${base.replace(/\/$/, "")}/outline`);
+  url.searchParams.set("id", presentationId);
   if (options.createMode) {
     url.searchParams.set("mode", options.createMode);
   }
