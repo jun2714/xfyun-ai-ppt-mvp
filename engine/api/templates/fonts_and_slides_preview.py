@@ -37,6 +37,7 @@ from templates.pptx_font_utils import (
 )
 from utils.asset_directory_utils import (
     absolute_fastapi_asset_url,
+    get_uploads_directory,
     resolve_app_path_to_filesystem,
 )
 from utils.download_helpers import download_file
@@ -580,7 +581,7 @@ def _get_fonts_directory() -> str:
 
 def _get_template_preview_session_dir(session_id: uuid.UUID) -> str:
     session_dir = os.path.join(
-        _app_data_directory(), "uploads", "template-previews", str(session_id)
+        get_uploads_directory(), "template-previews", str(session_id)
     )
     os.makedirs(session_dir, exist_ok=True)
     return session_dir

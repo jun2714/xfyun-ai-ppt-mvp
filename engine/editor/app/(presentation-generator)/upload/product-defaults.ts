@@ -86,6 +86,21 @@ export function parseTeachnovaPrompt(content: string) {
   };
 }
 
+/** 产品前端（web）地址：大纲确认在 5173，不在编辑器 /outline */
+export function getTeachnovaWebAppBaseUrl() {
+  const fromWindow =
+    typeof window !== "undefined"
+      ? (window as Window & { env?: { NEXT_PUBLIC_WEB_APP_URL?: string } }).env
+          ?.NEXT_PUBLIC_WEB_APP_URL
+      : undefined;
+  const configured = String(
+    fromWindow || process.env.NEXT_PUBLIC_WEB_APP_URL || "",
+  ).trim();
+  if (configured) return configured.replace(/\/$/, "");
+  // 本地默认；生产构建务必设置 NEXT_PUBLIC_WEB_APP_URL
+  return "http://127.0.0.1:5173";
+}
+
 export function getTeachnovaWebOutlineUrl(
   presentationId: string,
   options: {
@@ -93,12 +108,9 @@ export function getTeachnovaWebOutlineUrl(
     createMode?: "topic" | "template";
   } = {},
 ) {
-  const base =
-    (typeof window !== "undefined" && window.location.origin) ||
-    process.env.NEXT_PUBLIC_URL ||
-    "http://127.0.0.1:5001";
-  const url = new URL(`${base.replace(/\/$/, "")}/outline`);
-  url.searchParams.set("id", presentationId);
+  const url = new URL(
+    `${getTeachnovaWebAppBaseUrl()}/presentations/${presentationId}/outline`,
+  );
   if (options.createMode) {
     url.searchParams.set("mode", options.createMode);
   }

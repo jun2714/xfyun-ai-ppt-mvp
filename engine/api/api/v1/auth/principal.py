@@ -38,26 +38,59 @@ async def resolve_request_principal(
                 user,
             )
 
+    # EventSource cannot send Authorization; TeachNova embed passes tn_session.
+    query_token = (
+        request.query_params.get("tn_session")
+        or request.query_params.get("session")
+        or ""
+    ).strip()
+    if query_token:
+        user_db = UsernameUserDatabase(session)
+        user = await get_jwt_strategy().read_token(query_token, UserManager(user_db))
+        if user:
+            return (
+                AuthPrincipal(
+                    user_id=user.id,
+                    username=user.username,
+                    is_admin=user.is_superuser,
+                    method="jwt",
+                ),
+                user,
+            )
+
     authorization = request.headers.get("Authorization", "")
     if authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1].strip()
-        if not token.startswith("sk-presenton-"):
-            return None, None
-        access_token = await session.get(AccessToken, token)
-        if access_token is None:
-            return None, None
-        user = await session.get(User, access_token.user_id)
-        if user is None or not user.is_active or not user.is_superuser:
-            return None, None
-        return (
-            AuthPrincipal(
-                user_id=user.id,
-                username=user.username,
-                is_admin=True,
-                method="api_key",
-            ),
-            user,
-        )
+        if token.startswith("sk-presenton-"):
+            access_token = await session.get(AccessToken, token)
+            if access_token is None:
+                return None, None
+            user = await session.get(User, access_token.user_id)
+            if user is None or not user.is_active or not user.is_superuser:
+                return None, None
+            return (
+                AuthPrincipal(
+                    user_id=user.id,
+                    username=user.username,
+                    is_admin=True,
+                    method="api_key",
+                ),
+                user,
+            )
+
+        # TeachNova bridge / browser session JWT passed as Bearer
+        user_db = UsernameUserDatabase(session)
+        user = await get_jwt_strategy().read_token(token, UserManager(user_db))
+        if user:
+            return (
+                AuthPrincipal(
+                    user_id=user.id,
+                    username=user.username,
+                    is_admin=user.is_superuser,
+                    method="jwt",
+                ),
+                user,
+            )
 
     return None, None
 

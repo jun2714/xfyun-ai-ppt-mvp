@@ -110,7 +110,9 @@ class TemplateService {
 
     static async getCustomTemplateSummaries() {
         try {
-            const response = await fetch(getApiUrl(`/api/v1/ppt/template/all?page_size=100&default=false`),);
+            const response = await fetch(getApiUrl(`/api/v1/ppt/template/all?page_size=100&default=false`), {
+                headers: getHeader(),
+            });
             return await ApiResponseHandler.handleResponse(response, "Failed to get custom template summaries");
         } catch (error) {
             console.error("Failed to get custom template summaries", error);
@@ -120,7 +122,9 @@ class TemplateService {
 
     static async getCustomTemplateDetails(templateId: string) {
         try {
-            const response = await fetch(getApiUrl(`/api/v1/ppt/template/${templateId}/layouts`),);
+            const response = await fetch(getApiUrl(`/api/v1/ppt/template/${templateId}/layouts`), {
+                headers: getHeader(),
+            });
             return await ApiResponseHandler.handleResponse(response, "Failed to get custom template details");
         } catch (error) {
             console.error("Failed to get custom template details", error);
@@ -134,7 +138,9 @@ class TemplateService {
             if (typeof isDefault === "boolean") {
                 params.set("default", String(isDefault));
             }
-            const response = await fetch(getApiUrl(`/api/v1/ppt/template/all?${params.toString()}`));
+            const response = await fetch(getApiUrl(`/api/v1/ppt/template/all?${params.toString()}`), {
+                headers: getHeader(),
+            });
             return await ApiResponseHandler.handleResponse(response, "Failed to get Templates summaries");
         } catch (error) {
             console.error("Failed to get Templates summaries", error);
@@ -171,18 +177,39 @@ class TemplateService {
         try {
             const params = new URLSearchParams({
                 type: "template.create",
-                status: "pending",
                 order_by: "created_at",
                 order: "desc",
                 limit: "50",
                 offset: "0",
                 created_at: createdAtFrom.toISOString(),
             });
-            const response = await fetch(getApiUrl(`/api/v1/async-tasks?${params.toString()}`));
-            return await ApiResponseHandler.handleResponse(response, "Failed to get processing template tasks");
+            const response = await fetch(getApiUrl(`/api/v1/async-tasks?${params.toString()}`), {
+                headers: getHeader(),
+            });
+            const tasks = await ApiResponseHandler.handleResponse(
+                response,
+                "Failed to get processing template tasks",
+            ) as TemplateCreateTaskResponse[];
+            return tasks.filter((task) => task.status === "pending" || task.status === "error");
         } catch (error) {
             console.error("Failed to get processing template tasks", error);
             throw error;
+        }
+    }
+
+    static async deleteFailedTemplateCreateTask(taskId: string): Promise<void> {
+        const response = await fetch(
+            getApiUrl(`/api/v1/async-tasks/${encodeURIComponent(taskId)}`),
+            {
+                method: "DELETE",
+                headers: getHeader(),
+            },
+        );
+        if (!response.ok) {
+            await ApiResponseHandler.handleResponse(
+                response,
+                "Failed to delete failed template task",
+            );
         }
     }
 

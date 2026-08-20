@@ -181,7 +181,7 @@ export const useTemplateCreation = () => {
                     : "",
                 error_message: sanitizeAnalyticsError(error, "Font check failed"),
             });
-            notify.error("Font check failed", errorMessage);
+            notify.error("字体检查失败", errorMessage);
             return null;
         }
     }, [updateState]);
@@ -191,7 +191,7 @@ export const useTemplateCreation = () => {
         // Check if font is already added
         const existingFont = uploadedFonts.find((f) => f.fontName === fontName);
         if (existingFont) {
-            notify.warning("Font already added", `Font "${fontName}" is already in your upload list.`);
+            notify.warning("字体已添加", `字体“${fontName}”已在上传列表中。`);
             return fontName;
         }
 
@@ -200,14 +200,14 @@ export const useTemplateCreation = () => {
         const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
 
         if (!validExtensions.includes(fileExtension)) {
-            notify.error("Invalid font file", "Please upload .ttf, .otf, .woff, .woff2, or .eot files.");
+            notify.error("字体文件无效", "请上传 .ttf、.otf、.woff、.woff2 或 .eot 文件。");
             return null;
         }
 
         // Validate file size (10MB limit)
         const maxSize = 10 * 1024 * 1024;
         if (file.size > maxSize) {
-            notify.error("File too large", "Font file size must be less than 10MB.");
+            notify.error("文件过大", "字体文件大小必须小于 10MB。");
             return null;
         }
 
@@ -220,14 +220,14 @@ export const useTemplateCreation = () => {
         };
 
         setUploadedFonts(prev => [...prev, newFont]);
-        notify.success("Font added", `Font "${fontName}" was added successfully.`);
+        notify.success("字体添加成功", `字体“${fontName}”已成功添加。`);
         return fontName;
     }, [uploadedFonts]);
 
     // Remove a font
     const removeFont = useCallback((fontName: string) => {
         setUploadedFonts(prev => prev.filter(font => font.fontName !== fontName));
-        notify.info("Font removed", "The font was removed from your upload list.");
+        notify.info("字体已移除", "该字体已从上传列表中移除。");
     }, []);
 
     // Get all unsupported fonts that need upload
@@ -313,7 +313,7 @@ export const useTemplateCreation = () => {
                 duration_ms: Date.now() - startedAt,
             });
 
-            notify.success("Document prepared", "Template generation is starting now.");
+            notify.success("文档准备完成", "模板生成任务即将开始。");
             return data;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Document preparation failed";
@@ -326,7 +326,7 @@ export const useTemplateCreation = () => {
                     "Document preparation failed"
                 ),
             });
-            notify.error("Document preparation failed", errorMessage);
+            notify.error("文档准备失败", errorMessage);
             return null;
         }
     }, [getUnsupportedFonts, uploadedFonts, updateState]);

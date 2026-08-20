@@ -46,6 +46,22 @@ def is_disable_auth_enabled():
     return _is_truthy(get_disable_auth_env())
 
 
+def get_teachnova_auth_introspect_url() -> str | None:
+    value = (os.getenv("TEACHNOVA_AUTH_INTROSPECT_URL") or "").strip()
+    return value or None
+
+
+def get_teachnova_tenant_id() -> str:
+    return (os.getenv("TEACHNOVA_TENANT_ID") or "1").strip() or "1"
+
+
+def get_teachnova_cors_origins() -> list[str]:
+    raw = (os.getenv("TEACHNOVA_CORS_ORIGINS") or "").strip()
+    if not raw:
+        return []
+    return [part.strip().rstrip("/") for part in raw.split(",") if part.strip()]
+
+
 def is_presenton_electron_desktop():
     """True when running inside the Presenton Electron desktop app."""
     return _is_truthy(os.getenv("PRESENTON_ELECTRON"))

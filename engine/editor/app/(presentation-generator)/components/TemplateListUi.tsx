@@ -3,7 +3,7 @@
 import React, { memo, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 import { resolveBackendAssetUrl } from "@/utils/api";
 import {
   TemplateCreateTaskResponse,
@@ -224,10 +224,13 @@ export const TemplateListCard = memo(function TemplateListCard({
 export const ProcessingTemplateListCard = memo(
   function ProcessingTemplateListCard({
     task,
+    onDeleteFailed,
   }: {
     task: TemplateCreateTaskResponse;
+    onDeleteFailed?: (taskId: string) => Promise<void>;
   }) {
-  const templateName = task.data?.name?.trim() || "新模板";
+    const templateName = task.data?.name?.trim() || "新模板";
+    const failed = task.status === "error";
     const createdLayouts = task.data?.created_layouts ?? 0;
     const remainingLayouts = task.data?.remaining_layouts ?? 0;
     const totalLayouts = createdLayouts + remainingLayouts;
@@ -243,8 +246,9 @@ export const ProcessingTemplateListCard = memo(
       0.1,
       0.72 - progressPercent / 150
     );
-    const progressLabel =
-      totalLayouts > 0
+    const progressLabel = failed
+      ? "生成失败，请重新上传"
+      : totalLayouts > 0
         ? `${createdLayouts} of ${totalLayouts} layouts`
       : "正在准备布局";
 
@@ -276,7 +280,7 @@ export const ProcessingTemplateListCard = memo(
           />
           <div className="absolute right-8 top-8 z-30 inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/90 px-2.5 py-1.5 text-xs font-bold text-[#5146E5] shadow-sm backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-[#7A5AF8]" />
-            {progressPercent}%
+            {failed ? "失败" : `${progressPercent}%`}
           </div>
           <div className="absolute inset-x-5 bottom-5 z-30 h-1.5 overflow-hidden rounded-full bg-white/70">
             <div
@@ -294,6 +298,17 @@ export const ProcessingTemplateListCard = memo(
               {progressLabel}
             </p>
           </div>
+          {failed && onDeleteFailed ? (
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#F1D4D4] bg-[#FFF7F7] text-[#D64545] transition hover:bg-[#FDECEC]"
+              aria-label={`删除失败任务：${templateName}`}
+              title="删除失败记录"
+              onClick={() => void onDeleteFailed(task.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       </Card>
     );

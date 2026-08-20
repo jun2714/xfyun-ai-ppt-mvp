@@ -10,6 +10,7 @@
     "dev:engine": "node scripts/dev-engine.mjs",
     "setup:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-engine.ps1",
     "build": "pnpm --filter @sparkdeck/web build && npm --prefix engine/editor run build",
+    "build:editor:prod": "node scripts/build-editor-prod.mjs",
     "typecheck": "pnpm --filter @sparkdeck/web typecheck && npx --prefix engine/editor tsc --noEmit -p engine/editor/tsconfig.json",
     "verify": "pnpm build && pnpm typecheck && pnpm test",
     "test": "npm --prefix engine/editor test"

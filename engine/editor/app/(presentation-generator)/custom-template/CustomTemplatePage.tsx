@@ -1790,19 +1790,7 @@ const CustomTemplatePage = () => {
           "可以在模板库中查看生成状态。",
         );
         setTemplateModalMode(null);
-        if (embedded && document.referrer) {
-          // Reading Location.assign across the 5001 -> 5173 iframe boundary is
-          // blocked. Assigning href requests top-level navigation without
-          // accessing a cross-origin method.
-          if (window.top) {
-            window.top.location.href = new URL(
-              "/templates?tab=custom",
-              document.referrer,
-            ).toString();
-          }
-        } else {
-          router.push("/templates?tab=custom");
-        }
+        router.push("/templates?tab=custom");
       } catch (error) {
         notify.error(
           "模板创建失败",

@@ -17,7 +17,7 @@ import { LegacyPresentationsTable } from "@/app/(presentation-generator)/(dashbo
 import { PresentationGenerationApi } from "@/app/(presentation-generator)/services/api/presentation-generation";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, FilePlus2 } from "lucide-react";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -28,6 +28,7 @@ import {
   IMAGE_PROVIDERS,
   LLM_PROVIDERS,
 } from "@/utils/providerConstants";
+import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/presenton/presenton";
 const DISCORD_INVITE_URL = "https://discord.com/invite/9ZsKKxudNE";
@@ -79,7 +80,7 @@ const FloatingActionCards = () => (
 
 const BlankPresentationGraphic = ({ loading }: { loading: boolean }) => (
   <span
-    className="relative ml-auto block h-[90px] w-[90px] shrink-0"
+    className="relative ml-auto block h-[72px] w-[72px] shrink-0 overflow-visible"
     aria-hidden="true"
   >
     {loading ? (
@@ -87,19 +88,19 @@ const BlankPresentationGraphic = ({ loading }: { loading: boolean }) => (
         <Loader2 className="h-5 w-5 animate-spin text-[#7A5AF8]" />
       </span>
     ) : (
-      <span className="absolute left-1/2 top-1/2 h-[90px] w-[90px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-300 group-hover:-translate-y-[52%] group-hover:scale-105 min-[1920px]:scale-[1.1778] min-[1920px]:group-hover:scale-[1.22]">
-        <span className="absolute left-[22.312px] top-[20.46px] h-[52.514px] w-[48.892px] -rotate-[5.81deg] bg-[rgba(0,0,0,0.14)]" />
-        <span className="absolute left-[21.452px] top-[19.94px] h-[52.514px] w-[48.892px] -rotate-[5.81deg] bg-[#ECEEEE]" />
-        <span className="absolute left-[23.57px] top-[21.78px] h-[50.53px] w-[47.045px] bg-[rgba(0,0,0,0.14)]" />
-        <span className="absolute left-[22.79px] top-[21.2px] h-[50.53px] w-[47.045px] bg-[#FEFEFF]" />
+      <span className="absolute inset-0 transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105">
+        <span className="absolute left-[12px] top-[10px] h-[52.514px] w-[48.892px] -rotate-[5.81deg] bg-[rgba(0,0,0,0.14)]" />
+        <span className="absolute left-[11px] top-[9.5px] h-[52.514px] w-[48.892px] -rotate-[5.81deg] bg-[#ECEEEE]" />
+        <span className="absolute left-[13.2px] top-[11.3px] h-[50.53px] w-[47.045px] bg-[rgba(0,0,0,0.14)]" />
+        <span className="absolute left-[12.4px] top-[10.7px] h-[50.53px] w-[47.045px] bg-[#FEFEFF]" />
         <Image
           src="/dashboard/blank-presentation-clip.svg"
           alt=""
           width={9}
           height={15}
-          className="absolute left-[25.05px] top-[15.66px] h-[14.283px] w-[8.282px]"
+          className="absolute left-[14.7px] top-[5.2px] h-[14.283px] w-[8.282px]"
         />
-        <span className="absolute left-[25.31px] top-[21.2px] h-[0.387px] w-[0.968px] bg-[#FEFEFF]" />
+        <span className="absolute left-[14.9px] top-[10.7px] h-[0.387px] w-[0.968px] bg-[#FEFEFF]" />
       </span>
     )}
   </span>
@@ -156,6 +157,7 @@ function DashboardHeader() {
     (state: RootState) => state.userConfig.llm_config
   );
   const [isElectronApp, setIsElectronApp] = useState(false);
+  const [embedded, setEmbedded] = useState(false);
 
   const textProvider = LLM_PROVIDERS[llmConfig.LLM || "openai"];
   const imageProvider = llmConfig.DISABLE_IMAGE_GENERATION
@@ -168,21 +170,26 @@ function DashboardHeader() {
 
   useEffect(() => {
     setIsElectronApp(Boolean(window.electron));
-
-    let isMounted = true;
-
-
-    return () => {
-      isMounted = false;
-    };
+    setEmbedded(isTeachnovaEmbed());
   }, []);
 
   return (
     <header className="sticky top-0 z-50 ml-7 mr-[9px] flex h-[105px] items-center justify-between border-b border-[#EDEEEF] bg-white px-1 max-lg:h-auto max-lg:min-h-[105px] max-lg:flex-col max-lg:items-start max-lg:gap-4 max-lg:py-5">
       <div className="flex w-[504.392px] max-w-full shrink-0 items-center gap-3.5 max-xl:w-auto">
-        <h1 className="whitespace-nowrap font-syne text-[22px] font-medium leading-normal tracking-[-0.66px] text-[#101323]">
-          项目
-        </h1>
+        {!embedded ? (
+          <h1 className="whitespace-nowrap font-syne text-[22px] font-medium leading-normal tracking-[-0.66px] text-[#101323]">
+            项目
+          </h1>
+        ) : (
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="font-syne text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7A5AF8]">
+              Teachnova PPT
+            </p>
+            <h1 className="whitespace-nowrap bg-[linear-gradient(105deg,#1F163B_0%,#5146E5_58%,#7A5AF8_100%)] bg-clip-text font-syne text-[22px] font-semibold leading-tight tracking-[-0.04em] text-transparent">
+              快捷入口与最近文稿
+            </h1>
+          </div>
+        )}
       </div>
 
       <div className="max-w-full overflow-x-auto hide-scrollbar lg:overflow-visible">
@@ -199,7 +206,7 @@ function DashboardHeader() {
                 })
               }
             >
-              <span
+              {/* <span
                 className="flex h-[34.1px] shrink-0 items-center"
                 title={configuredProviders
                   .map((provider) => provider.label)
@@ -224,7 +231,7 @@ function DashboardHeader() {
               </span>
               <span className="font-syne text-sm font-medium leading-[17.6px] tracking-[0.56px]">
                 模型设置
-              </span>
+              </span> */}
             </Link>
 
           </div>
@@ -381,7 +388,8 @@ const DashboardPage: React.FC = () => {
     <div className="relative min-h-screen w-full pb-10">
       <DashboardHeader />
       <section className="relative z-10 overflow-visible pb-0 pl-3 pr-3 pt-[17px] sm:pl-6 sm:pr-[9px]">
-        <h2 className="w-full font-syne text-[16px] font-medium leading-[normal] text-[#191919]">
+        {/* 字体加粗 */}
+        <h2 className="w-full font-syne text-[16px] font-bold leading-[normal] text-[#191919]">
           快捷操作
         </h2>
         <div className="mt-[18px] flex flex-wrap items-start gap-4">
@@ -403,7 +411,10 @@ const DashboardPage: React.FC = () => {
               alt="Background of the create presentation card"
               className="relative z-10 h-[89.983px] w-[304.5px] max-w-full rounded-[10.8px] bg-white object-cover"
             />
-            <span className="absolute inset-0 z-20 flex items-center justify-center text-center font-syne text-sm font-medium text-[#191919]">
+            <span className="absolute inset-0 z-20 flex items-center justify-center gap-2 text-center font-syne text-sm font-medium text-[#191919]">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-[#5146E5] shadow-[0_2px_8px_rgba(81,70,229,0.18)] ring-1 ring-[#D9D6FE]">
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+              </span>
               创建演示文稿
             </span>
           </Link>
@@ -413,11 +424,18 @@ const DashboardPage: React.FC = () => {
             onClick={() => void createBlankPresentation()}
             disabled={isCreatingBlankPresentation}
             aria-busy={isCreatingBlankPresentation}
-            className="group relative z-50 flex h-[89.983px] w-[304.5px] max-w-full items-center overflow-hidden rounded-[10.8px] border border-[#EDEEEF] bg-[linear-gradient(135deg,#FAFAFF_0%,#F3F0FF_100%)] px-5 text-left outline-none transition hover:border-[#CFC7FF] hover:shadow-[0_8px_22px_rgba(81,70,229,0.12)] focus-visible:ring-2 focus-visible:ring-[#7A5AF8] focus-visible:ring-offset-4 disabled:cursor-not-allowed disabled:opacity-70"
+            className="group relative z-50 flex h-[89.983px] w-[304.5px] max-w-full items-center overflow-visible rounded-[10.8px] border border-[#EDEEEF] bg-[linear-gradient(135deg,#FAFAFF_0%,#F3F0FF_100%)] px-5 text-left outline-none transition hover:border-[#CFC7FF] hover:shadow-[0_8px_22px_rgba(81,70,229,0.12)] focus-visible:ring-2 focus-visible:ring-[#7A5AF8] focus-visible:ring-offset-4 disabled:cursor-not-allowed disabled:opacity-70"
             aria-label="创建空白演示文稿"
           >
             <span className="flex min-w-0 flex-col pr-3">
-              <span className="font-syne text-sm font-medium text-[#191919]">
+              <span className="inline-flex items-center gap-2 font-syne text-sm font-medium text-[#191919]">
+                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEE9FF] text-[#5146E5] ring-1 ring-[#D9D6FE]">
+                  {isCreatingBlankPresentation ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <FilePlus2 className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                  )}
+                </span>
                 {isCreatingBlankPresentation
                   ? "正在创建演示"
                   : "空白演示文稿"}

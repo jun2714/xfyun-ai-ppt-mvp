@@ -1,6 +1,39 @@
 import type { StreamEvent } from "../entities/types";
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "/api/v1/ppt";
+const BRIDGE_SESSION_KEY = "presenton_bridge_session";
+
+function captureBridgeSessionFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("tn_session") || "";
+    if (token) {
+      sessionStorage.setItem(BRIDGE_SESSION_KEY, token);
+      url.searchParams.delete("tn_session");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function getBridgeSessionToken() {
+  try {
+    captureBridgeSessionFromUrl();
+    return sessionStorage.getItem(BRIDGE_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = getBridgeSessionToken();
+  const headers = new Headers(extra);
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
 
 const ERROR_TEXT: Record<number, string> = {
   400: "提交的内容有误，请检查后重试。",
@@ -37,7 +70,10 @@ function errorMessage(body: unknown, status: number, fallback: string) {
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     ...init,
-    headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...(init?.headers ?? {}) },
+    headers: authHeaders({
+      ...(init?.body ? { "content-type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    }),
   });
   const body = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) throw new Error(errorMessage(body, response.status, response.statusText));
@@ -46,7 +82,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** The generation API exposes long-running outline and slide generation as SSE. */
 export async function consumeStream(path: string, onEvent: (event: StreamEvent) => void) {
-  const response = await fetch(`${API}${path}`, { headers: { accept: "text/event-stream" } });
+  const token = getBridgeSessionToken();
+  const streamUrl = token
+    ? `${API}${path}${path.includes("?") ? "&" : "?"}tn_session=${encodeURIComponent(token)}`
+    : `${API}${path}`;
+  const response = await fetch(streamUrl, {
+    headers: authHeaders({ accept: "text/event-stream" }),
+  });
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => null);
     throw new Error(errorMessage(body, response.status, response.statusText || "生成请求失败"));
@@ -76,6 +118,11 @@ export const editorUrl = (presentationId: string, stream = false) => {
   const base = import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
   const params = new URLSearchParams({ id: presentationId, type: "standard" });
   if (stream) params.set("stream", "true");
+  const token = getBridgeSessionToken();
+  if (token) params.set("tn_session", token);
+  if (new URLSearchParams(location.search).get("embed") === "teachnova") {
+    params.set("embed", "teachnova");
+  }
   return `${base}/presentation?${params.toString()}`;
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import TemplateService, {
   TemplateCreateTaskResponse,
@@ -145,7 +145,7 @@ export function useTemplateSummaries({
             }
           }
         });
-      }, 30000);
+      }, 5000);
     }
 
     return () => {
@@ -161,11 +161,20 @@ export function useTemplateSummaries({
     [templates]
   );
 
+  const deleteFailedTemplateTask = useCallback(async (taskId: string) => {
+    await TemplateService.deleteFailedTemplateCreateTask(taskId);
+    setProcessingTemplateTasks((tasks) =>
+      tasks.filter((task) => task.id !== taskId)
+    );
+    toast.success("失败记录已删除");
+  }, []);
+
   return {
     templates,
     defaultTemplates,
     customTemplates,
     processingTemplateTasks,
+    deleteFailedTemplateTask,
     loading,
   };
 }

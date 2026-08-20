@@ -19,6 +19,7 @@ from utils.get_env import (
     get_sentry_dsn_env,
     get_sentry_send_default_pii_env,
     get_sentry_traces_sample_rate_env,
+    get_teachnova_cors_origins,
 )
 from utils.mime_types import init_sandbox_safe_mimetypes
 from utils.path_helpers import get_resource_path
@@ -87,22 +88,28 @@ if os.path.isdir(static_dir):
 # Local web may open the editor as either 127.0.0.1 or localhost; allow both.
 def _cors_origins() -> list[str]:
     next_public_origin = (os.getenv("NEXT_PUBLIC_URL") or "").strip().rstrip("/")
+    origins: list[str] = []
     if not next_public_origin:
-        return ["*"]
-    origins = [next_public_origin]
-    try:
-        from urllib.parse import urlparse
+        origins = ["*"]
+    else:
+        origins = [next_public_origin]
+        try:
+            from urllib.parse import urlparse
 
-        parsed = urlparse(next_public_origin)
-        if parsed.hostname in ("127.0.0.1", "localhost"):
-            alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
-            alt = f"{parsed.scheme}://{alt_host}"
-            if parsed.port:
-                alt = f"{alt}:{parsed.port}"
-            if alt not in origins:
-                origins.append(alt)
-    except Exception:
-        pass
+            parsed = urlparse(next_public_origin)
+            if parsed.hostname in ("127.0.0.1", "localhost"):
+                alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
+                alt = f"{parsed.scheme}://{alt_host}"
+                if parsed.port:
+                    alt = f"{alt}:{parsed.port}"
+                if alt not in origins:
+                    origins.append(alt)
+        except Exception:
+            pass
+
+    for origin in get_teachnova_cors_origins():
+        if origin and origin not in origins and origins != ["*"]:
+            origins.append(origin)
     return origins
 
 

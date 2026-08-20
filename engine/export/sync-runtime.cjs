@@ -25,6 +25,27 @@ const forceDownload = cliArgs.has("--force");
 const checkOnly = cliArgs.has("--check-only");
 const allowVersionOverride = cliArgs.has("--allow-version-override");
 
+function getFlagValue(name) {
+  const prefix = `${name}=`;
+  for (const arg of process.argv.slice(2)) {
+    if (arg.startsWith(prefix)) return arg.slice(prefix.length);
+  }
+  const idx = process.argv.indexOf(name);
+  if (idx >= 0 && process.argv[idx + 1] && !String(process.argv[idx + 1]).startsWith("-")) {
+    return process.argv[idx + 1];
+  }
+  return "";
+}
+
+function getTargetPlatformArch() {
+  const override = (
+    getFlagValue("--platform") ||
+    process.env.EXPORT_RUNTIME_PLATFORM ||
+    ""
+  ).trim();
+  return override || `${process.platform}-${process.arch}`;
+}
+
 async function getTargetVersion() {
   const requestedVersion = allowVersionOverride
     ? process.env.EXPORT_RUNTIME_VERSION || exportVersion
@@ -70,7 +91,7 @@ function writeInstalledVersion(version, asset) {
 }
 
 function getPlatformAssetName() {
-  const platformArch = `${process.platform}-${process.arch}`;
+  const platformArch = getTargetPlatformArch();
   if (platformArch === "linux-arm64") return "export-Linux-ARM64.zip";
   if (platformArch === "linux-x64") return "export-Linux-X64.zip";
   if (platformArch === "darwin-arm64") return "export-macOS-ARM64.zip";
@@ -83,6 +104,7 @@ function getPlatformAssetName() {
 }
 
 function getConverterCandidates() {
+  const [targetOs, targetArch] = getTargetPlatformArch().split("-");
   const platformAliases = {
     linux: ["linux"],
     darwin: ["darwin", "macos", "mac"],
@@ -94,9 +116,9 @@ function getConverterCandidates() {
   };
 
   const candidates = [];
-  const platforms = platformAliases[process.platform] || [process.platform];
-  const archs = archAliases[process.arch] || [process.arch];
-  const windows = process.platform === "win32";
+  const platforms = platformAliases[targetOs] || [targetOs];
+  const archs = archAliases[targetArch] || [targetArch];
+  const windows = targetOs === "win32";
 
   for (const p of platforms) {
     for (const a of archs) {
@@ -158,9 +180,10 @@ function detectBinaryFormat(filePath) {
 }
 
 function isFormatCompatible(format) {
-  if (process.platform === "darwin") return format === "mach-o";
-  if (process.platform === "linux") return format === "elf";
-  if (process.platform === "win32") return format === "pe";
+  const [targetOs] = getTargetPlatformArch().split("-");
+  if (targetOs === "darwin") return format === "mach-o";
+  if (targetOs === "linux") return format === "elf";
+  if (targetOs === "win32") return format === "pe";
   return true;
 }
 

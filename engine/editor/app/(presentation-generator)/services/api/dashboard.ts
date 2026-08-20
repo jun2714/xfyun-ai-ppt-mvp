@@ -54,6 +54,7 @@ export class DashboardApi {
         getApiUrl(`/api/v1/ppt/presentation/all${query ? `?${query}` : ""}`),
         {
           method: "GET",
+          headers: getHeader(),
         }
       );
 

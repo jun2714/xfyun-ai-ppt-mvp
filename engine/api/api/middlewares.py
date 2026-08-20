@@ -32,6 +32,7 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/setup",
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
+        "/api/v1/auth/bridge/teachnova",
     }
     _PUBLIC_APP_DATA_PREFIXES = (
         "/app_data/fonts/",
@@ -49,16 +50,16 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
         return path in self._PROTECTED_NON_API_PATHS
 
     async def dispatch(self, request: Request, call_next):
-        if is_disable_auth_enabled():
+        path = request.url.path
+        if request.method == "OPTIONS" or not self._requires_auth(path) or path in self._PUBLIC_AUTH_PATHS:
+            # Even on public auth paths, attach owner context when a session exists
+            # so TeachNova-bridged users stay scoped under DISABLE_AUTH.
+            if is_disable_auth_enabled() and path not in self._PUBLIC_AUTH_PATHS:
+                return await self._dispatch_with_optional_owner(request, call_next)
             return await call_next(request)
 
-        path = request.url.path
-        if (
-            request.method == "OPTIONS"
-            or not self._requires_auth(path)
-            or path in self._PUBLIC_AUTH_PATHS
-        ):
-            return await call_next(request)
+        if is_disable_auth_enabled():
+            return await self._dispatch_with_optional_owner(request, call_next)
 
         async with async_session_maker() as session:
             configured = bool(
@@ -114,6 +115,23 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
                 request.state.internal_session_token = (
                     await get_jwt_strategy().write_token(user)
                 )
+            context_token = set_current_owner_id(principal.user_id)
+            admin_context_token = set_current_owner_is_admin(principal.is_admin)
+            try:
+                return await call_next(request)
+            finally:
+                reset_current_owner_is_admin(admin_context_token)
+                reset_current_owner_id(context_token)
+
+    async def _dispatch_with_optional_owner(self, request: Request, call_next):
+        """Local DISABLE_AUTH keeps the API open, but bridged sessions still scope data."""
+        async with async_session_maker() as session:
+            principal, user = await resolve_request_principal(request, session)
+            if principal is None:
+                return await call_next(request)
+            request.state.auth_principal = principal
+            request.state.current_user = user
+            request.state.auth_username = principal.username
             context_token = set_current_owner_id(principal.user_id)
             admin_context_token = set_current_owner_is_admin(principal.is_admin)
             try:

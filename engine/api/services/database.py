@@ -87,15 +87,15 @@ def _scope_owned_selects(execute_state) -> None:
         statement = statement.options(
             with_loader_criteria(
                 model,
-                lambda row: row.owner_id == owner_id,
+                lambda row, owned_id=owner_id: row.owner_id == owned_id,
                 include_aliases=True,
             )
         )
     statement = statement.options(
         with_loader_criteria(
             TemplateV2,
-            lambda row: or_(
-                row.owner_id == owner_id,
+            lambda row, owned_id=owner_id: or_(
+                row.owner_id == owned_id,
                 (row.owner_id.is_(None) & row.is_default.is_(True)),
             ),
             include_aliases=True,

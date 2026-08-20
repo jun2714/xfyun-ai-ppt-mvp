@@ -63,6 +63,10 @@ describe('<UploadPage />', () => {
       body: { id: 'test-id' }
     }).as('createPresentation')
 
+    cy.on('window:before:load', (win) => {
+      cy.stub(win.location, 'assign').as('locationAssign')
+    })
+
     cy.mount(<UploadPage />)
   })
 
@@ -206,10 +210,10 @@ describe('<UploadPage />', () => {
       // Wait for API call with longer timeout
       cy.wait('@createPresentation', { timeout: 10000 })
 
-      // Verify navigation to outline page
-      cy.get('@router.push').should(
-        'be.calledWith',
-        '/outline?id=test-id&mode=standard'
+      // 跳转到产品前端大纲页（web）
+      cy.get('@locationAssign').should(
+        'be.calledWithMatch',
+        /\/presentations\/test-id\/outline\?mode=topic/
       )
     })
 
@@ -255,10 +259,9 @@ describe('<UploadPage />', () => {
         .and('have.property', 'file_paths')
         .and('deep.equal', ['/tmp/decomposed/example.txt'])
 
-      // Verify navigation to outline page
-      cy.get('@router.push').should(
-        'be.calledWith',
-        '/outline?id=test-id&mode=standard'
+      cy.get('@locationAssign').should(
+        'be.calledWithMatch',
+        /\/presentations\/test-id\/outline\?mode=topic/
       )
     })
   })

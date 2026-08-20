@@ -26,7 +26,8 @@ const shared = {
   PYTHONDONTWRITEBYTECODE: "1",
   APP_DATA_DIRECTORY: dataDirectory,
   TEMP_DIRECTORY: tempDirectory,
-  DISABLE_AUTH: "true",
+  USER_CONFIG_PATH: resolve(dataDirectory, "userConfig.json"),
+  DISABLE_AUTH: source.DISABLE_AUTH || "true",
   // Provider credentials are owned by the server-side .env. The embedded
   // editor must never expose or rewrite them in the browser.
   CAN_CHANGE_KEYS: "false",
@@ -57,7 +58,14 @@ const shared = {
   EXPORT_PACKAGE_ROOT: resolve(root, "engine/export/runtime"),
   NODE_PATH: resolve(root, "engine/editor/node_modules"),
   PYTHON_EXECUTABLE: resolve(root, "engine/api/.venv/Scripts/python.exe"),
-  QUALITY_VALIDATOR_SCRIPT: resolve(root, "scripts/validate-pptx.py")
+  QUALITY_VALIDATOR_SCRIPT: resolve(root, "scripts/validate-pptx.py"),
+  TEACHNOVA_AUTH_INTROSPECT_URL:
+    source.TEACHNOVA_AUTH_INTROSPECT_URL ||
+    "http://127.0.0.1:48080/admin-api/system/auth/get-permission-info",
+  TEACHNOVA_TENANT_ID: source.TEACHNOVA_TENANT_ID || "1",
+  TEACHNOVA_CORS_ORIGINS:
+    source.TEACHNOVA_CORS_ORIGINS ||
+    "http://localhost:3030,http://127.0.0.1:3030",
 };
 if (localBrowser) {
   // Use an installed browser for previews instead of downloading Chrome while

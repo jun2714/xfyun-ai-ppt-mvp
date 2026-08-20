@@ -21,6 +21,7 @@ from models.sql.template_create_info import TemplateCreateInfoModel
 from models.sql.template_v2 import TemplateV2
 from models.sql.webhook_subscription import WebhookSubscription
 from services.database import async_session_maker
+from utils.get_env import is_disable_auth_enabled
 from api.v1.auth.config import (
     get_legacy_admin_credentials,
     persist_admin_credentials,
@@ -90,6 +91,15 @@ async def bootstrap_database_admin() -> None:
             await session.scalar(select(func.count()).select_from(User)) or 0
         )
         if account_count:
+            # TeachNova bridge creates non-admin users (tn_{id}) before any local
+            # admin exists. Under DISABLE_AUTH this is expected and must not block
+            # API startup.
+            if is_disable_auth_enabled():
+                logger.warning(
+                    "User accounts exist without a bootstrap administrator; "
+                    "continuing because DISABLE_AUTH is enabled."
+                )
+                return
             raise RuntimeError(
                 "User accounts exist but no bootstrap administrator is configured"
             )

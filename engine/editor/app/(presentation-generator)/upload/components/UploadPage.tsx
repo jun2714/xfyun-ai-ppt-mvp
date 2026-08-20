@@ -40,6 +40,8 @@ import {
   getTeachnovaWebOutlineUrl,
   TEACHNOVA_API_LANGUAGE,
 } from "../product-defaults";
+import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
+import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import UploadTemplateGallery from "./UploadTemplateGallery";
 // 社区参考暂不对外开放
 // import CommunityReferencePicker from "./CommunityReferencePicker";
@@ -165,7 +167,7 @@ const UploadPage = () => {
   const llmConfig = useSelector((state: RootState) => state.userConfig.llm_config);
 
   const [files, setFiles] = useState<File[]>([]);
-  // 新输入页只负责收集主题；创建后回到旧 Web 大纲页继续生成与排版。
+  // 创建后跳转产品前端（web）大纲页流式生成
   const generationMode = "standard" as const;
   const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
@@ -177,11 +179,18 @@ const UploadPage = () => {
     createTeachnovaDefaultConfig
   );
 
-  const continueToLegacyOutline = (presentationId: string) => {
-    const destination = getTeachnovaWebOutlineUrl(presentationId, {
-      createMode: createFlowMode,
-    });
+  const continueToOutline = (presentationId: string) => {
+    const outlineUrl = new URL(
+      getTeachnovaWebOutlineUrl(presentationId, {
+        createMode: createFlowMode,
+      }),
+    );
+    if (isTeachnovaEmbed()) {
+      outlineUrl.searchParams.set("embed", "teachnova");
+    }
+    const destination = withBridgeSessionQuery(outlineUrl.toString());
     trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
+    // 产品大纲在 web 源，必须整页跳转（iframe 内也会换到 5173）
     window.location.assign(destination);
   };
 
@@ -443,7 +452,7 @@ const UploadPage = () => {
       extracted_document_count: documentPaths.length,
       destination,
     });
-    continueToLegacyOutline(createResponse.id);
+    continueToOutline(createResponse.id);
   };
 
   /**
@@ -498,7 +507,7 @@ const UploadPage = () => {
       presentation_id: createResponse.id,
       destination,
     });
-    continueToLegacyOutline(createResponse.id);
+    continueToOutline(createResponse.id);
   };
 
   /**

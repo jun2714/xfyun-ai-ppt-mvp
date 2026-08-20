@@ -11,6 +11,7 @@ import { notify } from "@/components/ui/sonner";
 import { MixpanelEvent, trackEvent } from "@/utils/mixpanel";
 import { sanitizeAnalyticsError } from "@/utils/analytics";
 import { getApiUrl, normalizeBackendAssetUrls } from "@/utils/api";
+import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import { store } from "@/store/store";
 import {
   isChatGptAuthRequiredMessage,
@@ -285,7 +286,9 @@ export const usePresentationStreaming = (
     const openStream = () => {
       closeEventSource();
       eventSource = new EventSource(
-        getApiUrl(`/api/v1/ppt/presentation/stream/${presentationId}`)
+        withBridgeSessionQuery(
+          getApiUrl(`/api/v1/ppt/presentation/stream/${presentationId}`)
+        )
       );
 
       eventSource.addEventListener("response", (event) => {

@@ -4,6 +4,7 @@ import { notify } from "@/components/ui/sonner";
 import { setOutlines } from "@/store/slices/presentationGeneration";
 import { jsonrepair } from "jsonrepair";
 import { getApiUrl } from "@/utils/api";
+import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import { limitOutlines } from "@/utils/presentationLimits";
 import {
   isChatGptAuthRequiredMessage,
@@ -96,7 +97,9 @@ export const useOutlineStreaming = (
     const openStream = () => {
       closeEventSource();
       eventSource = new EventSource(
-        getApiUrl(`/api/v1/ppt/outlines/stream/${presentationId}`)
+        withBridgeSessionQuery(
+          getApiUrl(`/api/v1/ppt/outlines/stream/${presentationId}`)
+        )
       );
 
       eventSource.addEventListener("response", (event) => {

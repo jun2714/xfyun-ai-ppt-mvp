@@ -1,6 +1,7 @@
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import { spawn } from "child_process";
 import { sanitizeFilename } from "@/app/(presentation-generator)/utils/others";
 import {
@@ -8,12 +9,35 @@ import {
   memorySnapshotMb,
 } from "@/lib/runtime-limits";
 
-/** Repo `presentation-export/` at app root (`/app/presentation-export` in Docker). */
+/** Repo export runtime: prefer sync-runtime output, then legacy presentation-export/. */
 export function getExportPackageRoot(): string {
-  return (
-    process.env.EXPORT_PACKAGE_ROOT?.trim() ||
-    path.join(process.cwd(), "..", "..", "presentation-export")
-  );
+  if (process.env.EXPORT_PACKAGE_ROOT?.trim()) {
+    return process.env.EXPORT_PACKAGE_ROOT.trim();
+  }
+  if (process.env.EXPORT_RUNTIME_DIR?.trim()) {
+    return process.env.EXPORT_RUNTIME_DIR.trim();
+  }
+
+  const cwd = process.cwd();
+  const candidates = [
+    path.join(cwd, "..", "export", "runtime"),
+    path.join(cwd, "export", "runtime"),
+    path.join(cwd, "..", "..", "engine", "export", "runtime"),
+    path.join(cwd, "..", "..", "presentation-export"),
+    path.join(cwd, "presentation-export"),
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = path.resolve(candidate);
+    if (
+      existsSync(path.join(resolved, "index.cjs")) ||
+      existsSync(path.join(resolved, "index.js"))
+    ) {
+      return resolved;
+    }
+  }
+
+  return path.resolve(path.join(cwd, "..", "..", "presentation-export"));
 }
 
 export function getPresentonAppRoot(): string {

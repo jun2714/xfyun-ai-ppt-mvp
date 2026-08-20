@@ -55,8 +55,9 @@ from templates.v2.derivation import (
     DeriveTemplateLayoutsRequest,
     derive_template_layouts_without_model,
 )
-from templates.v2.models.elements import Image as SlideImageElement
+from templates.v2.models.elements import Image as SlideImageElement, Position
 from templates.v2.models.layouts import (
+    Component,
     MergedComponents,
     RawSlideLayouts,
     SlideLayout,
@@ -72,6 +73,14 @@ from utils.icon_weights import (
 )
 from utils.datetime_utils import get_current_utc_datetime
 from utils.llm_client_error_handler import handle_llm_client_exceptions
+from api.v1.auth.context import (
+    get_current_owner_id,
+    get_current_owner_is_admin,
+    reset_current_owner_id,
+    reset_current_owner_is_admin,
+    set_current_owner_id,
+    set_current_owner_is_admin,
+)
 
 
 TEMPLATE_ROUTER = APIRouter(prefix="/template", tags=["Templates"])
@@ -592,23 +601,52 @@ async def _generate_slide_layouts_with_task_progress(
 
     async def generate_one(index: int, executor: ThreadPoolExecutor):
         context = copy_context()
-        generated_layout = await loop.run_in_executor(
-            executor,
-            context.run,
-            partial(
-                generate_slide_layout,
-                raw_layouts.layouts[index],
-                index,
-                slide_image_urls[index],
-                fonts,
-                max_tokens=SLIDE_LAYOUT_GENERATION_MAX_TOKENS,
-            ),
-        )
-        layout = (
-            generated_layout
-            if isinstance(generated_layout, SlideLayout)
-            else SlideLayout.model_validate(generated_layout)
-        )
+        try:
+            generated_layout = await loop.run_in_executor(
+                executor,
+                context.run,
+                partial(
+                    generate_slide_layout,
+                    raw_layouts.layouts[index],
+                    index,
+                    slide_image_urls[index],
+                    fonts,
+                    max_tokens=SLIDE_LAYOUT_GENERATION_MAX_TOKENS,
+                ),
+            )
+            layout = (
+                generated_layout
+                if isinstance(generated_layout, SlideLayout)
+                else SlideLayout.model_validate(generated_layout)
+            )
+        except Exception:
+            # A single malformed model response must not discard all completed
+            # slides. Preserve the source slide as one editable canvas instead.
+            LOGGER.exception(
+                "[template.create.async] slide layout invalid; using source fallback "
+                "task_id=%s slide=%d/%d",
+                task.id,
+                index + 1,
+                slide_count,
+            )
+            raw = raw_layouts.layouts[index]
+            components = (
+                [
+                    Component(
+                        id=f"source_canvas_{index + 1}",
+                        description="Editable source canvas preserved from the uploaded slide.",
+                        position=Position(x=0, y=0),
+                        elements=raw.elements,
+                    )
+                ]
+                if raw.elements
+                else []
+            )
+            layout = SlideLayout(
+                id=f"source_layout_{index + 1}",
+                description="Fallback layout preserving the uploaded source slide.",
+                components=components,
+            )
         return index, layout
 
     with ThreadPoolExecutor(
@@ -1235,72 +1273,80 @@ async def _create_template_with_task_progress(
 async def _run_create_template_task(
     task_id: str,
     request: CreateTemplateRequest,
+    owner_id=None,
+    is_admin: bool = False,
 ) -> None:
-    async with async_session_maker() as sql_session:
-        task = await sql_session.get(AsyncTaskModel, task_id)
-        if not task:
-            LOGGER.warning(
-                "[template.create.async] task missing task_id=%s",
-                task_id,
-            )
-            return
+    owner_token = set_current_owner_id(owner_id)
+    admin_token = set_current_owner_is_admin(is_admin)
+    try:
+        async with async_session_maker() as sql_session:
+            task = await sql_session.get(AsyncTaskModel, task_id)
+            if not task:
+                LOGGER.warning(
+                    "[template.create.async] task missing task_id=%s",
+                    task_id,
+                )
+                return
 
-        try:
-            task.status = AsyncTaskStatus.PENDING
-            task.message = "Creating template"
-            checkpointed_layouts = _checkpointed_template_layouts(task)
-            task.data = _template_task_progress_data(
-                created_layouts=len(checkpointed_layouts),
-                remaining_layouts=(
-                    len(request.slide_image_urls) - len(checkpointed_layouts)
-                ),
-                completed_layout_indices=set(checkpointed_layouts),
-                name=_template_request_name(request),
-                thumbnail=_template_request_thumbnail(request),
-                request=request,
-                generated_layouts_by_index=checkpointed_layouts,
-            )
-            task.updated_at = datetime.now()
-            sql_session.add(task)
-            await sql_session.commit()
+            try:
+                task.status = AsyncTaskStatus.PENDING
+                task.message = "Creating template"
+                checkpointed_layouts = _checkpointed_template_layouts(task)
+                task.data = _template_task_progress_data(
+                    created_layouts=len(checkpointed_layouts),
+                    remaining_layouts=(
+                        len(request.slide_image_urls) - len(checkpointed_layouts)
+                    ),
+                    completed_layout_indices=set(checkpointed_layouts),
+                    name=_template_request_name(request),
+                    thumbnail=_template_request_thumbnail(request),
+                    request=request,
+                    generated_layouts_by_index=checkpointed_layouts,
+                )
+                task.updated_at = datetime.now()
+                sql_session.add(task)
+                await sql_session.commit()
 
-            task.message = "Generating slide layouts"
-            template = await _create_template_with_task_progress(
-                request,
-                task,
-                sql_session,
-            )
-            created_layouts = _count_layouts(template.layouts)
+                task.message = "Generating slide layouts"
+                template = await _create_template_with_task_progress(
+                    request,
+                    task,
+                    sql_session,
+                )
+                created_layouts = _count_layouts(template.layouts)
 
-            task.status = AsyncTaskStatus.COMPLETED
-            task.message = "Template creation completed"
-            task.data = _template_task_progress_data(
-                created_layouts=created_layouts,
-                remaining_layouts=len(request.slide_image_urls) - created_layouts,
-                name=template.name,
-                thumbnail=_get_template_thumbnail_from_assets(template.assets),
-                request=request,
-                template_id=template.id,
-            )
-            task.updated_at = datetime.now()
-            sql_session.add(task)
-            await sql_session.commit()
-        except Exception as exc:
-            LOGGER.exception(
-                "[template.create.async] template creation failed task_id=%s",
-                task_id,
-            )
-            task.status = AsyncTaskStatus.ERROR
-            task.message = "Template creation failed"
-            api_error = APIErrorModel.from_exception(
-                exc
-                if isinstance(exc, HTTPException)
-                else HTTPException(status_code=500, detail="Template creation failed")
-            )
-            task.error = api_error.model_dump(mode="json")
-            task.updated_at = datetime.now()
-            sql_session.add(task)
-            await sql_session.commit()
+                task.status = AsyncTaskStatus.COMPLETED
+                task.message = "Template creation completed"
+                task.data = _template_task_progress_data(
+                    created_layouts=created_layouts,
+                    remaining_layouts=len(request.slide_image_urls) - created_layouts,
+                    name=template.name,
+                    thumbnail=_get_template_thumbnail_from_assets(template.assets),
+                    request=request,
+                    template_id=template.id,
+                )
+                task.updated_at = datetime.now()
+                sql_session.add(task)
+                await sql_session.commit()
+            except Exception as exc:
+                LOGGER.exception(
+                    "[template.create.async] template creation failed task_id=%s",
+                    task_id,
+                )
+                task.status = AsyncTaskStatus.ERROR
+                task.message = "Template creation failed"
+                api_error = APIErrorModel.from_exception(
+                    exc
+                    if isinstance(exc, HTTPException)
+                    else HTTPException(status_code=500, detail="Template creation failed")
+                )
+                task.error = api_error.model_dump(mode="json")
+                task.updated_at = datetime.now()
+                sql_session.add(task)
+                await sql_session.commit()
+    finally:
+        reset_current_owner_is_admin(admin_token)
+        reset_current_owner_id(owner_token)
 
 
 @TEMPLATE_ROUTER.post(
@@ -1329,7 +1375,13 @@ async def create_template(
     await sql_session.commit()
     await sql_session.refresh(task)
 
-    background_tasks.add_task(_run_create_template_task, task.id, request)
+    background_tasks.add_task(
+        _run_create_template_task,
+        task.id,
+        request,
+        get_current_owner_id(),
+        get_current_owner_is_admin(),
+    )
     return task
 
 
@@ -1372,7 +1424,14 @@ async def resume_pending_template_create_tasks() -> int:
                 task.id,
             )
             continue
-        asyncio.create_task(_run_create_template_task(task.id, request))
+        asyncio.create_task(
+            _run_create_template_task(
+                task.id,
+                request,
+                task.owner_id,
+                False,
+            )
+        )
         resumed += 1
 
     if resumed:

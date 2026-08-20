@@ -77,3 +77,23 @@ async def check_async_task_status(
     if not task:
         raise HTTPException(status_code=404, detail="No async task found")
     return task
+
+
+@API_V1_ASYNC_TASKS_ROUTER.delete(
+    "/{id}",
+    status_code=204,
+)
+async def delete_failed_async_task(
+    id: str = Path(description="ID of the failed async task"),
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    task = await sql_session.get(AsyncTaskModel, id)
+    if not task:
+        raise HTTPException(status_code=404, detail="No async task found")
+    if task.status != AsyncTaskStatus.ERROR:
+        raise HTTPException(
+            status_code=409,
+            detail="Only failed tasks can be deleted",
+        )
+    await sql_session.delete(task)
+    await sql_session.commit()

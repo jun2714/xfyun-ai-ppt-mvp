@@ -216,7 +216,13 @@ class ExportTaskService:
 
         cwd = os.path.abspath(".")
         service_dir = os.path.dirname(__file__)
+        # Prefer synced runtime from `node engine/export/sync-runtime.cjs`
+        # (engine/export/runtime), then legacy repo-root presentation-export/.
         candidates = [
+            os.path.abspath(os.path.join(service_dir, "..", "..", "export", "runtime")),
+            os.path.abspath(os.path.join(cwd, "export", "runtime")),
+            os.path.abspath(os.path.join(cwd, "..", "export", "runtime")),
+            os.path.abspath(os.path.join(cwd, "..", "..", "engine", "export", "runtime")),
             os.path.abspath(os.path.join(cwd, "..", "..", "presentation-export")),
             os.path.abspath(os.path.join(cwd, "..", "presentation-export")),
             os.path.abspath(os.path.join(service_dir, "..", "..", "..", "presentation-export")),
@@ -278,6 +284,22 @@ class ExportTaskService:
         for candidate in candidates:
             if candidate and os.path.isfile(candidate):
                 return candidate
+
+        # Last resort: any convert-* in py/ that matches this OS (never use .exe on Linux)
+        if os.path.isdir(py_dir):
+            for name in sorted(os.listdir(py_dir)):
+                path = os.path.join(py_dir, name)
+                if not os.path.isfile(path):
+                    continue
+                lower = name.lower()
+                if not lower.startswith("convert"):
+                    continue
+                if platform_name != "win32" and lower.endswith(".exe"):
+                    continue
+                if platform_name == "linux" and "linux" in lower:
+                    return path
+                if platform_name == "win32" and ("win" in lower or lower.endswith(".exe")):
+                    return path
         return candidates[0]
 
     def _build_node_env(self) -> Mapping[str, str]:
@@ -338,9 +360,21 @@ class ExportTaskService:
                 detail=f"Export runtime not found at {self.entrypoint_path}",
             )
         if not os.path.isfile(self.converter_path):
+            py_dir = os.path.join(self.export_dir, "py")
+            found = []
+            if os.path.isdir(py_dir):
+                found = sorted(os.listdir(py_dir))
+            hint = (
+                "当前 py/ 里是 Windows 转换器，Linux 服务器不能用。"
+                if any(name.lower().endswith(".exe") or "win32" in name.lower() for name in found)
+                else "请在 Linux 服务器项目根执行: node engine/export/sync-runtime.cjs --force"
+            )
             raise HTTPException(
                 status_code=500,
-                detail=f"Export converter binary not found at {self.converter_path}",
+                detail=(
+                    f"Export converter binary not found at {self.converter_path}. "
+                    f"py/ contents: {found or '(empty)'}. {hint}"
+                ),
             )
 
     @staticmethod
@@ -430,8 +464,18 @@ class ExportTaskService:
                 "export_task.spawn",
                 task_type=task_payload.get("type"),
             )
+            export_runtime_runner = (
+                os.getenv("EXPORT_RUNTIME_RUNNER") or ""
+            ).strip()
+
+            command = (
+                [export_runtime_runner, self.entrypoint_path, task_path]
+                if export_runtime_runner
+                else [self.node_binary, self.entrypoint_path, task_path]
+            )
+
             result = await self._run_bounded_child(
-                [self.node_binary, self.entrypoint_path, task_path],
+                command,
                 cwd=self.export_dir,
                 timeout=self.timeout_seconds,
                 env=dict(self._build_node_env()),

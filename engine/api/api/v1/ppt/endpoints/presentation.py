@@ -2012,7 +2012,6 @@ async def _stream_smart_presentation(
         await sql_session.execute(
             delete(SlideModel).where(
                 SlideModel.presentation == presentation_id,
-                SlideModel.owner_id == get_current_owner_id(),
             )
         )
         sql_session.add(presentation)
@@ -2340,7 +2339,6 @@ async def stream_presentation(
         await sql_session.execute(
             delete(SlideModel).where(
                 SlideModel.presentation == id,
-                SlideModel.owner_id == get_current_owner_id(),
             )
         )
         sql_session.add_all(slides)
@@ -2498,7 +2496,6 @@ async def update_presentation(
         await sql_session.execute(
             delete(SlideModel).where(
                 SlideModel.presentation == presentation.id,
-                SlideModel.owner_id == get_current_owner_id(),
             )
         )
         sql_session.add_all(slides)

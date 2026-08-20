@@ -26,6 +26,7 @@ interface Window {
   electron?: ElectronAPI;
   env?: {
     NEXT_PUBLIC_FAST_API: string;
+    NEXT_PUBLIC_WEB_APP_URL?: string;
     APP_VERSION: string;
     DISABLE_AUTH: string;
   };
