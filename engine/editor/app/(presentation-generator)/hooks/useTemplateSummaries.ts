@@ -65,6 +65,7 @@ export function useTemplateSummaries({
     TemplateCreateTaskResponse[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +91,9 @@ export function useTemplateSummaries({
         TemplateService.getTemplateSummaries(true),
         TemplateService.getTemplateSummaries(false),
       ]);
+      if (!cancelled) {
+        setCanManage(Boolean(defaultResponse.can_manage || customResponse.can_manage));
+      }
       return [
         ...filterTemplatesWithLayouts(defaultResponse.items ?? []),
         ...filterTemplatesWithLayouts(customResponse.items ?? []),
@@ -169,12 +173,22 @@ export function useTemplateSummaries({
     toast.success("失败记录已删除");
   }, []);
 
+  const deleteTemplate = useCallback(async (templateId: string) => {
+    const result = await TemplateService.deleteTemplate(templateId);
+    if (result && result.success === false) {
+      throw new Error(result.message || "删除模板失败");
+    }
+    setTemplates((current) => current.filter((item) => item.id !== templateId));
+  }, []);
+
   return {
     templates,
     defaultTemplates,
     customTemplates,
     processingTemplateTasks,
     deleteFailedTemplateTask,
+    deleteTemplate,
+    canManage,
     loading,
   };
 }

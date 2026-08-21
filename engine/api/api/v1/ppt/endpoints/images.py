@@ -20,6 +20,7 @@ from enums.image_provider import ImageProvider
 import os
 import uuid
 from utils.file_utils import get_file_name_with_random_uuid
+from utils.oss_storage import delete_by_url, is_oss_url, persist_generated_image
 
 IMAGES_ROUTER = APIRouter(prefix="/images", tags=["Images"])
 
@@ -220,7 +221,8 @@ async def upload_image(
         with open(image_path, "wb") as f:
             f.write(content)
 
-        image_asset = ImageAsset(path=image_path, is_uploaded=True)
+        stored_path = await persist_generated_image(image_path)
+        image_asset = ImageAsset(path=stored_path, is_uploaded=True)
 
         sql_session.add(image_asset)
         await sql_session.commit()
@@ -259,7 +261,10 @@ async def delete_uploaded_image_by_id(
         if not image:
             raise HTTPException(status_code=404, detail="Image not found")
 
-        os.remove(image.path)
+        if is_oss_url(image.path):
+            await delete_by_url(image.path)
+        elif image.path and os.path.isfile(image.path):
+            os.remove(image.path)
 
         await sql_session.delete(image)
         await sql_session.commit()

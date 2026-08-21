@@ -50,6 +50,41 @@ function buildExportDownloadUrl(outPath: string): string {
   return `/api/export-presentation/file?name=${encodeURIComponent(relativePath)}`;
 }
 
+function fastApiBase(): string {
+  return (
+    process.env.FAST_API_INTERNAL_URL?.trim() ||
+    process.env.NEXT_PUBLIC_FAST_API?.trim() ||
+    "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
+}
+
+async function persistExportToOss(
+  outPath: string,
+  cookie: string | null
+): Promise<string | null> {
+  try {
+    const response = await fetch(`${fastApiBase()}/api/v1/ppt/oss/persist-export`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ path: outPath }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = (await response.json()) as { enabled?: boolean; url?: string | null };
+    if (data.enabled && data.url) {
+      return data.url;
+    }
+  } catch (error) {
+    console.warn("[export-presentation] OSS persist skipped", error);
+  }
+  return null;
+}
+
 async function moveExportIntoOwnerDirectory(
   outPath: string,
   userId: string | null
@@ -141,9 +176,10 @@ export async function POST(req: NextRequest) {
       auth.user_id
     );
 
+    const ossUrl = await persistExportToOss(outPath, req.headers.get("cookie"));
     return NextResponse.json({
       success: true,
-      path: buildExportDownloadUrl(outPath),
+      path: ossUrl || buildExportDownloadUrl(outPath),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

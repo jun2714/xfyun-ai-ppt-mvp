@@ -36,8 +36,14 @@ async def import_default_templates_on_startup(
 
     async with async_session_maker() as session:
         imported_template_ids: set[str] = set()
+        bundled_ids_on_disk: set[str] = set()
+        disabled_ids = _load_disabled_bundled_template_ids()
         for template_dir in template_dirs:
             template = _load_default_template(template_dir)
+            bundled_ids_on_disk.add(template.id)
+            if template.id in disabled_ids:
+                LOGGER.info("Skipping disabled bundled template: %s", template.id)
+                continue
             imported_template_ids.add(template.id)
             existing = await session.get(TemplateV2, template.id)
 
@@ -51,7 +57,46 @@ async def import_default_templates_on_startup(
                 LOGGER.info("Imported default template: %s", template.id)
             await session.commit()
 
-        await _remove_stale_default_templates(session, imported_template_ids)
+        await _remove_stale_default_templates(
+            session, imported_template_ids, bundled_ids_on_disk
+        )
+
+
+def _disabled_bundled_ids_path() -> Path:
+    app_data_dir = get_app_data_directory_env()
+    if not app_data_dir:
+        raise RuntimeError("APP_DATA_DIRECTORY must be set to import default templates")
+    return Path(app_data_dir) / "disabled_bundled_templates.json"
+
+
+def _load_disabled_bundled_template_ids() -> set[str]:
+    path = _disabled_bundled_ids_path()
+    if not path.is_file():
+        return set()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        LOGGER.warning("Unable to read disabled bundled templates: %s", path)
+        return set()
+    if not isinstance(raw, list):
+        return set()
+    return {str(item).strip() for item in raw if str(item).strip()}
+
+
+def suppress_bundled_template(template_id: str) -> None:
+    """Keep admin-deleted official templates from coming back on API restart."""
+    template_id = (template_id or "").strip()
+    if not template_id:
+        return
+    ids = _load_disabled_bundled_template_ids()
+    ids.add(template_id)
+    path = _disabled_bundled_ids_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(sorted(ids), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    LOGGER.info("Suppressed bundled template: %s", template_id)
 
 
 def _default_templates_root() -> Path:
@@ -150,6 +195,7 @@ def _update_template_from_default(existing: TemplateV2, template: TemplateV2) ->
 async def _remove_stale_default_templates(
     session: Any,
     imported_template_ids: set[str],
+    bundled_ids_on_disk: set[str],
 ) -> None:
     result = await session.execute(
         select(TemplateV2).where(TemplateV2.is_default.is_(True))
@@ -157,7 +203,8 @@ async def _remove_stale_default_templates(
     stale_templates = [
         template
         for template in result.scalars().all()
-        if template.id not in imported_template_ids
+        if template.id in bundled_ids_on_disk
+        and template.id not in imported_template_ids
     ]
     if not stale_templates:
         return

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/dashboard", label: "我的项目", match: (path: string) => path === "/dashboard" || path.startsWith("/dashboard/") },
   { href: "/templates", label: "模板中心", match: (path: string) => path === "/templates" || path.startsWith("/templates/") },
+  { href: "/library", label: "素材库", match: (path: string) => path === "/library" || path.startsWith("/library/") },
 ] as const;
 
 /**

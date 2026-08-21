@@ -204,7 +204,7 @@ const GroupLayoutPreview = ({
       template_id: templateId,
       template_source: template.is_default ? "default" : "custom",
       layout_count: layouts.length,
-      can_edit: !template.is_default,
+      can_edit: !template.is_default || Boolean(template.can_manage),
     });
   }, [error, layouts.length, loading, template, templateId]);
 
@@ -238,7 +238,9 @@ const GroupLayoutPreview = ({
     setSavedTemplateName(nextName);
   }, [template?.name, templateId]);
 
-  const canEditTemplate = Boolean(template && !template.is_default);
+  const canManageTemplate = Boolean(template?.can_manage);
+  const canEditTemplate = Boolean(template && (!template.is_default || canManageTemplate));
+  const canDeleteTemplate = Boolean(template);
   const activeLayout = editableLayouts[activeLayoutIndex] ?? null;
   const previewLayouts = useMemo(
     () =>
@@ -1064,16 +1066,16 @@ const GroupLayoutPreview = ({
   ]);
 
   const openDeleteTemplateDialog = useCallback(() => {
-    if (!templateId || template?.is_default) return;
+    if (!templateId || !canDeleteTemplate) return;
     setIsDeleteDialogOpen(true);
     track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_DELETE_REQUESTED, {
       template_id: templateId,
       layout_count: editableLayouts.length,
     });
-  }, [editableLayouts.length, template?.is_default, templateId]);
+  }, [canDeleteTemplate, editableLayouts.length, templateId]);
 
   const confirmDeleteTemplate = useCallback(async () => {
-    if (!templateId || template?.is_default || isDeletingTemplate) return;
+    if (!templateId || !canDeleteTemplate || isDeletingTemplate) return;
 
     setIsDeletingTemplate(true);
     const startedAt = Date.now();
@@ -1117,7 +1119,7 @@ const GroupLayoutPreview = ({
     } finally {
       setIsDeletingTemplate(false);
     }
-  }, [isDeletingTemplate, router, template?.is_default, templateId]);
+  }, [canDeleteTemplate, isDeletingTemplate, router, templateId]);
 
   if (!templateId) {
     return (
@@ -1151,7 +1153,7 @@ const GroupLayoutPreview = ({
         canEdit={canEditTemplate}
         canRedo={historyAvailability.canRedo}
         canUndo={historyAvailability.canUndo}
-        canDelete={!template.is_default}
+        canDelete={canDeleteTemplate}
         hasUnsavedChanges={hasUnsavedChanges}
         isSaving={isSaving}
         templateName={templateNameDraft}

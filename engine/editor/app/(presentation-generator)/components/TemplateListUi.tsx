@@ -66,12 +66,14 @@ export function TemplateThumbnailPreview({
 export const TemplateListCard = memo(function TemplateListCard({
   template,
   onClick,
+  onDelete,
   isSelected = false,
   showArrow = false,
   selectionPage = false,
 }: {
   template: TemplateListItem;
   onClick: () => void;
+  onDelete?: () => void;
   isSelected?: boolean;
   showArrow?: boolean;
   selectionPage?: boolean;
@@ -204,6 +206,20 @@ export const TemplateListCard = memo(function TemplateListCard({
             </span>
           )}
         </div>
+        {onDelete ? (
+          <button
+            type="button"
+            className="relative z-50 inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-[#F1D4D4] bg-[#FFF7F7] px-3 text-xs font-semibold text-[#D64545] hover:bg-[#FDECEC]"
+            title="删除模板"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            删除
+          </button>
+        ) : null}
         {showArrow && (
           <ArrowUpRight
             aria-hidden="true"

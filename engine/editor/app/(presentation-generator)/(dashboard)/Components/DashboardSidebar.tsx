@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LayoutDashboard, Star, Brain, Settings, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Star, Brain, Settings, HelpCircle, Download } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
@@ -69,6 +69,19 @@ const DashboardSidebar = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={`${pathname === "/templates" ? "#5146E5" : "#475569"}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M4 14h6" /><path d="M4 2h10" /><rect x="4" y="18" width="16" height="4" rx="1" /><rect x="4" y="6" width="16" height="4" rx="1" /></svg>
                                 <span className="text-[11px] text-slate-800">模板</span>
                             </div>
+                        </Link>
+                        <Link
+                            prefetch={false}
+                            href={`/library`}
+                            className={[
+                                "flex flex-col tex-center items-center gap-2  transition-colors",
+                                pathname === "/library" || pathname.startsWith("/library/") ? "" : "ring-transparent",
+                            ].join(" ")}
+                            aria-label="素材库"
+                            title="素材库"
+                        >
+                            <Download className={["h-4 w-4", pathname === "/library" || pathname.startsWith("/library/") ? "text-[#5146E5]" : "text-slate-600"].join(" ")} />
+                            <span className="text-[11px] text-slate-800">素材</span>
                         </Link>
                         {/* 社区入口暂不对外开放
                         <Link

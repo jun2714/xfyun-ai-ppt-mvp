@@ -1385,7 +1385,7 @@
                   },
                   "runs": [
                     {
-                      "text": "INTRODUCTION",
+                      "text": "探索发现",
                       "font": {
                         "size": 64,
                         "family": "Montserrat Medium",
@@ -10059,7 +10059,7 @@
               },
               "runs": [
                 {
-                  "text": "SALES",
+                  "text": "观察",
                   "font": {
                     "size": 23.11,
                     "family": "Montserrat Semi-Bold",
@@ -10802,7 +10802,7 @@
                   },
                   "runs": [
                     {
-                      "text": "INTRODUCTION",
+                      "text": "探索发现",
                       "font": {
                         "size": 64,
                         "family": "Montserrat Medium",
@@ -20334,7 +20334,7 @@
               },
               "runs": [
                 {
-                  "text": "SALES",
+                  "text": "观察",
                   "font": {
                     "size": 23.11,
                     "family": "Montserrat Semi-Bold",

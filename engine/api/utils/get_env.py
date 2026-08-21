@@ -423,3 +423,37 @@ def get_openai_compat_image_api_key_env():
 
 def get_openai_compat_image_model_env():
     return os.getenv("OPENAI_COMPAT_IMAGE_MODEL")
+
+
+def get_aliyun_oss_access_key_id() -> str:
+    return (os.getenv("ALIYUN_OSS_ACCESS_KEY_ID") or "").strip()
+
+
+def get_aliyun_oss_access_key_secret() -> str:
+    return (os.getenv("ALIYUN_OSS_ACCESS_KEY_SECRET") or "").strip()
+
+
+def get_aliyun_oss_endpoint() -> str:
+    return (os.getenv("ALIYUN_OSS_ENDPOINT") or "").strip()
+
+
+def get_aliyun_oss_bucket() -> str:
+    return (os.getenv("ALIYUN_OSS_BUCKET") or "").strip()
+
+
+def get_aliyun_oss_public_base_url() -> str:
+    return (os.getenv("ALIYUN_OSS_PUBLIC_BASE_URL") or "").strip().rstrip("/")
+
+
+def get_aliyun_oss_key_prefix() -> str:
+    return (os.getenv("ALIYUN_OSS_KEY_PREFIX") or "ppt").strip().strip("/")
+
+
+def is_aliyun_oss_enabled() -> bool:
+    return bool(
+        get_aliyun_oss_access_key_id()
+        and get_aliyun_oss_access_key_secret()
+        and get_aliyun_oss_endpoint()
+        and get_aliyun_oss_bucket()
+        and get_aliyun_oss_public_base_url()
+    )

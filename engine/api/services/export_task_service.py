@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from typing import Any, Literal, Mapping
 from urllib.parse import unquote, urlparse
+from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ValidationError, model_validator
@@ -57,6 +58,25 @@ def _localize_json_image_assets(
     parsed = urlparse(source)
     if parsed.scheme in ("http", "https"):
         candidate = unquote(parsed.path)
+        if not candidate.startswith(("/app_data/", "/static/")):
+            data_uri = cache.get(source)
+            if data_uri is None:
+                try:
+                    request = Request(source, method="GET")
+                    with urlopen(request, timeout=20) as response:
+                        asset_data = response.read()
+                        mime_type = (
+                            response.headers.get_content_type()
+                            or mimetypes.guess_type(source)[0]
+                            or "image/png"
+                        )
+                    encoded = base64.b64encode(asset_data).decode("ascii")
+                    data_uri = f"data:{mime_type};base64,{encoded}"
+                    cache[source] = data_uri
+                except OSError:
+                    return localized
+            localized["data"] = data_uri
+            return localized
     elif not parsed.scheme and source.startswith(("/app_data/", "/static/")):
         candidate = source
     else:
@@ -614,6 +634,10 @@ class ExportTaskService:
         output_path = self._resolve_output_path(response_data)
         output_path = self._move_export_to_owner(output_path)
         self._ensure_output_readable(output_path)
+        from utils.oss_storage import is_oss_enabled, persist_export_file
+
+        if is_oss_enabled():
+            output_path = await persist_export_file(output_path)
 
         return PresentationExportTaskResult(
             path=output_path,

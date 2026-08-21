@@ -64,6 +64,7 @@ from templates.v2.models.layouts import (
     SlideLayouts,
 )
 from utils.asset_directory_utils import resolve_app_path_to_filesystem
+from utils.oss_storage import OSS_AREA_TEMPLATES, persist_existing_asset_url
 from utils.file_utils import get_original_file_name
 from utils.icon_weights import (
     ALLOWED_ICON_TYPES,
@@ -72,6 +73,7 @@ from utils.icon_weights import (
     extract_icon_type_from_settings,
 )
 from utils.datetime_utils import get_current_utc_datetime
+from utils.get_env import is_disable_auth_enabled
 from utils.llm_client_error_handler import handle_llm_client_exceptions
 from api.v1.auth.context import (
     get_current_owner_id,
@@ -81,6 +83,7 @@ from api.v1.auth.context import (
     set_current_owner_id,
     set_current_owner_is_admin,
 )
+from templates.default_templates import suppress_bundled_template
 
 
 TEMPLATE_ROUTER = APIRouter(prefix="/template", tags=["Templates"])
@@ -89,6 +92,12 @@ _TEMPLATE_LAYOUT_PATCH_LOCKS: dict[str, asyncio.Lock] = {}
 _TEMPLATE_LAYOUT_PATCH_LOCKS_GUARD = asyncio.Lock()
 ASYNC_TASK_TYPE_TEMPLATE_CREATE = "template.create"
 SLIDE_LAYOUT_GENERATION_MAX_TOKENS = 16000
+
+
+def can_manage_official_templates() -> bool:
+    if get_current_owner_is_admin():
+        return True
+    return is_disable_auth_enabled() and get_current_owner_id() is None
 
 
 class InitTemplateRequest(BaseModel):
@@ -244,6 +253,7 @@ class TemplateListItem(BaseModel):
     layout_count: int = 0
     thumbnail: Optional[str] = None
     is_default: bool = False
+    can_manage: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -253,6 +263,7 @@ class TemplateListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    can_manage: bool = False
 
 
 class TemplateResponse(TemplateListItem):
@@ -1051,6 +1062,7 @@ async def list_templates(
                 layout_count=layout_count,
                 thumbnail=_get_template_thumbnail_from_assets(assets),
                 is_default=is_default,
+                can_manage=can_manage_official_templates(),
                 created_at=created_at,
                 updated_at=updated_at,
             )
@@ -1061,6 +1073,7 @@ async def list_templates(
         total=len(items),
         page=page,
         page_size=page_size,
+        can_manage=can_manage_official_templates(),
     )
 
 
@@ -1090,6 +1103,44 @@ async def upload_template_fonts_and_slides_preview(
     )
 
 
+async def _persist_template_media_to_oss(template: TemplateV2) -> None:
+    from utils.oss_storage import is_oss_enabled
+
+    if not is_oss_enabled():
+        return
+    assets = dict(template.assets) if isinstance(template.assets, dict) else {}
+    if not assets:
+        return
+    template_id = template.id
+    pptx_url = assets.get("pptx_url")
+    if isinstance(pptx_url, str) and pptx_url.strip():
+        assets["pptx_url"] = await persist_existing_asset_url(
+            pptx_url,
+            OSS_AREA_TEMPLATES,
+            template_id,
+            "original.pptx",
+            delete_local=True,
+        )
+    slide_image_urls = assets.get("slide_image_urls")
+    if isinstance(slide_image_urls, list):
+        persisted: list = []
+        for index, slide_url in enumerate(slide_image_urls, start=1):
+            if isinstance(slide_url, str) and slide_url.strip():
+                persisted.append(
+                    await persist_existing_asset_url(
+                        slide_url,
+                        OSS_AREA_TEMPLATES,
+                        template_id,
+                        f"slide_{index}.png",
+                        delete_local=True,
+                    )
+                )
+            else:
+                persisted.append(slide_url)
+        assets["slide_image_urls"] = persisted
+    template.assets = assets
+
+
 @TEMPLATE_ROUTER.post(
     "/init",
     status_code=201,
@@ -1110,6 +1161,7 @@ async def init_template(
         description=request.description,
         raw_layouts=raw_layouts_json,
         layouts=None,
+        is_default=can_manage_official_templates(),
         assets={
             "pptx_url": request.pptx_url,
             "icon_type": icon_type,
@@ -1126,6 +1178,10 @@ async def init_template(
         len(raw_layouts.layouts),
         len(template.assets.get("images", [])),
     )
+    sql_session.add(template)
+    await sql_session.commit()
+    await sql_session.refresh(template)
+    await _persist_template_media_to_oss(template)
     sql_session.add(template)
     await sql_session.commit()
     await sql_session.refresh(template)
@@ -1153,6 +1209,7 @@ def _build_created_template(
         ),
         description=request.description,
         raw_layouts=raw_layouts_json,
+        is_default=can_manage_official_templates(),
         merged_components=merged_components.model_dump(
             mode="json", exclude_none=True
         ),
@@ -1195,6 +1252,10 @@ async def _create_template_sync(
         len(raw_layouts.layouts),
         len(template.assets.get("images", [])),
     )
+    sql_session.add(template)
+    await sql_session.commit()
+    await sql_session.refresh(template)
+    await _persist_template_media_to_oss(template)
     sql_session.add(template)
     await sql_session.commit()
     await sql_session.refresh(template)
@@ -1257,6 +1318,10 @@ async def _create_template_with_task_progress(
         len(raw_layouts.layouts),
         len(template.assets.get("images", [])),
     )
+    sql_session.add(template)
+    await sql_session.commit()
+    await sql_session.refresh(template)
+    await _persist_template_media_to_oss(template)
     sql_session.add(template)
     await sql_session.commit()
     await sql_session.refresh(template)
@@ -1656,6 +1721,7 @@ async def derive_template_slide_layouts_without_model(
         layout_count=_count_layouts(template.layouts),
         thumbnail=_get_template_thumbnail_from_assets(template.assets),
         is_default=template.is_default,
+        can_manage=can_manage_official_templates(),
         created_at=template.created_at or get_current_utc_datetime(),
         updated_at=template.updated_at or get_current_utc_datetime(),
         merged_components=template.merged_components,
@@ -1889,6 +1955,7 @@ async def get_template(
         layout_count=_count_layouts(template.layouts),
         thumbnail=_get_template_thumbnail_from_assets(template.assets),
         is_default=template.is_default,
+        can_manage=can_manage_official_templates(),
         created_at=template.created_at or get_current_utc_datetime(),
         updated_at=template.updated_at or get_current_utc_datetime(),
         merged_components=template.merged_components,
@@ -1906,13 +1973,16 @@ async def delete_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    _require_private_template(template)
+    if template.is_default:
+        suppress_bundled_template(template.id)
     await sql_session.delete(template)
     await sql_session.commit()
     return Response(status_code=204)
+
+
 def _require_private_template(template: TemplateV2) -> None:
-    if template.is_default:
+    if template.is_default and not can_manage_official_templates():
         raise HTTPException(
             status_code=403,
-            detail="Built-in templates are read-only",
+            detail="只有管理员可以维护官方模板",
         )

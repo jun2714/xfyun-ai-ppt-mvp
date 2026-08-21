@@ -28,6 +28,7 @@ export interface TemplateListResponse {
     total: number;
     page: number;
     page_size: number;
+    can_manage?: boolean;
 }
 
 export interface TemplateListItem {
@@ -37,6 +38,7 @@ export interface TemplateListItem {
     layout_count?: number;
     thumbnail?: string | null;
     is_default?: boolean;
+    can_manage?: boolean;
     status?: string | null;
     generation_status?: string | null;
     error?: string | null;
@@ -151,7 +153,9 @@ class TemplateService {
     static async getTemplateDetails(templateId: string): Promise<TemplateDetailsResponse> {
         try {
             const apiTemplateId = templateId.replace(/^template-v2-/, "");
-            const response = await fetch(getApiUrl(`/api/v1/ppt/template/${encodeURIComponent(apiTemplateId)}`));
+            const response = await fetch(getApiUrl(`/api/v1/ppt/template/${encodeURIComponent(apiTemplateId)}`), {
+                headers: getHeader(),
+            });
             return await ApiResponseHandler.handleResponse(response, "Failed to get template details");
         } catch (error) {
             console.error("Failed to get Templates v1 details", error);

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { trackEvent, MixpanelEvent } from "@/utils/mixpanel";
 import { ensureTailwindBrowserScript } from "@/lib/tailwind-browser";
 import { useTemplateSummaries, TemplateTab } from "../../../hooks/useTemplateSummaries";
+import { notify } from "@/components/ui/sonner";
 import {
   ProcessingTemplateListCard,
   TemplateListCard,
@@ -23,6 +24,8 @@ const LayoutPreview = () => {
     customTemplates,
     processingTemplateTasks,
     deleteFailedTemplateTask,
+    deleteTemplate,
+    canManage,
     loading,
   } = useTemplateSummaries({ includeProcessingTemplateTasks: true });
 
@@ -56,6 +59,24 @@ const LayoutPreview = () => {
     trackEvent(MixpanelEvent.Templates_Tab_Switched, { tab: nextTab });
     setTab(nextTab);
   }, []);
+
+  const handleDeleteTemplate = useCallback(
+    async (template: { id: string; name: string }) => {
+      if (!window.confirm(`确定删除「${template.name}」？删除后不会再出现在模板中心。`)) {
+        return;
+      }
+      try {
+        await deleteTemplate(template.id);
+        notify.success("已删除", "模板已从模板中心移除");
+      } catch (error) {
+        notify.error(
+          "删除失败",
+          error instanceof Error ? error.message : "请稍后重试",
+        );
+      }
+    },
+    [deleteTemplate],
+  );
 
   const activeTemplates = tab === "default" ? defaultTemplates : customTemplates;
 
@@ -113,19 +134,31 @@ const LayoutPreview = () => {
                   template={template}
                   showArrow
                   onClick={() => handleOpenTemplate(template.id, template.name, false)}
+                  onDelete={() => void handleDeleteTemplate(template)}
                 />
               ))}
             </div>
-          ) : activeTemplates.length === 0 ? (
-            <TemplateListEmptyState message="暂无可用的内置模板。" />
+          ) : activeTemplates.length === 0 && !canManage ? (
+            <TemplateListEmptyState message="暂无可用的官方模板。" />
           ) : (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {canManage ? <CreateCustomTemplate /> : null}
+              {canManage
+                ? processingTemplateTasks.map((task) => (
+                    <ProcessingTemplateListCard
+                      key={task.id}
+                      task={task}
+                      onDeleteFailed={deleteFailedTemplateTask}
+                    />
+                  ))
+                : null}
               {activeTemplates.map((template) => (
                 <TemplateListCard
                   key={template.id}
                   template={template}
                   showArrow
                   onClick={() => handleOpenTemplate(template.id, template.name, true)}
+                  onDelete={() => void handleDeleteTemplate(template)}
                 />
               ))}
             </div>

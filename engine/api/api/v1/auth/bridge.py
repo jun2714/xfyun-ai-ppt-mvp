@@ -107,18 +107,49 @@ async def introspect_teachnova_user(
 
     return {
         "user_id": str(raw_id),
-        "username": str(user.get("nickname") or user.get("username") or raw_id),
+        "username": str(user.get("username") or user.get("nickname") or raw_id),
+        "nickname": str(user.get("nickname") or user.get("username") or ""),
+        "is_admin": _teachnova_user_is_admin(user, data),
     }
 
 
+def _teachnova_user_is_admin(user: dict[str, Any], data: dict[str, Any]) -> bool:
+    """Match official-site admin: nickname/username admin, or role super_admin."""
+    for key in ("nickname", "username"):
+        value = str(user.get(key) or "").strip().lower()
+        if value == "admin":
+            return True
+    roles = data.get("roles") or []
+    role_codes: set[str] = set()
+    if isinstance(roles, (list, set, tuple)):
+        for item in roles:
+            if isinstance(item, str):
+                role_codes.add(item.strip())
+            elif isinstance(item, dict):
+                code = item.get("code") or item.get("name") or item.get("roleKey") or ""
+                if code:
+                    role_codes.add(str(code).strip())
+    if "super_admin" in role_codes:
+        return True
+    permissions = data.get("permissions") or []
+    if isinstance(permissions, (list, set, tuple)) and "*:*:*" in permissions:
+        return True
+    return False
+
+
 async def ensure_teachnova_user(
-    session: AsyncSession, teachnova_user_id: str
+    session: AsyncSession, teachnova_user_id: str, *, is_admin: bool = False
 ) -> User:
     username = teachnova_username(teachnova_user_id)
     existing = await session.scalar(select(User).where(User.username == username))
     if existing is not None:
         if not existing.is_active:
             raise HTTPException(status_code=403, detail="Mapped user is disabled")
+        if existing.is_superuser != is_admin:
+            existing.is_superuser = is_admin
+            session.add(existing)
+            await session.commit()
+            await session.refresh(existing)
         return existing
 
     user = User(
@@ -126,7 +157,7 @@ async def ensure_teachnova_user(
         hashed_password=PASSWORD_HELPER.hash(secrets.token_urlsafe(32)),
         is_active=True,
         is_verified=True,
-        is_superuser=False,
+        is_superuser=is_admin,
         admin_slot=None,
         auth_version=1,
     )
@@ -145,7 +176,9 @@ async def bridge_teachnova_session(
     """Exchange a TeachNova access token for a Presenton browser session."""
     tenant_id = (body.tenant_id or get_teachnova_tenant_id() or "1").strip() or "1"
     identity = await introspect_teachnova_user(body.access_token.strip(), tenant_id)
-    user = await ensure_teachnova_user(session, identity["user_id"])
+    user = await ensure_teachnova_user(
+        session, identity["user_id"], is_admin=bool(identity.get("is_admin"))
+    )
     token = await get_jwt_strategy().write_token(user)
     response = JSONResponse(
         {

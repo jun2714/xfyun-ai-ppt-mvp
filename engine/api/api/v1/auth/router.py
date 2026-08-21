@@ -80,10 +80,13 @@ def _set_login_cookie(response: JSONResponse, token: str, request: Request) -> N
 
 @API_V1_AUTH_ROUTER.get("/status")
 async def get_status(
+    request: Request,
     session: AsyncSession = Depends(get_async_session),
     user: User | None = Depends(read_user_from_cookie),
 ):
-    if is_disable_auth_enabled():
+    principal, bridged = await resolve_request_principal(request, session)
+    effective = bridged or user
+    if is_disable_auth_enabled() and effective is None:
         return {
             "configured": True,
             "authenticated": True,
@@ -93,11 +96,15 @@ async def get_status(
         }
     configured = await _account_count(session) > 0
     return {
-        "configured": configured,
-        "authenticated": user is not None,
-        "username": user.username if user else None,
-        "user_id": str(user.id) if user else None,
-        "role": "admin" if user and user.is_superuser else ("user" if user else None),
+        "configured": configured or is_disable_auth_enabled(),
+        "authenticated": effective is not None or is_disable_auth_enabled(),
+        "username": effective.username if effective else None,
+        "user_id": str(effective.id) if effective else None,
+        "role": (
+            "admin"
+            if effective and effective.is_superuser
+            else ("user" if effective else None)
+        ),
     }
 
 

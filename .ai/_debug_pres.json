@@ -1,0 +1,3208 @@
+{
+  "id": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+  "version": "v2-standard",
+  "content": "主题：夏天\n观众：幼儿\n使用场景：集体教学\n视觉偏好：明亮童趣\n请生成适合实际教学或沟通使用的中文演示文稿。内容必须面向观众，不要输出制作说明、图片提示词或设计备注。",
+  "n_slides": 1,
+  "language": "",
+  "title": "夏天",
+  "created_at": "2026-08-13T03:37:34.054903",
+  "updated_at": "2026-08-13T03:38:55.828355",
+  "tone": "educational",
+  "verbosity": "standard",
+  "slides": [
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "title_intro",
+      "content": {
+        "__speaker_note__": "小朋友们，今天我们来认识夏天。夏天到了，太阳公公每天笑眯眯地挂在天上，天气变得好热呀。听，知了在树上不停地叫。热的时候我们可以扇扇子、吹电扇，就会感觉很凉快。接下来，我们一起去看看夏天还有哪些有趣的事情吧。",
+        "image_showcase_card": {
+          "基础通用": {
+            "image_prompt": "明亮的夏日户外场景，绿树成荫，太阳公公笑脸挂在蓝天，一只知了趴在树干上，旁边一个中国小女孩拿着扇子，面带微笑，童趣温馨的插画风格",
+            "image_url": "http://127.0.0.1:8000/static/images/placeholder.jpg"
+          }
+        },
+        "right_text_panel": {
+          "基础通用": "夏天",
+          "基础通用_2": "太阳公公笑眯眯，天气好热呀！\n知了在树上叫：知了，知了！\n扇扇子，吹电扇，真凉快！\n一起看看夏天还有什么好玩的吧。",
+          "基础通用_3": {
+            "基础通用": "1",
+            "基础通用_2": "认识夏天",
+            "基础通用_3": "体验夏天的特点与乐趣"
+          }
+        }
+      },
+      "properties": null,
+      "ui": {
+        "id": "title_intro",
+        "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+        "components": [
+          {
+            "id": "background_canvas",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 720.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 720.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#FFFFFF"
+                }
+              }
+            ]
+          },
+          {
+            "id": "image_showcase_card",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 88.0,
+              "y": 208.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 320.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 320.0
+                  }
+                ],
+                "closed": true,
+                "corner_radii": [
+                  16.0,
+                  16.0,
+                  16.0,
+                  16.0
+                ],
+                "fill": {
+                  "color": "#FFFFFF"
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "blur": 15.0,
+                  "opacity": 0.1,
+                  "offset_x": 0.0,
+                  "offset_y": 10.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 512.0,
+                  "height": 320.0
+                },
+                "rotation": 0.0,
+                "data": "http://127.0.0.1:8000/app_data/images/fa64c322-4693-472c-986b-552cb5191b62.png",
+                "fit": "cover",
+                "border_radius": {
+                  "tl": 16.0,
+                  "tr": 16.0,
+                  "bl": 16.0,
+                  "br": 16.0
+                },
+                "decorative": false,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true,
+                "prompt": "明亮的夏日户外场景，绿树成荫，太阳公公笑脸挂在蓝天，一只知了趴在树干上，旁边一个中国小女孩拿着扇子，面带微笑，童趣温馨的插画风格"
+              }
+            ]
+          },
+          {
+            "id": "right_text_panel",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 672.0,
+              "y": 163.0
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 120.0
+                },
+                "font": {
+                  "size": 60.0,
+                  "family": "Poppins",
+                  "color": "#111827",
+                  "bold": true,
+                  "italic": false,
+                  "line_height": 0.8
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天",
+                    "font": {
+                      "size": 60.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 0.8
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 25,
+                "min_length": 8
+              },
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 144.0
+                  },
+                  {
+                    "x": 80.0,
+                    "y": 144.0
+                  },
+                  {
+                    "x": 80.0,
+                    "y": 148.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 148.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#9333EA"
+                }
+              },
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 172.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 112.0
+                },
+                "font": {
+                  "size": 18.0,
+                  "family": "Poppins",
+                  "color": "#4B5563",
+                  "bold": false,
+                  "italic": false,
+                  "line_height": 1.24
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "太阳公公笑眯眯，天气好热呀！\n知了在树上叫：知了，知了！\n扇扇子，吹电扇，真凉快！\n一起看看夏天还有什么好玩的吧。",
+                    "font": {
+                      "size": 18.0,
+                      "family": "Poppins",
+                      "color": "#4B5563",
+                      "bold": false,
+                      "italic": false,
+                      "line_height": 1.24
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 275,
+                "min_length": 105
+              },
+              {
+                "type": "group",
+                "position": {
+                  "x": 0.0,
+                  "y": 308.0
+                },
+                "size": {
+                  "width": 528.0,
+                  "height": 102.0
+                },
+                "children": [
+                  {
+                    "type": "vector",
+                    "shape": "polygon",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      {
+                        "x": 528.0,
+                        "y": 0.0
+                      },
+                      {
+                        "x": 528.0,
+                        "y": 102.0
+                      },
+                      {
+                        "x": 0.0,
+                        "y": 102.0
+                      }
+                    ],
+                    "closed": true,
+                    "corner_radii": [
+                      8.0,
+                      8.0,
+                      8.0,
+                      8.0
+                    ],
+                    "fill": {
+                      "color": "#FFFFFF"
+                    },
+                    "stroke": {
+                      "color": "#E5E7EB",
+                      "width": 1.0
+                    },
+                    "shadow": {
+                      "color": "#000000",
+                      "blur": 2.0,
+                      "opacity": 0.05,
+                      "offset_x": 0.0,
+                      "offset_y": 1.0
+                    }
+                  },
+                  {
+                    "type": "vector",
+                    "shape": "ellipse",
+                    "points": [
+                      {
+                        "x": 49.0,
+                        "y": 27.0
+                      },
+                      {
+                        "x": 73.0,
+                        "y": 51.0
+                      },
+                      {
+                        "x": 49.0,
+                        "y": 75.0
+                      },
+                      {
+                        "x": 25.0,
+                        "y": 51.0
+                      }
+                    ],
+                    "closed": true,
+                    "rotation": 0.0,
+                    "fill": {
+                      "color": "#9333EA"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "position": {
+                      "x": 38.5,
+                      "y": 39.0
+                    },
+                    "size": {
+                      "width": 23.0,
+                      "height": 24.0
+                    },
+                    "font": {
+                      "size": 16.0,
+                      "family": "Poppins",
+                      "color": "#FFFFFF",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 1.2
+                    },
+                    "alignment": {
+                      "horizontal": "center",
+                      "vertical": "middle"
+                    },
+                    "runs": [
+                      {
+                        "text": "1",
+                        "font": {
+                          "size": 16.0,
+                          "family": "Poppins",
+                          "color": "#FFFFFF",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 1.2
+                        }
+                      }
+                    ],
+                    "decorative": false,
+                    "name": "基础通用",
+                    "max_length": 2,
+                    "min_length": 1
+                  },
+                  {
+                    "type": "text",
+                    "position": {
+                      "x": 89.0,
+                      "y": 25.0
+                    },
+                    "size": {
+                      "width": 398.41,
+                      "height": 28.0
+                    },
+                    "rotation": 0.0,
+                    "font": {
+                      "size": 20.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 1.12
+                    },
+                    "alignment": {
+                      "horizontal": "left",
+                      "vertical": "top"
+                    },
+                    "runs": [
+                      {
+                        "text": "认识夏天",
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 1.12
+                        }
+                      }
+                    ],
+                    "decorative": false,
+                    "name": "基础通用",
+                    "max_length": 30,
+                    "min_length": 4
+                  },
+                  {
+                    "type": "text",
+                    "position": {
+                      "x": 89.0,
+                      "y": 53.0
+                    },
+                    "size": {
+                      "width": 407.27,
+                      "height": 24.0
+                    },
+                    "rotation": 0.0,
+                    "font": {
+                      "size": 16.0,
+                      "family": "Poppins",
+                      "color": "#4B5563",
+                      "bold": false,
+                      "italic": false,
+                      "line_height": 1.2
+                    },
+                    "alignment": {
+                      "horizontal": "left",
+                      "vertical": "top"
+                    },
+                    "runs": [
+                      {
+                        "text": "体验夏天的特点与乐趣",
+                        "font": {
+                          "size": 16.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.2
+                        }
+                      }
+                    ],
+                    "decorative": false,
+                    "name": "基础通用",
+                    "max_length": 45,
+                    "min_length": 7
+                  }
+                ],
+                "name": "基础通用"
+              }
+            ]
+          }
+        ]
+      },
+      "id": "38e4ef6d-4ca5-4fae-b698-64e87d5258d2",
+      "index": 0,
+      "html_content": null,
+      "speaker_note": "小朋友们，今天我们来认识夏天。夏天到了，太阳公公每天笑眯眯地挂在天上，天气变得好热呀。听，知了在树上不停地叫。热的时候我们可以扇扇子、吹电扇，就会感觉很凉快。接下来，我们一起去看看夏天还有哪些有趣的事情吧。"
+    },
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "__blank_slide__",
+      "content": {},
+      "properties": null,
+      "ui": {
+        "id": "__blank_slide__",
+        "description": "Empty slide.",
+        "background": "#FFFFFF",
+        "components": [],
+        "elements": [
+          {
+            "type": "vector",
+            "shape": "polygon",
+            "points": [
+              {
+                "x": 0,
+                "y": 0
+              },
+              {
+                "x": 1280,
+                "y": 0
+              },
+              {
+                "x": 1280,
+                "y": 720
+              },
+              {
+                "x": 0,
+                "y": 720
+              }
+            ],
+            "closed": true,
+            "fill": {
+              "color": "#FFFFFF"
+            },
+            "decorative": true
+          }
+        ]
+      },
+      "id": "9b868021-23c3-40e1-8795-fe0a16565af0",
+      "index": 0,
+      "html_content": null,
+      "speaker_note": null
+    },
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "title_description_image",
+      "content": {
+        "__speaker_note__": "小朋友们，夏天到了，天气变得很热，我们需要换上凉快的衣服。大家看，穿上短袖和短裤，是不是感觉特别凉快？戴上小凉帽，太阳就晒不到我们的脸了。再穿上小凉鞋，让小脚丫透透气，走起路来也很舒服。现在请小朋友们想一想，你今天穿的是什么衣服呢？",
+        "left_visual_card": {
+          "基础通用": {
+            "image_prompt": "一个中国小男孩和小女孩穿着短袖短裤，戴着凉帽，脚穿凉鞋，在阳光下开心玩耍，画面温馨，儿童插画风格。",
+            "image_url": "http://127.0.0.1:8000/static/images/placeholder.jpg"
+          }
+        },
+        "right_text_stack": {
+          "基础通用": "夏天的衣服",
+          "基础通用_2": "• 换上短袖和短裤，真凉快！\n• 戴上小凉帽，太阳晒不到。\n• 穿上小凉鞋，脚丫透透气。\n• 小朋友，你穿的是什么？"
+        }
+      },
+      "properties": null,
+      "ui": {
+        "id": "title_description_image",
+        "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+        "components": [
+          {
+            "id": "slide_background",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 720.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 720.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#FFFFFF",
+                  "opacity": 1.0
+                }
+              }
+            ]
+          },
+          {
+            "id": "left_visual_card",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 88.0,
+              "y": 184.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 320.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 320.0
+                  }
+                ],
+                "closed": true,
+                "corner_radii": [
+                  16.0,
+                  16.0,
+                  16.0,
+                  16.0
+                ],
+                "fill": {
+                  "color": "#FFFFFF",
+                  "opacity": 1.0
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "blur": 15.0,
+                  "opacity": 0.1,
+                  "offset_x": 0.0,
+                  "offset_y": 10.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 512.0,
+                  "height": 320.0
+                },
+                "rotation": 0.0,
+                "data": "http://127.0.0.1:8000/app_data/images/1ee2602b-46b5-4cf2-93d4-00ff9921cb81.png",
+                "fit": "cover",
+                "border_radius": {
+                  "tl": 16.0,
+                  "tr": 16.0,
+                  "bl": 16.0,
+                  "br": 16.0
+                },
+                "decorative": false,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true,
+                "prompt": "一个中国小男孩和小女孩穿着短袖短裤，戴着凉帽，脚穿凉鞋，在阳光下开心玩耍，画面温馨，儿童插画风格。"
+              }
+            ]
+          },
+          {
+            "id": "right_text_stack",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 672.0,
+              "y": 199.47
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 118.79
+                },
+                "rotation": 0.0,
+                "font": {
+                  "size": 60.0,
+                  "family": "Poppins",
+                  "color": "#111827",
+                  "bold": true,
+                  "italic": false,
+                  "line_height": 0.8
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天的衣服",
+                    "font": {
+                      "size": 60.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 0.8
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 25,
+                "min_length": 8
+              },
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 144.0
+                  },
+                  {
+                    "x": 80.0,
+                    "y": 144.0
+                  },
+                  {
+                    "x": 80.0,
+                    "y": 148.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 148.0
+                  }
+                ],
+                "closed": true,
+                "rotation": 0.0,
+                "fill": {
+                  "color": "#9333EA",
+                  "opacity": 1.0
+                }
+              },
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 164.72
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 129.41
+                },
+                "rotation": 0.0,
+                "font": {
+                  "size": 18.0,
+                  "family": "Poppins",
+                  "color": "#4B5563",
+                  "bold": false,
+                  "italic": false,
+                  "line_height": 1.24
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "• 换上短袖和短裤，真凉快！\n• 戴上小凉帽，太阳晒不到。\n• 穿上小凉鞋，脚丫透透气。\n• 小朋友，你穿的是什么？",
+                    "font": {
+                      "size": 18.0,
+                      "family": "Poppins",
+                      "color": "#4B5563",
+                      "bold": false,
+                      "italic": false,
+                      "line_height": 1.24
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 274,
+                "min_length": 105
+              }
+            ]
+          }
+        ]
+      },
+      "id": "e5ecb19e-c669-4b1e-a7c1-458196d87be3",
+      "index": 1,
+      "html_content": null,
+      "speaker_note": "小朋友们，夏天到了，天气变得很热，我们需要换上凉快的衣服。大家看，穿上短袖和短裤，是不是感觉特别凉快？戴上小凉帽，太阳就晒不到我们的脸了。再穿上小凉鞋，让小脚丫透透气，走起路来也很舒服。现在请小朋友们想一想，你今天穿的是什么衣服呢？"
+    },
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "title_image_bullet_points_1",
+      "content": {
+        "__speaker_note__": "小朋友们，夏天到了，有很多好吃的水果呢！我们一起来看看。西瓜圆圆的，里面是红红的瓤，吃起来甜甜的，可解渴了。香蕉弯弯的，像小船一样，非常可爱。桃子也是甜甜的，咬一口软软的，真好吃。还有，夏天吃冰淇淋很凉快，但是不能吃太多，不然肚子会不舒服的。记住要多吃水果，对身体好哦！",
+        "feature_grid_area": {
+          "基础通用": [
+            {
+              "基础通用": {
+                "icon_query": "西瓜, 夏季水果, 红瓤, 儿童插画风格",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "圆圆的西瓜",
+              "基础通用_3": "红红的瓤，甜甜的！"
+            },
+            {
+              "基础通用": {
+                "icon_query": "香蕉, 弯弯的, 黄色, 夏季水果, 儿童插画风格",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "弯弯的香蕉",
+              "基础通用_3": "像小船。"
+            },
+            {
+              "基础通用": {
+                "icon_query": "桃子, 软软的, 夏季水果, 儿童插画风格",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "甜甜的桃子",
+              "基础通用_3": "软软的。"
+            },
+            {
+              "基础通用": {
+                "icon_query": "冰淇淋, 夏季, 美味, 儿童插画风格",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "冰淇淋",
+              "基础通用_3": "夏天的美味，但不能吃太多。"
+            }
+          ]
+        },
+        "large_title_area": {
+          "基础通用": "夏天的水果"
+        },
+        "right_image_panel": {
+          "基础通用": {
+            "image_prompt": "一个中国小朋友站在水果摊前，面前摆着西瓜、香蕉和桃子，画面温馨可爱，儿童插画风格，中国面孔，中国幼教场景",
+            "image_url": "http://127.0.0.1:8000/static/images/placeholder.jpg"
+          }
+        }
+      },
+      "properties": null,
+      "ui": {
+        "id": "title_image_bullet_points_1",
+        "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+        "components": [
+          {
+            "id": "background_accents",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 720.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 720.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#FFFFFF"
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 128.0,
+                  "height": 720.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image2-ec1c92dee7a3.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 592.0
+                },
+                "size": {
+                  "width": 192.0,
+                  "height": 128.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image3-82be19a88965.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 1136.0,
+                  "y": 80.0
+                },
+                "size": {
+                  "width": 32.0,
+                  "height": 32.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image8-09632504cf99.png",
+                "fit": "fill",
+                "color": "#FFFFFF",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": true,
+                "required": true
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 848.0,
+                  "y": 112.0
+                },
+                "size": {
+                  "width": 80.0,
+                  "height": 20.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image9-68eb2d8ed47c.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              }
+            ]
+          },
+          {
+            "id": "large_title_area",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 80.0,
+              "y": 48.0
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 1.27,
+                  "y": -6.33
+                },
+                "size": {
+                  "width": 732.59,
+                  "height": 125.2
+                },
+                "rotation": 0.0,
+                "font": {
+                  "size": 72.0,
+                  "family": "Poppins",
+                  "color": "#111827",
+                  "bold": true,
+                  "italic": false,
+                  "line_height": 0.8
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天的水果",
+                    "font": {
+                      "size": 72.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 0.8
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 30,
+                "min_length": 5
+              }
+            ]
+          },
+          {
+            "id": "feature_grid_area",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 96.0,
+              "y": 291.75
+            },
+            "elements": [
+              {
+                "type": "grid",
+                "position": {
+                  "x": -6.33,
+                  "y": -81.07
+                },
+                "size": {
+                  "width": 674.0,
+                  "height": 256.43
+                },
+                "rotation": 0.0,
+                "columns": 2,
+                "rows": 2,
+                "column_gap": 54.0,
+                "row_gap": 56.25,
+                "align_items": "flex-start",
+                "justify_items": "flex-start",
+                "children": [
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 310.0,
+                      "height": 100.25
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "ellipse",
+                        "points": [
+                          {
+                            "x": 24.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 24.0
+                          },
+                          {
+                            "x": 24.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 24.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "rotation": 0.0,
+                        "data": "http://127.0.0.1:8000/static/icons/bold/tree-palm-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "西瓜, 夏季水果, 红瓤, 儿童插画风格"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "圆圆的西瓜",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 23,
+                        "min_length": 8
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 65.27,
+                          "y": 32.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 68.25
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "红红的瓤，甜甜的！",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 95,
+                        "min_length": 38
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 310.0,
+                      "height": 100.25
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "ellipse",
+                        "points": [
+                          {
+                            "x": 24.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 24.0
+                          },
+                          {
+                            "x": 24.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 24.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "rotation": 0.0,
+                        "data": "http://127.0.0.1:8000/static/icons/bold/flower-lotus-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "香蕉, 弯弯的, 黄色, 夏季水果, 儿童插画风格"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "弯弯的香蕉",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 23,
+                        "min_length": 8
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 62.73,
+                          "y": 29.47
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 68.25
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "像小船。",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 95,
+                        "min_length": 38
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 310.0,
+                      "height": 100.25
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "ellipse",
+                        "points": [
+                          {
+                            "x": 24.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 24.0
+                          },
+                          {
+                            "x": 24.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 24.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "rotation": 0.0,
+                        "data": "http://127.0.0.1:8000/static/icons/bold/flower-lotus-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "桃子, 软软的, 夏季水果, 儿童插画风格"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "甜甜的桃子",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 23,
+                        "min_length": 8
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 32.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 68.25
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "软软的。",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 95,
+                        "min_length": 38
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 310.0,
+                      "height": 100.25
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "ellipse",
+                        "points": [
+                          {
+                            "x": 24.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 24.0
+                          },
+                          {
+                            "x": 24.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 24.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "rotation": 0.0,
+                        "data": "http://127.0.0.1:8000/static/icons/bold/flower-lotus-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "冰淇淋, 夏季, 美味, 儿童插画风格"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "冰淇淋",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 23,
+                        "min_length": 8
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 32.0
+                        },
+                        "size": {
+                          "width": 246.0,
+                          "height": 68.25
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "夏天的美味，但不能吃太多。",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 95,
+                        "min_length": 38
+                      }
+                    ],
+                    "name": "基础通用"
+                  }
+                ],
+                "name": "基础通用",
+                "max_children": 6,
+                "min_children": 3
+              }
+            ]
+          },
+          {
+            "id": "right_image_panel",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 816.0,
+              "y": 208.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 384.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 384.0,
+                    "y": 320.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 320.0
+                  }
+                ],
+                "closed": true,
+                "corner_radii": [
+                  16.0,
+                  16.0,
+                  16.0,
+                  16.0
+                ],
+                "fill": {
+                  "color": "#FFFFFF"
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "blur": 15.0,
+                  "opacity": 0.1,
+                  "offset_x": 0.0,
+                  "offset_y": 10.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 384.0,
+                  "height": 320.0
+                },
+                "rotation": 0.0,
+                "data": "http://127.0.0.1:8000/app_data/images/ceade590-6adf-4138-96e1-f028b3b29db9.png",
+                "fit": "cover",
+                "border_radius": {
+                  "tl": 16.0,
+                  "tr": 16.0,
+                  "bl": 16.0,
+                  "br": 16.0
+                },
+                "decorative": false,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true,
+                "prompt": "一个中国小朋友站在水果摊前，面前摆着西瓜、香蕉和桃子，画面温馨可爱，儿童插画风格，中国面孔，中国幼教场景"
+              }
+            ]
+          }
+        ]
+      },
+      "id": "94f9b3cc-b629-475b-815f-0516be6b05c6",
+      "index": 2,
+      "html_content": null,
+      "speaker_note": "小朋友们，夏天到了，有很多好吃的水果呢！我们一起来看看。西瓜圆圆的，里面是红红的瓤，吃起来甜甜的，可解渴了。香蕉弯弯的，像小船一样，非常可爱。桃子也是甜甜的，咬一口软软的，真好吃。还有，夏天吃冰淇淋很凉快，但是不能吃太多，不然肚子会不舒服的。记住要多吃水果，对身体好哦！"
+    },
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "title_description_bullet_points",
+      "content": {
+        "__speaker_note__": "小朋友们，夏天到了，我们可以在户外玩很多有趣的游戏。比如，在树荫下搭积木，不会被太阳晒到；还可以吹泡泡，看彩色泡泡飞起来；或者玩水枪打水仗，像这样biu biu biu！不过别忘了，玩完水要马上擦干身体，不然会着凉的哦。",
+        "headline_area": {
+          "基础通用": "夏天的游戏"
+        },
+        "left_visual_card": {
+          "基础通用": {
+            "image_prompt": "几个中国小朋友在户外树荫下玩耍，一个在玩积木，一个在吹彩色泡泡，另一个拿着小水枪在喷水，画面温馨快乐，儿童插画风格。",
+            "image_url": "http://127.0.0.1:8000/static/images/placeholder.jpg"
+          }
+        },
+        "right_content_column": {
+          "基础通用": "夏天的游戏有很多，我们来看看吧！",
+          "基础通用_2": [
+            {
+              "基础通用": {
+                "icon_query": "积木",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "树荫下搭积木",
+              "基础通用_3": "不晒太阳，凉快又好玩。"
+            },
+            {
+              "基础通用": {
+                "icon_query": "泡泡",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "吹彩色泡泡",
+              "基础通用_3": "用泡泡水吹出好多彩色泡泡。"
+            },
+            {
+              "基础通用": {
+                "icon_query": "水枪",
+                "icon_url": "http://127.0.0.1:8000/static/icons/placeholder.svg"
+              },
+              "基础通用_2": "玩水枪打水仗",
+              "基础通用_3": "拿小水枪，biu biu biu！玩后要擦干，小心着凉。"
+            }
+          ]
+        }
+      },
+      "properties": null,
+      "ui": {
+        "id": "title_description_bullet_points",
+        "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+        "components": [
+          {
+            "id": "slide_background",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 720.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 720.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#FFFFFF"
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 80.0,
+                  "y": 140.0
+                },
+                "size": {
+                  "width": 528.0,
+                  "height": 548.0
+                },
+                "data": "/app_data/templates/general/static/image11-6ce50168d7ec.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 552.0,
+                  "y": 220.0
+                },
+                "size": {
+                  "width": 24.0,
+                  "height": 24.0
+                },
+                "data": "/app_data/templates/general/static/image12-2ed5eba60707.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": true,
+                "required": true
+              }
+            ]
+          },
+          {
+            "id": "headline_area",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 80.0,
+              "y": 48.0
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 1122.0,
+                  "height": 60.0
+                },
+                "font": {
+                  "size": 60.0,
+                  "family": "Poppins",
+                  "color": "#111827",
+                  "bold": true,
+                  "italic": false,
+                  "line_height": 0.8
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天的游戏",
+                    "font": {
+                      "size": 60.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 0.8
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 30,
+                "min_length": 4
+              }
+            ]
+          },
+          {
+            "id": "left_visual_card",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 120.0,
+              "y": 254.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 448.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 448.0,
+                    "y": 320.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 320.0
+                  }
+                ],
+                "closed": true,
+                "corner_radii": [
+                  16.0,
+                  16.0,
+                  16.0,
+                  16.0
+                ],
+                "fill": {
+                  "color": "#FFFFFF"
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "blur": 15.0,
+                  "opacity": 0.1,
+                  "offset_x": 0.0,
+                  "offset_y": 10.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 448.0,
+                  "height": 320.0
+                },
+                "data": "http://127.0.0.1:8000/app_data/images/c88d18b5-781a-4004-8c09-d5b5097308d7.png",
+                "fit": "cover",
+                "border_radius": {
+                  "tl": 16.0,
+                  "tr": 16.0,
+                  "bl": 16.0,
+                  "br": 16.0
+                },
+                "decorative": false,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true,
+                "prompt": "几个中国小朋友在户外树荫下玩耍，一个在玩积木，一个在吹彩色泡泡，另一个拿着小水枪在喷水，画面温馨快乐，儿童插画风格。"
+              }
+            ]
+          },
+          {
+            "id": "right_content_column",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 672.0,
+              "y": 143.72
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 88.0
+                },
+                "font": {
+                  "size": 18.0,
+                  "family": "Poppins",
+                  "color": "#4B5563",
+                  "bold": false,
+                  "italic": false,
+                  "line_height": 1.3
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天的游戏有很多，我们来看看吧！",
+                    "font": {
+                      "size": 18.0,
+                      "family": "Poppins",
+                      "color": "#4B5563",
+                      "bold": false,
+                      "italic": false,
+                      "line_height": 1.3
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 124,
+                "min_length": 62
+              },
+              {
+                "type": "flex",
+                "position": {
+                  "x": 0.0,
+                  "y": 120.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 228.0
+                },
+                "direction": "column",
+                "wrap": false,
+                "align_items": "stretch",
+                "justify_content": "flex-start",
+                "gap": 30.0,
+                "children": [
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 530.0,
+                      "height": 96.0
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 48.0
+                          }
+                        ],
+                        "closed": true,
+                        "corner_radii": [
+                          8.0,
+                          8.0,
+                          8.0,
+                          8.0
+                        ],
+                        "fill": {
+                          "color": "#9333EA"
+                        },
+                        "shadow": {
+                          "color": "#000000",
+                          "blur": 6.0,
+                          "opacity": 0.1,
+                          "offset_x": 0.0,
+                          "offset_y": 4.0
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "data": "http://127.0.0.1:8000/static/icons/bold/hand-palm-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "积木"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "树荫下搭积木",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 40,
+                        "min_length": 6
+                      },
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 64.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 38.0
+                          },
+                          {
+                            "x": 64.0,
+                            "y": 38.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 50.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 52.0
+                        },
+                        "font": {
+                          "size": 16.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "不晒太阳，凉快又好玩。",
+                            "font": {
+                              "size": 16.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 100,
+                        "min_length": 48
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 530.0,
+                      "height": 96.0
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 48.0
+                          }
+                        ],
+                        "closed": true,
+                        "corner_radii": [
+                          8.0,
+                          8.0,
+                          8.0,
+                          8.0
+                        ],
+                        "fill": {
+                          "color": "#9333EA"
+                        },
+                        "shadow": {
+                          "color": "#000000",
+                          "blur": 6.0,
+                          "opacity": 0.1,
+                          "offset_x": 0.0,
+                          "offset_y": 4.0
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "data": "http://127.0.0.1:8000/static/icons/bold/smiley-nervous-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "泡泡"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "吹彩色泡泡",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 40,
+                        "min_length": 6
+                      },
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 64.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 38.0
+                          },
+                          {
+                            "x": 64.0,
+                            "y": 38.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 50.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 52.0
+                        },
+                        "font": {
+                          "size": 16.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "用泡泡水吹出好多彩色泡泡。",
+                            "font": {
+                              "size": 16.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 100,
+                        "min_length": 48
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "size": {
+                      "width": 530.0,
+                      "height": 96.0
+                    },
+                    "children": [
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 0.0
+                          },
+                          {
+                            "x": 48.0,
+                            "y": 48.0
+                          },
+                          {
+                            "x": 0.0,
+                            "y": 48.0
+                          }
+                        ],
+                        "closed": true,
+                        "corner_radii": [
+                          8.0,
+                          8.0,
+                          8.0,
+                          8.0
+                        ],
+                        "fill": {
+                          "color": "#9333EA"
+                        },
+                        "shadow": {
+                          "color": "#000000",
+                          "blur": 6.0,
+                          "opacity": 0.1,
+                          "offset_x": 0.0,
+                          "offset_y": 4.0
+                        }
+                      },
+                      {
+                        "type": "image",
+                        "position": {
+                          "x": 12.0,
+                          "y": 12.3
+                        },
+                        "size": {
+                          "width": 24.0,
+                          "height": 24.0
+                        },
+                        "data": "http://127.0.0.1:8000/static/icons/bold/towel-bold.svg",
+                        "fit": "fill",
+                        "color": "#FFFFFF",
+                        "decorative": false,
+                        "name": "基础通用",
+                        "is_icon": true,
+                        "required": true,
+                        "prompt": "水枪"
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 0.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 28.0
+                        },
+                        "font": {
+                          "size": 20.0,
+                          "family": "Poppins",
+                          "color": "#111827",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.12
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "玩水枪打水仗",
+                            "font": {
+                              "size": 20.0,
+                              "family": "Poppins",
+                              "color": "#111827",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.12
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 40,
+                        "min_length": 6
+                      },
+                      {
+                        "type": "vector",
+                        "shape": "polygon",
+                        "points": [
+                          {
+                            "x": 64.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 36.0
+                          },
+                          {
+                            "x": 112.0,
+                            "y": 38.0
+                          },
+                          {
+                            "x": 64.0,
+                            "y": 38.0
+                          }
+                        ],
+                        "closed": true,
+                        "fill": {
+                          "color": "#9333EA"
+                        }
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 64.0,
+                          "y": 50.0
+                        },
+                        "size": {
+                          "width": 466.0,
+                          "height": 52.0
+                        },
+                        "font": {
+                          "size": 16.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.3
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "拿小水枪，biu biu biu！玩后要擦干，小心着凉。",
+                            "font": {
+                              "size": 16.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.3
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 100,
+                        "min_length": 48
+                      }
+                    ],
+                    "name": "基础通用"
+                  }
+                ],
+                "name": "基础通用",
+                "max_children": 3,
+                "min_children": 2
+              }
+            ]
+          }
+        ]
+      },
+      "id": "a7330d97-0ef8-491f-bd16-eff08a2f7fa5",
+      "index": 3,
+      "html_content": null,
+      "speaker_note": "小朋友们，夏天到了，我们可以在户外玩很多有趣的游戏。比如，在树荫下搭积木，不会被太阳晒到；还可以吹泡泡，看彩色泡泡飞起来；或者玩水枪打水仗，像这样biu biu biu！不过别忘了，玩完水要马上擦干身体，不然会着凉的哦。"
+    },
+    {
+      "presentation": "77eb5eba-ef91-4a0b-97ad-6a332caecac3",
+      "layout_group": "general",
+      "layout": "title_image_description_metrics",
+      "content": {
+        "__speaker_note__": "小朋友们，夏天到了，我们出去玩的时候要注意安全。第一，不可以一个人去河边玩水，很危险。第二，出门前要涂防晒霜，戴上帽子，保护皮肤。第三，要多喝水，但不能喝生水，要喝烧开的水。记住这些，夏天就能玩得开开心心啦！",
+        "left_image_card": {
+          "基础通用": {
+            "image_prompt": "一个中国幼儿园老师正在给小朋友们讲解夏天安全知识，画面中有太阳、防晒霜、帽子和水杯，风格温暖可爱，小朋友们围着老师认真听讲。",
+            "image_url": "http://127.0.0.1:8000/static/images/placeholder.jpg"
+          }
+        },
+        "metric_pair_grid": {
+          "基础通用": [
+            {
+              "基础通用": "不独自玩水",
+              "基础通用_2": "远离危险"
+            },
+            {
+              "基础通用": "涂防晒霜",
+              "基础通用_2": "保护皮肤"
+            },
+            {
+              "基础通用": "多喝温水",
+              "基础通用_2": "补充水分"
+            },
+            {
+              "基础通用": "安全第一",
+              "基础通用_2": "快乐夏天"
+            }
+          ]
+        },
+        "right_text_block": {
+          "基础通用": "夏天的安全",
+          "基础通用_2": "不一个人去河边玩水。出门要涂防晒霜，戴好帽子。多喝水，不喝生水。夏天真快乐，安全最重要！"
+        }
+      },
+      "properties": null,
+      "ui": {
+        "id": "title_image_description_metrics",
+        "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+        "components": [
+          {
+            "id": "background_canvas",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 1280.0,
+                    "y": 720.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 720.0
+                  }
+                ],
+                "closed": true,
+                "fill": {
+                  "color": "#FFFFFF",
+                  "opacity": 1.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 528.0
+                },
+                "size": {
+                  "width": 192.0,
+                  "height": 192.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image22-6dd2f52e896c.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 1024.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 256.0,
+                  "height": 256.0
+                },
+                "rotation": 0.0,
+                "data": "/app_data/templates/general/static/image23-f21b824d69c7.png",
+                "fit": "fill",
+                "decorative": true,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true
+              }
+            ]
+          },
+          {
+            "id": "left_image_card",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 88.0,
+              "y": 176.0
+            },
+            "elements": [
+              {
+                "type": "vector",
+                "shape": "polygon",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 512.0,
+                    "y": 384.0
+                  },
+                  {
+                    "x": 0.0,
+                    "y": 384.0
+                  }
+                ],
+                "closed": true,
+                "corner_radii": [
+                  16.0,
+                  16.0,
+                  16.0,
+                  16.0
+                ],
+                "fill": {
+                  "color": "#FFFFFF",
+                  "opacity": 1.0
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "blur": 15.0,
+                  "opacity": 0.1,
+                  "offset_x": 0.0,
+                  "offset_y": 10.0
+                }
+              },
+              {
+                "type": "image",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 512.0,
+                  "height": 384.0
+                },
+                "rotation": 0.0,
+                "data": "http://127.0.0.1:8000/app_data/images/bb006a00-62f3-4ba0-801e-8e6eca88b5c0.png",
+                "fit": "cover",
+                "border_radius": {
+                  "tl": 16.0,
+                  "tr": 16.0,
+                  "bl": 16.0,
+                  "br": 16.0
+                },
+                "decorative": false,
+                "name": "基础通用",
+                "is_icon": false,
+                "required": true,
+                "prompt": "一个中国幼儿园老师正在给小朋友们讲解夏天安全知识，画面中有太阳、防晒霜、帽子和水杯，风格温暖可爱，小朋友们围着老师认真听讲。"
+              }
+            ]
+          },
+          {
+            "id": "right_text_block",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 672.0,
+              "y": 190.0
+            },
+            "elements": [
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 120.0
+                },
+                "font": {
+                  "size": 60.0,
+                  "family": "Poppins",
+                  "color": "#111827",
+                  "bold": true,
+                  "italic": false,
+                  "line_height": 0.8
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "夏天的安全",
+                    "font": {
+                      "size": 60.0,
+                      "family": "Poppins",
+                      "color": "#111827",
+                      "bold": true,
+                      "italic": false,
+                      "line_height": 0.8
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 21,
+                "min_length": 11
+              },
+              {
+                "type": "text",
+                "position": {
+                  "x": 0.0,
+                  "y": 144.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 112.0
+                },
+                "font": {
+                  "size": 18.0,
+                  "family": "Poppins",
+                  "color": "#4B5563",
+                  "bold": false,
+                  "italic": false,
+                  "line_height": 1.24
+                },
+                "alignment": {
+                  "horizontal": "left",
+                  "vertical": "top"
+                },
+                "runs": [
+                  {
+                    "text": "不一个人去河边玩水。出门要涂防晒霜，戴好帽子。多喝水，不喝生水。夏天真快乐，安全最重要！",
+                    "font": {
+                      "size": 18.0,
+                      "family": "Poppins",
+                      "color": "#4B5563",
+                      "bold": false,
+                      "italic": false,
+                      "line_height": 1.24
+                    }
+                  }
+                ],
+                "decorative": false,
+                "name": "基础通用",
+                "max_length": 186,
+                "min_length": 93
+              }
+            ]
+          },
+          {
+            "id": "metric_pair_grid",
+            "description": "简洁干净的基础版式，适合入门课件与各类幼教演示。",
+            "position": {
+              "x": 672.0,
+              "y": 470.0
+            },
+            "elements": [
+              {
+                "type": "grid",
+                "position": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "size": {
+                  "width": 530.0,
+                  "height": 88.39
+                },
+                "rotation": 0.0,
+                "columns": 2,
+                "rows": 1,
+                "column_gap": 22.0,
+                "align_items": "center",
+                "justify_items": "stretch",
+                "children": [
+                  {
+                    "type": "group",
+                    "position": {
+                      "x": 0.0,
+                      "y": 0.0
+                    },
+                    "size": {
+                      "width": 254.0,
+                      "height": 76.0
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 1.37,
+                          "y": -5.52
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 20.0
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.14
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "不独自玩水",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.14
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 30,
+                        "min_length": 9
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": 28.0
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 48.0
+                        },
+                        "font": {
+                          "size": 48.0,
+                          "family": "Poppins",
+                          "color": "#9333EA",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 0.8
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "远离危险",
+                            "font": {
+                              "size": 48.0,
+                              "family": "Poppins",
+                              "color": "#9333EA",
+                              "bold": true,
+                              "italic": false,
+                              "line_height": 0.8
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 8,
+                        "min_length": 2
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "position": {
+                      "x": 276.0,
+                      "y": 0.0
+                    },
+                    "size": {
+                      "width": 254.0,
+                      "height": 76.0
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": -4.13
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 20.0
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.14
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "涂防晒霜",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.14
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 30,
+                        "min_length": 9
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": 28.0
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 48.0
+                        },
+                        "font": {
+                          "size": 48.0,
+                          "family": "Poppins",
+                          "color": "#9333EA",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 0.8
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "保护皮肤",
+                            "font": {
+                              "size": 48.0,
+                              "family": "Poppins",
+                              "color": "#9333EA",
+                              "bold": true,
+                              "italic": false,
+                              "line_height": 0.8
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 8,
+                        "min_length": 2
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "position": {
+                      "x": 276.0,
+                      "y": 0.0
+                    },
+                    "size": {
+                      "width": 254.0,
+                      "height": 76.0
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": -4.13
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 20.0
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.14
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "多喝温水",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.14
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 30,
+                        "min_length": 9
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": 28.0
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 48.0
+                        },
+                        "font": {
+                          "size": 48.0,
+                          "family": "Poppins",
+                          "color": "#9333EA",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 0.8
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "补充水分",
+                            "font": {
+                              "size": 48.0,
+                              "family": "Poppins",
+                              "color": "#9333EA",
+                              "bold": true,
+                              "italic": false,
+                              "line_height": 0.8
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 8,
+                        "min_length": 2
+                      }
+                    ],
+                    "name": "基础通用"
+                  },
+                  {
+                    "type": "group",
+                    "position": {
+                      "x": 276.0,
+                      "y": 0.0
+                    },
+                    "size": {
+                      "width": 254.0,
+                      "height": 76.0
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": -4.13
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 20.0
+                        },
+                        "font": {
+                          "size": 14.0,
+                          "family": "Poppins",
+                          "color": "#4B5563",
+                          "bold": false,
+                          "italic": false,
+                          "line_height": 1.14
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "安全第一",
+                            "font": {
+                              "size": 14.0,
+                              "family": "Poppins",
+                              "color": "#4B5563",
+                              "bold": false,
+                              "italic": false,
+                              "line_height": 1.14
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 30,
+                        "min_length": 9
+                      },
+                      {
+                        "type": "text",
+                        "position": {
+                          "x": 0.0,
+                          "y": 28.0
+                        },
+                        "size": {
+                          "width": 254.0,
+                          "height": 48.0
+                        },
+                        "font": {
+                          "size": 48.0,
+                          "family": "Poppins",
+                          "color": "#9333EA",
+                          "bold": true,
+                          "italic": false,
+                          "line_height": 0.8
+                        },
+                        "alignment": {
+                          "horizontal": "left",
+                          "vertical": "top"
+                        },
+                        "runs": [
+                          {
+                            "text": "快乐夏天",
+                            "font": {
+                              "size": 48.0,
+                              "family": "Poppins",
+                              "color": "#9333EA",
+                              "bold": true,
+                              "italic": false,
+                              "line_height": 0.8
+                            }
+                          }
+                        ],
+                        "decorative": false,
+                        "name": "基础通用",
+                        "max_length": 8,
+                        "min_length": 2
+                      }
+                    ],
+                    "name": "基础通用"
+                  }
+                ],
+                "name": "基础通用",
+                "max_children": 4,
+                "min_children": 2
+              }
+            ]
+          }
+        ]
+      },
+      "id": "4b1cd100-ec37-46cb-b3ab-497fdd64899c",
+      "index": 4,
+      "html_content": null,
+      "speaker_note": "小朋友们，夏天到了，我们出去玩的时候要注意安全。第一，不可以一个人去河边玩水，很危险。第二，出门前要涂防晒霜，戴上帽子，保护皮肤。第三，要多喝水，但不能喝生水，要喝烧开的水。记住这些，夏天就能玩得开开心心啦！"
+    }
+  ],
+  "fonts": {
+    "Poppins": "https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,700;1,400&display=swap"
+  },
+  "generation_mode": "standard",
+  "community_design_ids": null,
+  "image_policy": "standard",
+  "quality_status": "stale",
+  "quality_report": null
+}

@@ -145,8 +145,11 @@ class ImageGenerationService:
                 if image_path.startswith("http"):
                     return image_path
                 elif os.path.exists(image_path):
+                    from utils.oss_storage import persist_generated_image
+
+                    stored_path = await persist_generated_image(image_path)
                     return ImageAsset(
-                        path=image_path,
+                        path=stored_path,
                         is_uploaded=False,
                         extras={
                             "prompt": prompt.prompt,
