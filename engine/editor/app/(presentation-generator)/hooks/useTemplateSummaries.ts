@@ -45,7 +45,10 @@ export function splitTemplatesByDefault(templates: TemplateListItem[]) {
   const defaultTemplates = orderBuiltInTemplates(
     templates.filter((template) => template.is_default)
   );
-  const customTemplates = templates.filter((template) => !template.is_default);
+  const customTemplates = templates.filter(
+    (template) =>
+      !template.is_default && !String(template.name || "").includes("编辑副本")
+  );
   return { defaultTemplates, customTemplates };
 }
 

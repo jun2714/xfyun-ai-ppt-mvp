@@ -788,22 +788,22 @@ def _get_template_fonts(template: TemplateV2) -> dict[str, str]:
     return _coerce_font_map(template.assets.get("fonts"))
 
 
-def _get_template_thumbnail_from_assets(assets: Any) -> str | None:
-    if not isinstance(assets, dict):
-        return None
+def _get_template_thumbnail_from_assets(assets: Any, layouts: Any = None) -> str | None:
+    if isinstance(assets, dict):
+        thumbnail = assets.get("thumbnail")
+        if isinstance(thumbnail, str) and thumbnail.strip():
+            return thumbnail.strip()
 
-    thumbnail = assets.get("thumbnail")
-    if isinstance(thumbnail, str) and thumbnail.strip():
-        return thumbnail.strip()
+        slide_image_urls = assets.get("slide_image_urls")
+        if isinstance(slide_image_urls, list):
+            for slide_image_url in slide_image_urls:
+                if isinstance(slide_image_url, str) and slide_image_url.strip():
+                    return slide_image_url.strip()
 
-    slide_image_urls = assets.get("slide_image_urls")
-    if not isinstance(slide_image_urls, list):
-        return None
-
-    for slide_image_url in slide_image_urls:
-        if isinstance(slide_image_url, str) and slide_image_url.strip():
-            return slide_image_url.strip()
-    return None
+    layout_images = _collect_image_urls_from_layouts(
+        layouts if isinstance(layouts, dict) else {"layouts": layouts or []}
+    )
+    return layout_images[0] if layout_images else None
 
 
 async def _get_template_layout_patch_lock(template_id: str) -> asyncio.Lock:
@@ -1025,6 +1025,12 @@ async def list_templates(
     q: Optional[str] = Query(default=None, description="Filter by template name."),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
+    from services.library_edit_copy import (
+        is_library_edit_copy_name,
+        migrate_library_edit_copy_templates,
+    )
+
+    await migrate_library_edit_copy_templates(sql_session)
     offset = (page - 1) * page_size
     query = (
         select(
@@ -1062,6 +1068,8 @@ async def list_templates(
     ) in result.all():
         if default is not None and bool(is_default) != default:
             continue
+        if is_library_edit_copy_name(name):
+            continue
 
         layout_count = _count_layouts(layouts)
         if layout_count == 0:
@@ -1080,7 +1088,7 @@ async def list_templates(
                 name=name,
                 description=description,
                 layout_count=layout_count,
-                thumbnail=_get_template_thumbnail_from_assets(assets),
+                thumbnail=_get_template_thumbnail_from_assets(assets, layouts),
                 slide_image_urls=slide_urls,
                 is_default=is_default,
                 can_manage=can_manage_official_templates(),
@@ -1985,6 +1993,51 @@ async def get_template(
         merged_components=template.merged_components,
         layouts=template.layouts,
         fonts=_get_template_fonts(template),
+    )
+
+
+class ConvertTemplateToPresentationRequest(BaseModel):
+    title: Optional[str] = None
+    delete_template: bool = True
+    layouts: Optional[Any] = None
+
+
+class ConvertTemplateToPresentationResponse(BaseModel):
+    presentation_id: str
+    id: str = ""
+    title: str
+
+
+@TEMPLATE_ROUTER.post(
+    "/{template_id}/to-presentation",
+    response_model=ConvertTemplateToPresentationResponse,
+)
+async def convert_template_to_presentation(
+    template_id: str = Path(...),
+    request: ConvertTemplateToPresentationRequest,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    from services.library_edit_copy import persist_presentation_from_template
+
+    template = await sql_session.get(TemplateV2, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    _require_private_template(template)
+    try:
+        presentation = await persist_presentation_from_template(
+            sql_session,
+            template,
+            title=request.title,
+            layouts=request.layouts,
+            delete_template=request.delete_template,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    presentation_id = str(presentation.id)
+    return ConvertTemplateToPresentationResponse(
+        presentation_id=presentation_id,
+        id=presentation_id,
+        title=presentation.title or request.title or template.name or "未命名课件",
     )
 
 

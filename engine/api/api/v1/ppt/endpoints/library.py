@@ -16,8 +16,8 @@ from sqlmodel import select
 
 from api.v1.auth.context import get_current_owner_id, get_current_owner_is_admin
 from models.sql.ppt_library_item import PptLibraryItem
-from models.sql.template_v2 import TemplateV2
 from services.database import get_async_session
+from services.library_edit_copy import create_presentation_from_layouts
 from services.export_task_service import EXPORT_TASK_SERVICE
 from templates.fonts_and_slides_preview import render_pptx_slides_to_images
 from templates.v2.models.elements import Position
@@ -91,8 +91,9 @@ class LibraryListResponse(BaseModel):
 
 
 class LibraryCloneResponse(BaseModel):
-    template_id: str
+    presentation_id: str
     title: str
+    id: str = ""
 
 
 class LibraryDownloadResponse(BaseModel):
@@ -682,19 +683,25 @@ async def clone_library_item_for_edit(
             status_code=400,
             detail="该案例暂不支持在线编辑，请直接下载原件",
         )
-    clone_title = f"{item.title}（编辑副本）"
-    template = TemplateV2(
-        name=clone_title,
-        description=item.description,
-        raw_layouts=item.raw_layouts,
-        layouts=item.layouts,
-        assets=item.assets or {},
-        is_default=False,
-    )
-    sql_session.add(template)
+    try:
+        presentation, slides = create_presentation_from_layouts(
+            title=item.title,
+            description=item.description,
+            layouts=item.layouts,
+            assets=item.assets,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sql_session.add(presentation)
+    sql_session.add_all(slides)
     await sql_session.commit()
-    await sql_session.refresh(template)
-    return LibraryCloneResponse(template_id=template.id, title=clone_title)
+    await sql_session.refresh(presentation)
+    presentation_id = str(presentation.id)
+    return LibraryCloneResponse(
+        presentation_id=presentation_id,
+        id=presentation_id,
+        title=presentation.title or item.title,
+    )
 
 
 @LIBRARY_ROUTER.delete("/{item_id}", status_code=204)

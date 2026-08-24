@@ -27,6 +27,12 @@ import { COMMIT_TEMPLATE_V2_INLINE_TEXT_EVENT } from "@/components/slide-editor/
 import { normalizeBackendAssetUrls } from "@/utils/api";
 import { ensureTailwindBrowserScript } from "@/lib/tailwind-browser";
 import TemplateService from "../../services/api/template";
+import {
+  cleanEditCopyTitle,
+  isLibraryEditCopyName,
+  upsertPresentationFromLayouts,
+} from "../../services/api/materialize-template";
+import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
 import { useTemplateDetails } from "../../hooks/useTemplateDetails";
 import {
   useFontLoader as loadFontAssets,
@@ -1028,7 +1034,38 @@ const GroupLayoutPreview = ({
         targetTemplateId,
         template,
       });
-      await TemplateService.updateTemplate(targetTemplateId, payload);
+      const shouldSaveToMyProjects =
+        !template.is_default &&
+        (isLibraryEditCopyName(nextTemplateName) ||
+          isLibraryEditCopyName(template.name));
+      try {
+        await TemplateService.updateTemplate(targetTemplateId, payload);
+      } catch (templateSaveError) {
+        if (!shouldSaveToMyProjects) throw templateSaveError;
+      }
+      if (shouldSaveToMyProjects) {
+        const converted = await upsertPresentationFromLayouts({
+          templateId: targetTemplateId,
+          title: cleanEditCopyTitle(nextTemplateName),
+          layouts: layoutsToSave as Array<Record<string, unknown>>,
+          deleteTemplate: true,
+        });
+        setHasUnsavedChanges(false);
+        setSavedTemplateName(nextTemplateName);
+        notify.success("已保存到我的项目", "可在「我的项目」中继续编辑这份课件");
+        track(ANALYTICS_EVENTS.TEMPLATE_PREVIEW_TEMPLATE_SAVED, {
+          template_id: templateId,
+          layout_count: layoutsToSave.length,
+          duration_ms: Date.now() - startedAt,
+        });
+        const params = new URLSearchParams({
+          id: converted.presentation_id,
+          type: "standard",
+        });
+        if (isTeachnovaEmbed()) params.set("embed", "teachnova");
+        router.replace(`/presentation?${params.toString()}`);
+        return;
+      }
 
       setHasUnsavedChanges(false);
       setSavedTemplateName(nextTemplateName);
@@ -1060,6 +1097,7 @@ const GroupLayoutPreview = ({
   }, [
     canEditTemplate,
     hasUnsavedChanges,
+    router,
     template,
     templateId,
     templateNameDraft,

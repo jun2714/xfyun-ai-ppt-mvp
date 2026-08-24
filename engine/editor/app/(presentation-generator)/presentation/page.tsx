@@ -3,13 +3,14 @@ import React from "react";
 import PresentationPage from "./components/PresentationPage";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isUuid } from "@/utils/uuid";
 import "../utils/prism-languages";
 const page = () => {
 
   const router = useRouter();
   const params = useSearchParams();
   const queryId = params.get("id");
-  if (!queryId) {
+  if (!isUuid(queryId)) {
     return (
       <div className="flex flex-col items-center justify-center h-screen font-syne">
         <h1 className="text-2xl font-bold">No presentation id found</h1>

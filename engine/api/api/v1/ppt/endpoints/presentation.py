@@ -1436,6 +1436,9 @@ async def get_all_presentations(
     ] = True,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
+    from services.library_edit_copy import migrate_library_edit_copy_templates
+
+    await migrate_library_edit_copy_templates(sql_session)
     if include_slides:
         query = select(PresentationModel, SlideModel).join(
             SlideModel,

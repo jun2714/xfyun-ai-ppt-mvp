@@ -1,6 +1,8 @@
 import { getApiUrl } from "@/utils/api";
 import { ApiResponseHandler } from "./api-error-handler";
 import { getHeader, getHeaderForFormData } from "./header";
+import { pickUuid } from "@/utils/uuid";
+import { materializeTemplateAsPresentation } from "./materialize-template";
 
 export interface LibraryItem {
   id: string;
@@ -120,7 +122,7 @@ export class LibraryService {
     return ApiResponseHandler.handleResponse(response, "加载案例失败");
   }
 
-  static async cloneForEdit(itemId: string): Promise<{ template_id: string; title: string }> {
+  static async cloneForEdit(itemId: string): Promise<{ presentation_id: string; title: string }> {
     const response = await fetch(
       getApiUrl(`/api/v1/ppt/library/${encodeURIComponent(itemId)}/clone`),
       {
@@ -128,7 +130,30 @@ export class LibraryService {
         headers: getHeader(),
       },
     );
-    return ApiResponseHandler.handleResponse(response, "创建编辑副本失败");
+    const data = await ApiResponseHandler.handleResponse(response, "创建可编辑项目失败");
+    const presentationId = pickUuid(
+      data?.presentation_id,
+      data?.presentationId,
+      data?.id,
+    );
+    const templateId = pickUuid(data?.template_id, data?.templateV2Id);
+    if (presentationId) {
+      return {
+        presentation_id: presentationId,
+        title: data?.title || "",
+      };
+    }
+    if (templateId) {
+      const converted = await materializeTemplateAsPresentation(
+        templateId,
+        data?.title,
+      );
+      return {
+        presentation_id: converted.presentation_id,
+        title: converted.title || data?.title || "",
+      };
+    }
+    throw new Error("未返回有效项目编号");
   }
 
   static async download(itemId: string, title: string): Promise<void> {

@@ -48,6 +48,7 @@ import {
 } from "@/utils/presentationLimits";
 import { bucketMessageLength, sanitizeAnalyticsError } from "@/utils/analytics";
 import { MixpanelEvent, trackEvent } from "@/utils/mixpanel";
+import { isUuid } from "@/utils/uuid";
 import { TemplateV2HtmlSlidePreview } from "../../components/TemplateV2HtmlSlidePreview";
 import {
   Popover,
@@ -271,7 +272,7 @@ const Chat = ({
     promptMetricsRef.current = null;
     activeEditPreviewRef.current = null;
 
-    if (!activeResourceId) {
+    if (!isUuid(activeResourceId)) {
       return;
     }
 

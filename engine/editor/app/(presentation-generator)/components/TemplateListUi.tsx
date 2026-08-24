@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, CheckCircle2, Loader2, Trash2 } from "lucide-react";
@@ -9,6 +9,11 @@ import {
   TemplateCreateTaskResponse,
   TemplateListItem,
 } from "../services/api/template";
+import TemplateService from "../services/api/template";
+import { extractTemplateV2Layouts } from "@/components/slide-editor/importing/template-v2-import";
+import {
+  TemplateV2HtmlSlidePreview,
+} from "./TemplateV2HtmlSlidePreview";
 import {
   TemplatePreviewStage,
   LayoutsBadge,
@@ -21,24 +26,52 @@ import {
 
 export function TemplateThumbnailPreview({
   thumbnail,
+  previewLayout,
+  fonts,
   templateName,
   selectionPage = false,
 }: {
   thumbnail?: string | null;
+  previewLayout?: unknown;
+  fonts?: unknown;
   templateName: string;
   selectionPage?: boolean;
 }) {
   const resolvedThumbnail = thumbnail ? resolveBackendAssetUrl(thumbnail) : "";
 
-  if (!resolvedThumbnail) {
+  if (resolvedThumbnail) {
     return (
       <div
         className={cn(
-          "relative z-10 flex w-full items-center justify-center rounded-[12px] border border-[#EDEEEF] bg-white/80",
+          "relative z-10 flex w-full items-center justify-center",
           selectionPage ? "h-full" : "aspect-video"
         )}
       >
-        <div className="h-10 w-16 rounded-md border border-dashed border-[#C9CDD8] bg-[#F7F8FB]" />
+        <div
+          aria-label={`${templateName} thumbnail`}
+          className={cn(
+            "h-full w-full rounded-[12px] border border-[#EDEEEF] bg-white bg-contain bg-center bg-no-repeat",
+            !selectionPage && "shadow-sm"
+          )}
+          role="img"
+          style={{ backgroundImage: `url(${JSON.stringify(resolvedThumbnail)})` }}
+        />
+      </div>
+    );
+  }
+
+  if (previewLayout && typeof previewLayout === "object") {
+    return (
+      <div
+        className={cn(
+          "relative z-10 overflow-hidden rounded-[12px] border border-[#EDEEEF] bg-white",
+          selectionPage ? "h-full" : "aspect-video"
+        )}
+      >
+        <TemplateV2HtmlSlidePreview
+          slide={{ ui: previewLayout }}
+          fonts={fonts}
+        />
       </div>
     );
   }
@@ -46,19 +79,11 @@ export function TemplateThumbnailPreview({
   return (
     <div
       className={cn(
-        "relative z-10 flex w-full items-center justify-center",
+        "relative z-10 flex w-full items-center justify-center rounded-[12px] border border-[#EDEEEF] bg-white/80",
         selectionPage ? "h-full" : "aspect-video"
       )}
     >
-      <div
-        aria-label={`${templateName} thumbnail`}
-        className={cn(
-          "h-full w-full rounded-[12px] border border-[#EDEEEF] bg-white bg-contain bg-center bg-no-repeat",
-          !selectionPage && "shadow-sm"
-        )}
-        role="img"
-        style={{ backgroundImage: `url(${JSON.stringify(resolvedThumbnail)})` }}
-      />
+      <div className="h-10 w-16 rounded-md border border-dashed border-[#C9CDD8] bg-[#F7F8FB]" />
     </div>
   );
 }
@@ -107,6 +132,30 @@ export const TemplateListCard = memo(function TemplateListCard({
     template.name,
     template.id,
   );
+  const coverThumbnail =
+    template.thumbnail || template.slide_image_urls?.find(Boolean) || "";
+  const [previewLayout, setPreviewLayout] = useState<unknown>(
+    template.preview_layout || null,
+  );
+  const [previewFonts, setPreviewFonts] = useState<unknown>(null);
+
+  useEffect(() => {
+    if (coverThumbnail || previewLayout) return;
+    let cancelled = false;
+    void TemplateService.getTemplateDetails(template.id)
+      .then((details) => {
+        if (cancelled) return;
+        const layouts = extractTemplateV2Layouts(details.layouts);
+        setPreviewLayout(layouts[0] || null);
+        setPreviewFonts(details.fonts || null);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewLayout(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coverThumbnail, previewLayout, template.id]);
   const statusLabelMap: Record<string, string> = {
     ready: "可用",
     completed: "已完成",
@@ -158,7 +207,9 @@ export const TemplateListCard = memo(function TemplateListCard({
           selectionPage={selectionPage}
         />
         <TemplateThumbnailPreview
-          thumbnail={template.thumbnail}
+          thumbnail={coverThumbnail}
+          previewLayout={previewLayout}
+          fonts={previewFonts}
           templateName={displayName}
           selectionPage={selectionPage}
         />

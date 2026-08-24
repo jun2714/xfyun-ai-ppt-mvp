@@ -75,7 +75,7 @@ if (localBrowser) {
 }
 
 const children = [
-  spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "false"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),
+  spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "true"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),
   spawn("npm", ["run", "dev", "--", "-p", "5001"], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
 ];
 

@@ -29,6 +29,7 @@ import {
   LLM_PROVIDERS,
 } from "@/utils/providerConstants";
 import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
+import { migrateLibraryEditCopyTemplates, dedupeSameTitlePresentations } from "@/app/(presentation-generator)/services/api/materialize-template";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/presenton/presenton";
 const DISCORD_INVITE_URL = "https://discord.com/invite/9ZsKKxudNE";
@@ -307,6 +308,12 @@ const DashboardPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
+      try {
+        await migrateLibraryEditCopyTemplates();
+        await dedupeSameTitlePresentations();
+      } catch (migrationError) {
+        console.error("failed to migrate library edit copies", migrationError);
+      }
       const [supported, legacy] = await Promise.all([
         DashboardApi.getPresentations("v2-standard"),
         DashboardApi.getPresentations("v1-standard", { includeSlides: false }),

@@ -8,6 +8,7 @@ import { applyPresentationThemeToElement } from "../utils/applyPresentationTheme
 import { normalizeBackendAssetUrls } from "@/utils/api";
 import { useFontLoader } from "../../hooks/useFontLoad";
 import { DashboardApi } from "../../services/api/dashboard";
+import { isUuid } from "@/utils/uuid";
 
 
 export const usePresentationData = (
@@ -19,6 +20,11 @@ export const usePresentationData = (
   const router = useRouter();
 
   const fetchUserSlides = useCallback(async (options?: { clearHistory?: boolean }) => {
+    if (!isUuid(presentationId)) {
+      setError(true);
+      setLoading(false);
+      return undefined;
+    }
     try {
       const data = await DashboardApi.getPresentation(presentationId, {
         cache: "no-store",

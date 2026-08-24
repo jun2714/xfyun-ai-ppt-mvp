@@ -182,9 +182,15 @@ export default function LibraryPanel() {
     setBusyId(item.id);
     try {
       const cloned = await LibraryService.cloneForEdit(item.id);
-      const params = new URLSearchParams({ templateV2Id: cloned.template_id });
+      if (!cloned.presentation_id) {
+        throw new Error("未返回有效项目编号");
+      }
+      const params = new URLSearchParams();
       if (isTeachnovaEmbed()) params.set("embed", "teachnova");
-      router.push(`/template-preview?${params.toString()}`);
+      params.set("id", cloned.presentation_id);
+      params.set("type", "standard");
+      notify.success("已加入我的项目", "正在打开可编辑文稿");
+      router.push(`/presentation?${params.toString()}`);
     } catch (error) {
       notify.error("无法打开编辑", error instanceof Error ? error.message : "请稍后重试");
     } finally {
@@ -507,7 +513,7 @@ export default function LibraryPanel() {
                         className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#7A5AF8] text-xs font-semibold text-white disabled:opacity-50"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                        编辑副本
+                        加入我的项目
                       </button>
                     </div>
                   </div>

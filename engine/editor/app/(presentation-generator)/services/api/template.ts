@@ -37,6 +37,8 @@ export interface TemplateListItem {
     description?: string | null;
     layout_count?: number;
     thumbnail?: string | null;
+    slide_image_urls?: string[] | null;
+    preview_layout?: unknown;
     is_default?: boolean;
     can_manage?: boolean;
     status?: string | null;
