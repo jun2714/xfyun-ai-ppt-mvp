@@ -40,6 +40,7 @@ from utils.asset_directory_utils import (
     get_uploads_directory,
     resolve_app_path_to_filesystem,
 )
+from utils.cjk_fonts import append_cjk_font_stack, cjk_preview_font_css
 from utils.download_helpers import download_file
 from utils.get_env import get_app_data_directory_env
 from utils.font_uploads import (
@@ -561,7 +562,7 @@ def _tailwind_fallback_css_for_slide_html(slide_html: str) -> str:
             family = match.group(1)
             append_rule(
                 class_name,
-                f'font-family:"{_css_string(family)}", Arial, sans-serif;',
+                f'font-family:"{_css_string(family)}", "TeachNova CJK", sans-serif;',
             )
 
     return "\n".join(rules)
@@ -720,6 +721,7 @@ async def render_pptx_slides_to_images(
             pptx_document.font_css,
             _font_face_css_for_declared_fonts(pptx_document.font_css),
             local_font_css,
+            cjk_preview_font_css(),
         )
         if css
     )
@@ -732,9 +734,10 @@ async def render_pptx_slides_to_images(
         )
         if css
     )
+    localized_font_css = append_cjk_font_stack(localized_font_css)
     explicit_font_links = _font_stylesheet_links_for_urls(font_stylesheet_urls or [])
     for slide_html in slide_htmls:
-        localized_slide_html = _localize_preview_asset_urls(slide_html)
+        localized_slide_html = append_cjk_font_stack(_localize_preview_asset_urls(slide_html))
         inferred_font_links = _font_stylesheet_links_for_slide_html(
             localized_slide_html, localized_font_css
         )

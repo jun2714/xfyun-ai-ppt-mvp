@@ -6,6 +6,7 @@ import os
 from fastapi import FastAPI
 
 from migrations import ensure_ppt_library_schema, migrate_database_on_startup
+from utils.cjk_fonts import ensure_cjk_preview_font
 from services.database import async_session_maker, create_db_and_tables, dispose_engines
 from services.provider_settings import migrate_provider_settings_from_file
 from templates.default_templates import import_default_templates_on_startup
@@ -58,6 +59,7 @@ async def app_lifespan(_: FastAPI):
     await migrate_database_on_startup()
     await create_db_and_tables()
     await asyncio.to_thread(ensure_ppt_library_schema)
+    await asyncio.to_thread(ensure_cjk_preview_font)
     await bootstrap_database_admin()
     async with async_session_maker() as session:
         await migrate_provider_settings_from_file(session)

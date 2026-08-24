@@ -31,6 +31,7 @@ from utils.asset_directory_utils import (
     absolute_fastapi_asset_url,
     resolve_app_path_to_filesystem,
 )
+from utils.cjk_fonts import CJK_PREVIEW_MARK, ensure_cjk_preview_font, has_preview_cjk_font
 from utils.datetime_utils import get_current_utc_datetime
 from utils.get_env import get_app_data_directory_env, get_temp_directory_env, is_disable_auth_enabled
 from utils.oss_storage import (
@@ -211,6 +212,32 @@ def _item_response(item: PptLibraryItem, include_slides: bool = True) -> Library
     )
 
 
+def _preview_assets(pptx_url: str, slide_urls: list[str], preview_engine: str) -> dict:
+    assets = {
+        "pptx_url": pptx_url,
+        "slide_image_urls": slide_urls,
+        "preview_engine": preview_engine,
+    }
+    if has_preview_cjk_font():
+        assets["preview_charset"] = CJK_PREVIEW_MARK
+    return assets
+
+
+async def _library_html_font_paths(pptx_abs: str, item_dir: str) -> list[str]:
+    from templates.pptx_font_utils import extract_raw_fonts_and_embedded_details
+
+    font_dir = os.path.join(item_dir, "embedded-fonts")
+    os.makedirs(font_dir, exist_ok=True)
+    _raw, _details, embedded = await asyncio.to_thread(
+        extract_raw_fonts_and_embedded_details, pptx_abs, font_dir
+    )
+    paths = [path for path in embedded if path and os.path.isfile(path)]
+    cjk_path = ensure_cjk_preview_font()
+    if cjk_path:
+        paths.append(cjk_path)
+    return paths
+
+
 async def _render_library_slides(
     pptx_abs: str, item_dir: str, prefer_html: bool
 ) -> tuple[str, list[str]]:
@@ -219,10 +246,11 @@ async def _render_library_slides(
         return "office", office_paths
     if prefer_html:
         try:
+            font_paths = await _library_html_font_paths(pptx_abs, item_dir)
             html_paths = list(
                 await asyncio.wait_for(
-                    render_pptx_slides_to_images(pptx_abs, [], None, LOGGER),
-                    timeout=180,
+                    render_pptx_slides_to_images(pptx_abs, font_paths, None, LOGGER),
+                    timeout=420,
                 )
             )
             if html_paths:
@@ -316,7 +344,8 @@ async def _hydrate_missing_preview(
         for url in (assets.get("slide_image_urls") or [])
         if isinstance(url, str) and url.strip()
     ]
-    if existing_urls:
+    already_cjk = assets.get("preview_charset") == CJK_PREVIEW_MARK
+    if existing_urls and (already_cjk or not has_preview_cjk_font()):
         return item
     if not item.pptx_path:
         return item
@@ -337,6 +366,8 @@ async def _hydrate_missing_preview(
         assets["slide_image_urls"] = slide_urls
         assets["pptx_url"] = item.pptx_path
         assets["preview_engine"] = preview_engine
+        if has_preview_cjk_font():
+            assets["preview_charset"] = CJK_PREVIEW_MARK
         item.page_count = page_count or len(slide_urls)
         item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
         item.assets = assets
@@ -496,7 +527,7 @@ async def create_library_item(
         pptx_path=pptx_url,
         layouts=layouts_json,
         raw_layouts=raw_layouts_json,
-        assets={"pptx_url": pptx_url, "slide_image_urls": slide_urls, "preview_engine": preview_engine},
+        assets=_preview_assets(pptx_url, slide_urls, preview_engine),
         visibility="official" if is_admin else "personal",
         created_by=get_current_owner_id(),
     )
@@ -618,11 +649,7 @@ async def update_library_item(
         item.pptx_path = pptx_url
         item.layouts = layouts_json
         item.raw_layouts = raw_layouts_json
-        item.assets = {
-            "pptx_url": pptx_url,
-            "slide_image_urls": slide_urls,
-            "preview_engine": preview_engine,
-        }
+        item.assets = _preview_assets(pptx_url, slide_urls, preview_engine)
         for url in old_urls:
             if isinstance(url, str) and url not in slide_urls and url != pptx_url:
                 await delete_by_url(url)

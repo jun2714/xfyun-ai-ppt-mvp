@@ -14,20 +14,13 @@ from typing import Iterable
 
 from PIL import Image, ImageDraw, ImageFont
 
+from utils.cjk_fonts import ensure_cjk_preview_font
+
 LOGGER = logging.getLogger(__name__)
 
 PREVIEW_WIDTH = 1280
 PREVIEW_HEIGHT = 720
 _OFFICE_LOCK = threading.Lock()
-_CJK_FONT_CANDIDATES = (
-    r"C:\Windows\Fonts\msyh.ttc",
-    r"C:\Windows\Fonts\msyh.ttf",
-    r"C:\Windows\Fonts\simhei.ttf",
-    r"C:\Windows\Fonts\simsun.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-)
 
 
 def count_pptx_slides(pptx_path: str) -> int:
@@ -217,10 +210,10 @@ def _paste_picture(canvas: Image.Image, shape, slide_w: int, slide_h: int) -> bo
 
 
 def _load_cjk_font(size: int):
-    for path in _CJK_FONT_CANDIDATES:
-        if os.path.isfile(path):
-            try:
-                return ImageFont.truetype(path, size=size)
-            except OSError:
-                continue
+    font_path = ensure_cjk_preview_font()
+    if font_path:
+        try:
+            return ImageFont.truetype(font_path, size=size)
+        except OSError:
+            pass
     return ImageFont.load_default()
