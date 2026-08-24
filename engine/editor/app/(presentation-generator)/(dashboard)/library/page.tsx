@@ -1,8 +1,7 @@
-import React from "react";
+"use client";
+
 import LibraryPanel from "./components/LibraryPanel";
 
-const page = () => {
+export default function LibraryPage() {
   return <LibraryPanel />;
-};
-
-export default page;
+}

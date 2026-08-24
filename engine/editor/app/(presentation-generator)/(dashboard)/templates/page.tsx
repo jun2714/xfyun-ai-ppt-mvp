@@ -1,11 +1,7 @@
-import React from 'react'
-import TemplatePanel from './components/TemplatePanel'
+"use client";
 
+import TemplatePanel from "./components/TemplatePanel";
 
-const page = () => {
-    return (
-        <TemplatePanel />
-    )
+export default function TemplatesPage() {
+  return <TemplatePanel />;
 }
-
-export default page

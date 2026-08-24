@@ -252,6 +252,7 @@ class TemplateListItem(BaseModel):
     description: Optional[str] = None
     layout_count: int = 0
     thumbnail: Optional[str] = None
+    slide_image_urls: list[str] = Field(default_factory=list)
     is_default: bool = False
     can_manage: bool = False
     created_at: datetime
@@ -750,20 +751,22 @@ def _with_randomized_layout_ids(layouts: SlideLayouts) -> SlideLayouts:
     )
 
 
-def _get_template_slide_image_urls(template: TemplateV2) -> list[str | None]:
-    if not isinstance(template.assets, dict):
+def _get_template_slide_image_urls_from_assets(assets: Any) -> list[str | None]:
+    if not isinstance(assets, dict):
         return []
-
-    slide_image_urls = template.assets.get("slide_image_urls")
+    slide_image_urls = assets.get("slide_image_urls")
     if not isinstance(slide_image_urls, list):
         return []
-
     return [
         slide_image_url.strip()
         if isinstance(slide_image_url, str) and slide_image_url.strip()
         else None
         for slide_image_url in slide_image_urls
     ]
+
+
+def _get_template_slide_image_urls(template: TemplateV2) -> list[str | None]:
+    return _get_template_slide_image_urls_from_assets(template.assets)
 
 
 def _coerce_font_map(value: Any) -> dict[str, str]:
@@ -1015,6 +1018,11 @@ async def list_templates(
             description="Only include default templates when true, custom templates when false.",
         ),
     ] = None,
+    mine: bool = Query(
+        default=False,
+        description="Only include templates owned by the current user.",
+    ),
+    q: Optional[str] = Query(default=None, description="Filter by template name."),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     offset = (page - 1) * page_size
@@ -1033,8 +1041,13 @@ async def list_templates(
     )
     if default is not None:
         query = query.where(TemplateV2.is_default == default)
+    if mine:
+        owner_id = get_current_owner_id()
+        if owner_id is not None:
+            query = query.where(TemplateV2.owner_id == owner_id)
 
     result = await sql_session.execute(query)
+    keyword = (q or "").strip().lower()
 
     items: list[TemplateListItem] = []
     for (
@@ -1053,7 +1066,14 @@ async def list_templates(
         layout_count = _count_layouts(layouts)
         if layout_count == 0:
             continue
+        if keyword and keyword not in f"{name or ''} {description or ''}".lower():
+            continue
 
+        slide_urls = [
+            url.strip()
+            for url in _get_template_slide_image_urls_from_assets(assets)
+            if url
+        ]
         items.append(
             TemplateListItem(
                 id=template_id,
@@ -1061,6 +1081,7 @@ async def list_templates(
                 description=description,
                 layout_count=layout_count,
                 thumbnail=_get_template_thumbnail_from_assets(assets),
+                slide_image_urls=slide_urls,
                 is_default=is_default,
                 can_manage=can_manage_official_templates(),
                 created_at=created_at,
@@ -1954,6 +1975,9 @@ async def get_template(
         description=template.description,
         layout_count=_count_layouts(template.layouts),
         thumbnail=_get_template_thumbnail_from_assets(template.assets),
+        slide_image_urls=[
+            url for url in _get_template_slide_image_urls(template) if url
+        ],
         is_default=template.is_default,
         can_manage=can_manage_official_templates(),
         created_at=template.created_at or get_current_utc_datetime(),

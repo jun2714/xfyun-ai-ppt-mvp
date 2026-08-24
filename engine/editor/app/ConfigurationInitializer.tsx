@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { setCanChangeKeys, setLLMConfig } from '@/store/slices/userConfig';
 import { hasValidLLMConfig, normalizeLLMConfig } from '@/utils/storeHelpers';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,10 +17,14 @@ function ConfigurationLoadingScreen() {
       aria-busy="true"
       className="fixed inset-0 z-[2147483000] overflow-hidden bg-white"
       role="status"
+      suppressHydrationWarning
     >
       <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-7 whitespace-nowrap">
         <div aria-hidden="true" className="configuration-loader" />
-        <p className="font-syne text-[18px] font-normal leading-normal tracking-[-0.54px] text-[#191919]">
+        <p
+          className="font-syne text-[18px] font-normal leading-normal tracking-[-0.54px] text-[#191919]"
+          suppressHydrationWarning
+        >
           正在加载编辑器…
         </p>
       </div>
@@ -56,7 +59,12 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
   const [hasMetSplashDuration, setHasMetSplashDuration] = useState(
     () => !shouldShowStartupSplash
   );
+  const [hasMounted, setHasMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Fetch user config state
   useEffect(() => {
@@ -255,7 +263,7 @@ export function ConfigurationInitializer({ children }: { children: React.ReactNo
   }
 
 
-  if (isLoading || !hasMetSplashDuration) {
+  if (!hasMounted || isLoading || !hasMetSplashDuration) {
     return <ConfigurationLoadingScreen />;
   }
 

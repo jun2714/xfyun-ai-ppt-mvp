@@ -30,9 +30,21 @@ class PptLibraryItem(SQLModel, table=True):
     raw_layouts: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     assets: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     download_count: int = Field(default=0, sa_column=Column(Integer, nullable=False, default=0))
+    visibility: str = Field(
+        default="official",
+        sa_column=Column(String(16), nullable=False, index=True, server_default="official"),
+    )
+    season: str = Field(
+        default="不限",
+        sa_column=Column(String(16), nullable=False, index=True, server_default="不限"),
+    )
+    scene: str = Field(
+        default="其他",
+        sa_column=Column(String(16), nullable=False, index=True, server_default="其他"),
+    )
     created_by: Optional[uuid.UUID] = Field(
         default_factory=get_current_owner_id,
-        sa_column=Column(Uuid, nullable=True, index=True),
+        sa_column=Column("created_by", Uuid, nullable=True, index=True),
     )
     created_at: datetime = Field(
         sa_column=Column(

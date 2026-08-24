@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 import MixpanelInitializer from "./MixpanelInitializer";
 import { Toaster } from "@/components/ui/sonner";
 import TailwindCdnRuntime from "@/components/runtime/TailwindCdnRuntime";
+import { ChunkLoadRecovery } from "@/components/runtime/ChunkLoadRecovery";
 
 // Avoid next/font/google here: fonts.gstatic.com is often unreachable in CN,
 // which crashes the editor during Turbopack compile.
@@ -106,6 +107,7 @@ export default function RootLayout({
         className={`${inter.variable} ${systemUi.variable} ${manrope.variable} ${unbounded.variable} ${notoSansSC.variable} antialiased`}
       >
         <Providers>
+          <ChunkLoadRecovery />
           <MixpanelInitializer>
 
             {children}

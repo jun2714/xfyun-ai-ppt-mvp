@@ -264,6 +264,7 @@ async def persist_local_path(
     content_type: str | None = None,
     download_name: str | None = None,
     delete_local: bool = False,
+    **kwargs,
 ) -> str:
     with open(file_path, "rb") as handle:
         data = handle.read()
@@ -273,7 +274,7 @@ async def persist_local_path(
         content_type=content_type,
         download_name=download_name,
     )
-    if delete_local:
+    if delete_local or kwargs.get("delete_local"):
         try:
             os.remove(file_path)
         except OSError:

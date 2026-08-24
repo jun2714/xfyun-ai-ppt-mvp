@@ -9,9 +9,24 @@ import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
 import {
   LIBRARY_AGE_GROUPS,
   LIBRARY_CATEGORIES,
+  LIBRARY_SCENES,
+  LIBRARY_SEASONS,
   LibraryService,
+  guessLibraryTags,
   type LibraryItem,
 } from "../../../services/api/library";
+
+type UploadQueueItem = {
+  key: string;
+  file: File;
+  title: string;
+  category: string;
+  age_group: string;
+  season: string;
+  scene: string;
+  status: "queued" | "uploading" | "done" | "error";
+  error?: string;
+};
 
 export default function LibraryPanel() {
   const router = useRouter();
@@ -23,12 +38,14 @@ export default function LibraryPanel() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof LIBRARY_CATEGORIES)[number]>("全部");
   const [ageGroup, setAgeGroup] = useState<(typeof LIBRARY_AGE_GROUPS)[number]>("全部");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [uploadCategory, setUploadCategory] = useState("其他");
-  const [uploadAge, setUploadAge] = useState("混龄");
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [season, setSeason] = useState<(typeof LIBRARY_SEASONS)[number]>("全部");
+  const [scene, setScene] = useState<(typeof LIBRARY_SCENES)[number]>("全部");
+  const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const queueRef = useRef<UploadQueueItem[]>([]);
+  const uploadingRef = useRef(false);
+  queueRef.current = queue;
   const [canManage, setCanManage] = useState(false);
   const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -41,6 +58,8 @@ export default function LibraryPanel() {
         q: query.trim() || undefined,
         category,
         age_group: ageGroup,
+        season,
+        scene,
       });
       setItems(data.items || []);
       setCanManage(Boolean(data.can_manage));
@@ -49,56 +68,99 @@ export default function LibraryPanel() {
     } finally {
       setLoading(false);
     }
-  }, [ageGroup, category, query]);
+  }, [ageGroup, category, query, scene, season]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   const handleSelectFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
+    const files = Array.from(event.target.files || []);
     event.target.value = "";
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pptx")) {
+    const pptxFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pptx"));
+    if (!pptxFiles.length) {
       notify.error("文件格式不正确", "请上传 .pptx 文件");
       return;
     }
-    setPendingFile(file);
-    if (!title.trim()) {
-      setTitle(file.name.replace(/\.pptx$/i, ""));
+    if (uploadingRef.current) {
+      notify.warning("正在上传", "请等当前队列完成后再选新的文件");
+      return;
     }
+    const nextQueue: UploadQueueItem[] = pptxFiles.map((file, index) => {
+      const guessed = guessLibraryTags(file.name);
+      return {
+        key: `${file.name}-${file.size}-${file.lastModified}-${index}`,
+        file,
+        title: guessed.title,
+        category: guessed.category,
+        age_group: guessed.age_group,
+        season: guessed.season,
+        scene: guessed.scene,
+        status: "queued",
+      };
+    });
+    queueRef.current = nextQueue;
+    setQueue(nextQueue);
     setShowUpload(true);
+    setUploadProgress(`已选 ${nextQueue.length} 个文件，开始逐个解析封面`);
+    void runUpload(nextQueue);
   };
 
-  const handleUpload = async () => {
-    if (!pendingFile) {
+  const updateQueueItem = (key: string, patch: Partial<UploadQueueItem>) => {
+    setQueue((current) => {
+      const next = current.map((item) => (item.key === key ? { ...item, ...patch } : item));
+      queueRef.current = next;
+      return next;
+    });
+  };
+
+  const runUpload = async (list?: UploadQueueItem[]) => {
+    const snapshot = list ?? queueRef.current;
+    if (!snapshot.length) {
       notify.warning("请选择文件", "请先选择要上传的 PPTX");
       return;
     }
-    if (!title.trim()) {
-      notify.warning("请填写标题", "案例标题不能为空");
-      return;
-    }
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setUploading(true);
     try {
-      await LibraryService.upload({
-        file: pendingFile,
-        title: title.trim(),
-        description: description.trim(),
-        category: uploadCategory,
-        age_group: uploadAge,
-      });
-      notify.success("上传成功", "案例已加入素材库，原件不会被老师编辑覆盖");
-      setShowUpload(false);
-      setPendingFile(null);
-      setTitle("");
-      setDescription("");
-      await loadItems();
-    } catch (error) {
-      notify.error("上传失败", error instanceof Error ? error.message : "请稍后重试");
+      for (let index = 0; index < snapshot.length; index += 1) {
+        const item = snapshot[index];
+        const latest = queueRef.current.find((row) => row.key === item.key) || item;
+        if (latest.status === "done") continue;
+        setUploadProgress(`正在上传 ${index + 1}/${snapshot.length}：《${latest.title}》，解析封面大约 1–2 分钟`);
+        updateQueueItem(item.key, { status: "uploading", error: "" });
+        try {
+          const current = queueRef.current.find((row) => row.key === item.key) || latest;
+          await LibraryService.upload({
+            file: current.file,
+            title: current.title.trim() || current.file.name.replace(/\.pptx$/i, ""),
+            category: current.category,
+            age_group: current.age_group,
+            season: current.season,
+            scene: current.scene,
+          });
+          updateQueueItem(item.key, { status: "done" });
+        } catch (error) {
+          updateQueueItem(item.key, {
+            status: "error",
+            error: error instanceof Error ? error.message : "上传失败",
+          });
+        }
+      }
+      const succeeded = queueRef.current.filter((item) => item.status === "done").length;
+      const failed = queueRef.current.filter((item) => item.status === "error").length;
+      setUploadProgress(`完成：成功 ${succeeded} 个，失败 ${failed} 个。失败项可点「开始上传」重试。`);
+      notify.success("批量上传完成", `成功 ${succeeded} 个，失败 ${failed} 个`);
+      if (succeeded) await loadItems();
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
     }
+  };
+
+  const handleUpload = async () => {
+    await runUpload();
   };
 
   const handleDownload = async (item: LibraryItem) => {
@@ -225,7 +287,7 @@ export default function LibraryPanel() {
               }}
             >
               <Upload className="h-4 w-4" />
-              上传案例
+              批量上传
             </button>
           ) : null}
           {canManage ? (
@@ -233,6 +295,7 @@ export default function LibraryPanel() {
             ref={fileInputRef}
             type="file"
             accept=".pptx"
+            multiple
             className="hidden"
             onChange={handleSelectFile}
           />
@@ -269,7 +332,29 @@ export default function LibraryPanel() {
           >
             {LIBRARY_AGE_GROUPS.map((item) => (
               <option key={item} value={item}>
-                {item === "全部" ? "全部年龄" : item}
+                {item === "全部" ? "全部班级" : item}
+              </option>
+            ))}
+          </select>
+          <select
+            value={season}
+            onChange={(event) => setSeason(event.target.value as typeof season)}
+            className="h-10 rounded-full border border-[#EDEEEF] bg-white px-3 text-sm"
+          >
+            {LIBRARY_SEASONS.map((item) => (
+              <option key={item} value={item}>
+                {item === "全部" ? "全部学期" : item}
+              </option>
+            ))}
+          </select>
+          <select
+            value={scene}
+            onChange={(event) => setScene(event.target.value as typeof scene)}
+            className="h-10 rounded-full border border-[#EDEEEF] bg-white px-3 text-sm"
+          >
+            {LIBRARY_SCENES.map((item) => (
+              <option key={item} value={item}>
+                {item === "全部" ? "全部课型" : item}
               </option>
             ))}
           </select>
@@ -277,46 +362,45 @@ export default function LibraryPanel() {
 
         {showUpload && canManage ? (
           <div className="mb-8 rounded-[22px] border border-[#EDEEEF] bg-white p-5">
-            <div className="mb-4 text-sm font-semibold text-[#191919]">发布到素材库</div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="案例标题"
-                className="h-10 rounded-xl border border-[#EDEEEF] px-3 text-sm"
-              />
-              <input
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="简介（选填）"
-                className="h-10 rounded-xl border border-[#EDEEEF] px-3 text-sm"
-              />
-              <select
-                value={uploadCategory}
-                onChange={(event) => setUploadCategory(event.target.value)}
-                className="h-10 rounded-xl border border-[#EDEEEF] px-3 text-sm"
-              >
-                {LIBRARY_CATEGORIES.filter((item) => item !== "全部").map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={uploadAge}
-                onChange={(event) => setUploadAge(event.target.value)}
-                className="h-10 rounded-xl border border-[#EDEEEF] px-3 text-sm"
-              >
-                {LIBRARY_AGE_GROUPS.filter((item) => item !== "全部").map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="mt-3 text-xs text-[#667085]">
-              已选择：{pendingFile?.name || "未选择文件"}
+            <div className="mb-1 text-sm font-semibold text-[#191919]">批量发布到素材库</div>
+            <p className="mb-4 text-xs text-[#667085]">
+              已识别班级、学期和课型，可逐条改。大文件会排队解析封面，老师访问时只加载封面图，不会下载原 PPT。
+              {uploadProgress ? ` 进度 ${uploadProgress}` : ""}
             </p>
+            <div className="max-h-[360px] space-y-3 overflow-auto">
+              {queue.map((item) => (
+                <div
+                  key={item.key}
+                  className={`grid gap-2 rounded-xl border p-3 md:grid-cols-6 ${
+                    item.status === "uploading"
+                      ? "border-[#C9C6FF] bg-[#F7F6FF]"
+                      : item.status === "done"
+                        ? "border-[#B7E4C7] bg-[#F3FBF6]"
+                        : item.status === "error"
+                          ? "border-[#F3C0C0] bg-[#FFF6F6]"
+                          : "border-[#EDEEEF]"
+                  }`}
+                >
+                  <input
+                    value={item.title}
+                    onChange={(event) => updateQueueItem(item.key, { title: event.target.value })}
+                    className="h-9 rounded-lg border border-[#EDEEEF] px-2 text-sm md:col-span-2"
+                  />
+                  <select className="h-9 rounded-lg border border-[#EDEEEF] px-2 text-sm" value={item.age_group} onChange={(event) => updateQueueItem(item.key, { age_group: event.target.value })}>
+                    {LIBRARY_AGE_GROUPS.filter((value) => value !== "全部").map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select className="h-9 rounded-lg border border-[#EDEEEF] px-2 text-sm" value={item.season} onChange={(event) => updateQueueItem(item.key, { season: event.target.value })}>
+                    {LIBRARY_SEASONS.filter((value) => value !== "全部").map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <select className="h-9 rounded-lg border border-[#EDEEEF] px-2 text-sm" value={item.scene} onChange={(event) => updateQueueItem(item.key, { scene: event.target.value })}>
+                    {LIBRARY_SCENES.filter((value) => value !== "全部").map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <div className="flex items-center text-xs text-[#667085]">
+                    {item.status === "uploading" ? "正在解析封面…" : item.status === "done" ? "已进入素材库" : item.status === "error" ? item.error : "等待上传"}
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
@@ -325,17 +409,18 @@ export default function LibraryPanel() {
                 className="inline-flex h-10 items-center gap-2 rounded-full bg-[#7A5AF8] px-4 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {uploading ? "正在解析上传…" : "确认上传"}
+                {uploading ? `正在解析上传 ${uploadProgress}` : `开始上传 ${queue.length} 个文件`}
               </button>
               <button
                 type="button"
                 onClick={() => {
+                  if (uploading) return;
                   setShowUpload(false);
-                  setPendingFile(null);
+                  setQueue([]);
                 }}
                 className="h-10 rounded-full border border-[#EDEEEF] px-4 text-sm"
               >
-                取消
+                {queue.some((item) => item.status === "done") ? "完成" : "取消"}
               </button>
             </div>
           </div>
@@ -391,7 +476,7 @@ export default function LibraryPanel() {
                           {item.title}
                         </h4>
                         <p className="mt-1 text-xs text-[#667085]">
-                          {item.age_group} · {item.category} · {item.page_count || 0} 页 · 下载 {item.download_count}
+                          {item.age_group} · {item.season || "不限"} · {item.scene || item.category} · {item.page_count || 0} 页 · 下载 {item.download_count}
                         </p>
                       </div>
                       {canManage ? (

@@ -8,6 +8,8 @@ export interface LibraryItem {
   description?: string | null;
   category: string;
   age_group: string;
+  season?: string;
+  scene?: string;
   page_count: number;
   thumbnail?: string | null;
   slide_image_urls?: string[];
@@ -36,17 +38,47 @@ export const LIBRARY_CATEGORIES = [
 ] as const;
 
 export const LIBRARY_AGE_GROUPS = ["全部", "小班", "中班", "大班", "混龄"] as const;
+export const LIBRARY_SEASONS = ["全部", "春季", "秋季", "不限"] as const;
+export const LIBRARY_SCENES = ["全部", "教学", "家长会", "公开课", "其他"] as const;
+
+export function guessLibraryTags(filename: string) {
+  const text = filename.replace(/\.pptx$/i, "");
+  const title = text.replace(/^\d+\s*/, "").replace(/^《|》$/g, "").trim() || text;
+  let age_group = "混龄";
+  if (text.includes("小班")) age_group = "小班";
+  else if (text.includes("中班")) age_group = "中班";
+  else if (text.includes("大班")) age_group = "大班";
+  let season = "不限";
+  if (/春|下学期/.test(text)) season = "春季";
+  else if (/秋|上学期|开学/.test(text)) season = "秋季";
+  let scene = "其他";
+  if (/公开课|观摩/.test(text)) scene = "公开课";
+  else if (/家长会|家长|毕业|幼小|衔接/.test(text)) scene = "家长会";
+  else if (text.includes("教学")) scene = "教学";
+  let category = scene === "家长会" ? "家园共育" : "其他";
+  if (/健康|卫生|安全/.test(text)) category = "健康";
+  else if (/语言|阅读|绘本/.test(text)) category = "语言";
+  else if (/社会|交往/.test(text)) category = "社会";
+  else if (/科学|探索/.test(text)) category = "科学";
+  else if (/艺术|美术|音乐/.test(text)) category = "艺术";
+  else if (/节日|新年|端午|中秋/.test(text)) category = "节日";
+  return { title, category, age_group, season, scene };
+}
 
 export class LibraryService {
   static async list(params: {
     q?: string;
     category?: string;
     age_group?: string;
+    season?: string;
+    scene?: string;
   } = {}): Promise<LibraryListResponse> {
     const search = new URLSearchParams();
     if (params.q) search.set("q", params.q);
     if (params.category && params.category !== "全部") search.set("category", params.category);
     if (params.age_group && params.age_group !== "全部") search.set("age_group", params.age_group);
+    if (params.season && params.season !== "全部") search.set("season", params.season);
+    if (params.scene && params.scene !== "全部") search.set("scene", params.scene);
     const query = search.toString();
     const response = await fetch(
       getApiUrl(`/api/v1/ppt/library${query ? `?${query}` : ""}`),
@@ -61,6 +93,8 @@ export class LibraryService {
     description?: string;
     category: string;
     age_group: string;
+    season?: string;
+    scene?: string;
   }): Promise<LibraryItem> {
     const form = new FormData();
     form.append("file", payload.file);
@@ -68,6 +102,8 @@ export class LibraryService {
     form.append("description", payload.description || "");
     form.append("category", payload.category);
     form.append("age_group", payload.age_group);
+    form.append("season", payload.season || "不限");
+    form.append("scene", payload.scene || "其他");
     const response = await fetch(getApiUrl("/api/v1/ppt/library"), {
       method: "POST",
       headers: getHeaderForFormData(),

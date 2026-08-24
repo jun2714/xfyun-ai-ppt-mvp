@@ -9,6 +9,18 @@ export default function GlobalError({
   error: Error & { digest?: string };
 }) {
   useEffect(() => {
+    const isChunkError =
+      error?.name === "ChunkLoadError" ||
+      /Failed to load chunk|ChunkLoadError/.test(error?.message || "");
+    if (isChunkError) {
+      const key = "presenton-chunk-reload-at";
+      const last = Number(sessionStorage.getItem(key) || "0");
+      if (Date.now() - last >= 15_000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+        return;
+      }
+    }
     console.error("Global error:", error);
   }, [error]);
 
