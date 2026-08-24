@@ -54,6 +54,7 @@ export interface TemplateDetailsResponse extends TemplateListItem {
     merged_components?: unknown;
     layouts?: unknown;
     assets?: unknown;
+    fonts?: unknown;
 }
 
 export interface AsyncTaskResponse {
