@@ -19,7 +19,7 @@ from utils.get_env import get_app_data_directory_env
 
 LOGGER = logging.getLogger(__name__)
 
-CJK_PREVIEW_MARK = "cjk-v1"
+CJK_PREVIEW_MARK = "cjk-v2"
 CJK_FAMILY = "TeachNova CJK"
 CJK_FONT_ALIASES = (
     "Microsoft YaHei",
@@ -62,8 +62,12 @@ _CJK_FONT_CANDIDATES = (
     "/usr/share/fonts/noto-cjk/NotoSansCJKsc-Regular.otf",
     "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
     "/usr/share/fonts/truetype/droid/DroidSansFallback.ttf",
+    "/usr/share/fonts/wqy-microhei/wqy-microhei.ttc",
+    "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
 )
@@ -90,16 +94,21 @@ def _iter_font_candidates() -> list[str]:
         "/usr/share/fonts",
     ]
     if app_data:
-        search_roots.insert(0, os.path.join(app_data, "fonts"))
+        fonts_dir = os.path.join(app_data, "fonts")
+        search_roots.insert(0, fonts_dir)
+        for path in glob.glob(os.path.join(fonts_dir, "*")):
+            if path.lower().endswith((".ttf", ".otf", ".ttc", ".otc", ".woff", ".woff2")):
+                add(path)
 
     patterns = (
         "*NotoSansCJK*SC*.otf",
         "*NotoSansCJKsc*.otf",
         "*NotoSansSC*.otf",
         "*SourceHanSans*SC*.otf",
-        "*wqy-microhei*",
+        "*wqy*",
         "*DroidSansFallback*.ttf",
         "*NotoSansCJK*.ttc",
+        "*NotoSansCJK*.otc",
     )
     for root in search_roots:
         if not os.path.isdir(root):
@@ -114,10 +123,62 @@ def discover_cjk_font_file() -> str | None:
     files = _iter_font_candidates()
     if not files:
         return None
-    preferred = [
-        path for path in files if path.lower().endswith((".otf", ".ttf", ".woff2", ".woff"))
-    ]
-    return (preferred or files)[0]
+
+    def rank(path: str) -> tuple[int, int, str]:
+        name = os.path.basename(path).casefold()
+        score = 0
+        if any(token in name for token in ("msyh", "simhei", "wqy", "noto", "sourcehan", "droid")):
+            score += 20
+        if path.lower().endswith((".otf", ".ttf", ".woff2", ".woff")):
+            score += 10
+        return (-score, os.path.getsize(path) if os.path.isfile(path) else 0, path)
+
+    return sorted(files, key=rank)[0]
+
+
+def _font_family_name(font) -> str:
+    for name_id in (16, 1, 4):
+        try:
+            value = font["name"].getDebugName(name_id)
+        except Exception:
+            value = None
+        if value:
+            return str(value)
+    return ""
+
+
+def _extract_cjk_face(source: str, dest_dir: str) -> str | None:
+    suffix = Path(source).suffix.lower()
+    if suffix not in {".ttc", ".otc"}:
+        return None
+    try:
+        from fontTools.ttLib import TTCollection
+    except Exception:
+        LOGGER.warning("[ppt.cjk] fontTools 不可用，无法从 TTC 拆出单字体")
+        return None
+    try:
+        collection = TTCollection(source)
+        if not collection.fonts:
+            return None
+        ranked = []
+        for font in collection.fonts:
+            name = _font_family_name(font).casefold()
+            score = 0
+            if any(token in name for token in ("sc", "cn", "gb", "simplified", "hei", "micro")):
+                score += 10
+            if "regular" in name or "book" in name:
+                score += 2
+            ranked.append((score, font))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        chosen = ranked[0][1]
+        ext = ".otf" if "CFF " in chosen or "CFF2" in chosen else ".ttf"
+        dest = os.path.join(dest_dir, f"cjk-preview-fallback{ext}")
+        chosen.save(dest)
+        LOGGER.info("[ppt.cjk] extracted %s from %s", dest, source)
+        return dest if os.path.isfile(dest) else None
+    except Exception:
+        LOGGER.exception("[ppt.cjk] failed to extract CJK face from %s", source)
+        return None
 
 
 @lru_cache(maxsize=1)
@@ -130,20 +191,26 @@ def ensure_cjk_preview_font() -> str | None:
         return None
 
     app_data = get_app_data_directory_env()
-    if not app_data:
-        return source
-
-    dest_dir = os.path.join(app_data, "fonts")
+    dest_dir = os.path.join(app_data, "fonts") if app_data else os.path.expanduser("~/.local/share/fonts")
     os.makedirs(dest_dir, exist_ok=True)
-    dest = os.path.join(dest_dir, f"cjk-preview-fallback{Path(source).suffix.lower() or '.ttf'}")
+    extracted = _extract_cjk_face(source, dest_dir)
+    staged = extracted
+    if not staged:
+        suffix = Path(source).suffix.lower() or ".ttf"
+        dest = os.path.join(dest_dir, f"cjk-preview-fallback{suffix}")
+        try:
+            if not os.path.isfile(dest) or os.path.getsize(dest) != os.path.getsize(source):
+                shutil.copy2(source, dest)
+            staged = dest if os.path.isfile(dest) else source
+        except Exception:
+            LOGGER.exception("[ppt.cjk] failed to stage CJK preview font")
+            staged = source
     try:
-        if not os.path.isfile(dest) or os.path.getsize(dest) != os.path.getsize(source):
-            shutil.copy2(source, dest)
         user_fonts = os.path.expanduser("~/.local/share/fonts")
         os.makedirs(user_fonts, exist_ok=True)
-        user_copy = os.path.join(user_fonts, os.path.basename(dest))
-        if not os.path.isfile(user_copy):
-            shutil.copy2(dest, user_copy)
+        user_copy = os.path.join(user_fonts, os.path.basename(staged))
+        if os.path.isfile(staged) and not os.path.isfile(user_copy):
+            shutil.copy2(staged, user_copy)
             subprocess.run(
                 ["fc-cache", "-f", user_fonts],
                 check=False,
@@ -152,33 +219,47 @@ def ensure_cjk_preview_font() -> str | None:
                 stderr=subprocess.DEVNULL,
             )
     except Exception:
-        LOGGER.exception("[ppt.cjk] failed to stage CJK preview font")
-        return source
-    return dest if os.path.isfile(dest) else source
+        LOGGER.exception("[ppt.cjk] failed to register user font")
+    return staged if staged and os.path.isfile(staged) else source
 
 
 def has_preview_cjk_font() -> bool:
-    return bool(ensure_cjk_preview_font())
+    if ensure_cjk_preview_font():
+        return True
+    try:
+        result = subprocess.run(
+            ["fc-list", ":lang=zh"],
+            check=False,
+            timeout=10,
+            capture_output=True,
+            text=True,
+        )
+        return bool((result.stdout or "").strip())
+    except Exception:
+        return False
 
 
 def cjk_preview_font_css() -> str:
     font_path = ensure_cjk_preview_font()
-    if not font_path:
-        return ""
-    font_url = Path(font_path).resolve().as_uri()
-    families = (CJK_FAMILY,) + CJK_FONT_ALIASES
-    rules = [
-        (
-            "@font-face { "
-            f'font-family: "{family}"; '
-            f'src: url("{font_url}"); '
-            "font-weight: 100 900; "
-            "font-style: normal; "
-            "font-display: block; "
-            "}"
+    rules: list[str] = []
+    usable_file = bool(
+        font_path and Path(font_path).suffix.lower() not in {".ttc", ".otc"}
+    )
+    if usable_file and font_path:
+        font_url = Path(font_path).resolve().as_uri()
+        families = (CJK_FAMILY,) + CJK_FONT_ALIASES
+        rules.extend(
+            (
+                "@font-face { "
+                f'font-family: "{family}"; '
+                f'src: url("{font_url}"); '
+                "font-weight: 100 900; "
+                "font-style: normal; "
+                "font-display: block; "
+                "}"
+            )
+            for family in families
         )
-        for family in families
-    ]
     stack = ", ".join(f'"{name}"' for name in (CJK_FAMILY,) + CJK_FONT_ALIASES)
     rules.append(
         "html, body, #slide-preview-root { "
@@ -197,7 +278,7 @@ def append_cjk_font_stack(css_or_html: str) -> str:
         stripped = value.strip()
         if not stripped or stripped.lower() == "inherit" or CJK_FAMILY in stripped:
             return match.group(0)
-        return f'{prefix}{stripped}, "{CJK_FAMILY}", sans-serif{suffix}'
+        return f'{prefix}{stripped}, "{CJK_FAMILY}", "WenQuanYi Micro Hei", "Noto Sans CJK SC", sans-serif{suffix}'
 
     return re.sub(
         r"(font-family\s*:\s*)([^;}{]+)([;}])",
