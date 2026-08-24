@@ -30,6 +30,36 @@ REVISION_MULTI_USER_AUTH = "c9f1a2b3d4e5"
 REVISION_USERNAME_PROVIDER_SETTINGS = "d0a2b4c6e8f1"
 REVISION_PRIMARY_ADMIN_SLOT = "f3a7c1d9e5b2"
 REVISION_PPT_LIBRARY_ITEMS = "a9c1e3f5b7d9"
+REVISION_PPT_LIBRARY_VISIBILITY = "b1c3d5e7f9a2"
+REVISION_PPT_LIBRARY_SEASON_SCENE = "c2d4e6f8a0b1"
+
+
+def ensure_ppt_library_schema() -> None:
+    """Patch library columns onto an existing table. create_all cannot ALTER SQLite."""
+    database_url, _ = get_database_url_and_connect_args()
+    sync_url = to_sync_sqlalchemy_url(database_url)
+    engine = create_engine(sync_url)
+    try:
+        with engine.begin() as connection:
+            inspector = inspect(connection)
+            if "ppt_library_items" not in inspector.get_table_names():
+                return
+            columns = {column["name"] for column in inspector.get_columns("ppt_library_items")}
+            patches = (
+                ("visibility", "VARCHAR(16) NOT NULL DEFAULT 'official'", "ix_ppt_library_items_visibility"),
+                ("season", "VARCHAR(16) NOT NULL DEFAULT '不限'", "ix_ppt_library_items_season"),
+                ("scene", "VARCHAR(16) NOT NULL DEFAULT '其他'", "ix_ppt_library_items_scene"),
+            )
+            for name, ddl, index_name in patches:
+                if name in columns:
+                    continue
+                connection.execute(text(f"ALTER TABLE ppt_library_items ADD COLUMN {name} {ddl}"))
+                connection.execute(
+                    text(f"CREATE INDEX IF NOT EXISTS {index_name} ON ppt_library_items ({name})")
+                )
+                print(f"Added ppt_library_items.{name}", flush=True)
+    finally:
+        engine.dispose()
 
 
 async def migrate_database_on_startup() -> None:
@@ -296,6 +326,7 @@ def _is_unversioned_populated_database(database_url: str) -> bool:
         "user",
         "access_tokens",
         "provider_settings",
+        "ppt_library_items",
     }
     engine = create_engine(database_url)
     try:

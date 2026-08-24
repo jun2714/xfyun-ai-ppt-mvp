@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 import os
 
 from fastapi import FastAPI
 
-from migrations import migrate_database_on_startup
+from migrations import ensure_ppt_library_schema, migrate_database_on_startup
 from services.database import async_session_maker, create_db_and_tables, dispose_engines
 from services.provider_settings import migrate_provider_settings_from_file
 from templates.default_templates import import_default_templates_on_startup
@@ -56,6 +57,7 @@ async def app_lifespan(_: FastAPI):
     os.makedirs(get_app_data_directory_env(), exist_ok=True)
     await migrate_database_on_startup()
     await create_db_and_tables()
+    await asyncio.to_thread(ensure_ppt_library_schema)
     await bootstrap_database_admin()
     async with async_session_maker() as session:
         await migrate_provider_settings_from_file(session)

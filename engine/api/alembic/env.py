@@ -59,7 +59,9 @@ def _get_url() -> str:
     from utils.db_utils import get_database_url_and_connect_args, to_sync_sqlalchemy_url
 
     url, _ = get_database_url_and_connect_args()
-    return to_sync_sqlalchemy_url(url)
+    sync_url = to_sync_sqlalchemy_url(url)
+    print(f"[alembic] using {sync_url}", flush=True)
+    return sync_url
 
 
 def run_migrations_offline() -> None:

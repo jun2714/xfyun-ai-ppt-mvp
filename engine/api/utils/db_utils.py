@@ -1,7 +1,43 @@
 import os
+from pathlib import Path
 from utils.get_env import get_app_data_directory_env, get_database_url_env
 from urllib.parse import urlsplit, urlunsplit, parse_qsl
 import ssl
+
+_REPO_DOTENV_LOADED = False
+
+
+def _apply_env_file(path: Path) -> None:
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+def _load_repo_dotenv() -> None:
+    """Fill missing env vars from repo .env so Alembic CLI uses the same DB as the API."""
+    global _REPO_DOTENV_LOADED
+    if _REPO_DOTENV_LOADED:
+        return
+    _REPO_DOTENV_LOADED = True
+    api_dir = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[3]
+    for candidate in (repo_root / ".env", api_dir / ".env"):
+        if candidate.is_file():
+            _apply_env_file(candidate)
+            return
 
 
 def _ensure_sqlite_parent_dir(database_url: str) -> None:
@@ -20,6 +56,8 @@ def _ensure_sqlite_parent_dir(database_url: str) -> None:
     parent = os.path.dirname(db_path)
     if parent:
         os.makedirs(parent, exist_ok=True)
+
+
 def _int_env(name: str, default: int) -> int:
     """Read an integer from an environment variable, falling back to *default*."""
     raw = os.getenv(name)
@@ -55,6 +93,7 @@ def get_pool_kwargs() -> dict:
 
 
 def get_database_url_and_connect_args() -> tuple[str, dict]:
+    _load_repo_dotenv()
     database_url = get_database_url_env() or "sqlite:///" + os.path.join(
         get_app_data_directory_env() or "/tmp/presenton", "fastapi.db"
     )
