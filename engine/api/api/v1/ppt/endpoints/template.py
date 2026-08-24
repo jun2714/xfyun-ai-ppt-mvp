@@ -2014,7 +2014,7 @@ class ConvertTemplateToPresentationResponse(BaseModel):
 )
 async def convert_template_to_presentation(
     template_id: str = Path(...),
-    request: ConvertTemplateToPresentationRequest,
+    request: ConvertTemplateToPresentationRequest = Body(...),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     from services.library_edit_copy import persist_presentation_from_template
