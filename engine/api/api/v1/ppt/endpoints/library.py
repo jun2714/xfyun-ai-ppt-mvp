@@ -182,33 +182,33 @@ def _fallback_layouts(raw_layouts: RawSlideLayouts) -> SlideLayouts:
 def _slide_urls_of(item: PptLibraryItem) -> list[str]:
     assets = item.assets if isinstance(item.assets, dict) else {}
     raw = assets.get("slide_image_urls")
-    if not isinstance(raw, list):
-        return []
-    return [url for url in raw if isinstance(url, str) and url.strip()]
+    urls = [url for url in raw if isinstance(url, str) and url.strip()] if isinstance(raw, list) else []
+    thumbnail = item.thumbnail if isinstance(item.thumbnail, str) else ""
+    if not urls and thumbnail.strip():
+        return [thumbnail.strip()]
+    return urls
 
 
 def _item_response(item: PptLibraryItem, include_slides: bool = True) -> LibraryItemResponse:
     slide_urls = _slide_urls_of(item)
+    now = get_current_utc_datetime()
     return LibraryItemResponse(
-        id=item.id,
-        title=item.title,
+        id=str(item.id),
+        title=item.title or "",
         description=item.description,
-        category=item.category,
-        age_group=item.age_group,
+        category=item.category or "其他",
+        age_group=item.age_group or "混龄",
         season=getattr(item, "season", None) or "不限",
         scene=getattr(item, "scene", None) or "其他",
-        page_count=item.page_count or len(slide_urls),
+        page_count=int(item.page_count or len(slide_urls) or 0),
         thumbnail=item.thumbnail or (slide_urls[0] if slide_urls else None),
         slide_image_urls=slide_urls if include_slides else [],
-        download_count=item.download_count,
+        download_count=int(item.download_count or 0),
         editable=bool(item.layouts),
         visibility=getattr(item, "visibility", None) or "official",
-        created_at=item.created_at,
-        updated_at=item.updated_at,
+        created_at=item.created_at or now,
+        updated_at=item.updated_at or now,
     )
-
-
-QUALITY_PREVIEW_ENGINES = {"office", "html"}
 
 
 async def _render_library_slides(
@@ -295,23 +295,33 @@ async def _parse_library_layouts(pptx_abs: str, slide_count: int):
     return layouts_json, raw_layouts_json
 
 
+async def _reload_library_item(
+    sql_session: AsyncSession, item_id: str, fallback: PptLibraryItem
+) -> PptLibraryItem:
+    try:
+        await sql_session.rollback()
+    except Exception:
+        LOGGER.exception("[ppt.library] rollback failed item_id=%s", item_id)
+    reloaded = await sql_session.get(PptLibraryItem, item_id)
+    return reloaded or fallback
+
+
 async def _hydrate_missing_preview(
     item: PptLibraryItem,
     sql_session: AsyncSession,
 ) -> PptLibraryItem:
     assets = item.assets if isinstance(item.assets, dict) else {}
-    engine = assets.get("preview_engine")
-    if (
-        _slide_urls_of(item)
-        and item.page_count
-        and engine in QUALITY_PREVIEW_ENGINES
-    ):
+    existing_urls = [
+        url
+        for url in (assets.get("slide_image_urls") or [])
+        if isinstance(url, str) and url.strip()
+    ]
+    if existing_urls:
         return item
     if not item.pptx_path:
         return item
     item_dir = _working_dir(item.id)
     pptx_abs = os.path.join(item_dir, "original.pptx")
-    old_urls = _slide_urls_of(item)
     try:
         await materialize_url_to_file(item.pptx_path, pptx_abs)
         page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
@@ -321,6 +331,8 @@ async def _hydrate_missing_preview(
         slide_urls = await _persist_slide_images(
             rendered_paths, item_dir, item.category, item.id
         )
+        if not slide_urls:
+            return item
         assets = dict(assets)
         assets["slide_image_urls"] = slide_urls
         assets["pptx_url"] = item.pptx_path
@@ -332,12 +344,9 @@ async def _hydrate_missing_preview(
         sql_session.add(item)
         await sql_session.commit()
         await sql_session.refresh(item)
-        for url in old_urls:
-            if url not in slide_urls:
-                await delete_by_url(url)
     except Exception:
         LOGGER.exception("[ppt.library] hydrate preview failed item_id=%s", item.id)
-        await sql_session.rollback()
+        item = await _reload_library_item(sql_session, item.id, item)
     finally:
         if is_oss_enabled():
             shutil.rmtree(item_dir, ignore_errors=True)
@@ -639,7 +648,11 @@ async def get_library_item(
     item = await sql_session.get(PptLibraryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="案例不存在")
-    item = await _hydrate_missing_preview(item, sql_session)
+    try:
+        item = await _hydrate_missing_preview(item, sql_session)
+    except Exception:
+        LOGGER.exception("[ppt.library] get preview crashed item_id=%s", item_id)
+        item = await _reload_library_item(sql_session, item_id, item)
     return _item_response(item)
 
 
