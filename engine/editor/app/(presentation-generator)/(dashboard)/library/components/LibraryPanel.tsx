@@ -42,23 +42,34 @@ function isPreviewWaiting(item: LibraryItem) {
   return !(item.slide_image_urls || []).length;
 }
 
-function mergeLibraryItems(current: LibraryItem[], incoming: LibraryItem[]) {
+function mergeLibraryItems(
+  current: LibraryItem[],
+  incoming: LibraryItem[],
+  deletedIds: Set<string> = new Set(),
+) {
   const incomingIds = new Set(incoming.map((item) => item.id));
-  const pendingLocal = current.filter((item) => !incomingIds.has(item.id));
-  const mergedIncoming = incoming.map((item) => {
-    const local = current.find((row) => row.id === item.id);
-    if (!local) return item;
-    return {
-      ...local,
-      ...item,
-      thumbnail: item.thumbnail || local.thumbnail,
-      slide_image_urls:
-        item.slide_image_urls && item.slide_image_urls.length
-          ? item.slide_image_urls
-          : local.slide_image_urls,
-      preview_status: item.preview_status || local.preview_status,
-    };
-  });
+  const pendingLocal = current.filter(
+    (item) =>
+      !incomingIds.has(item.id) &&
+      !deletedIds.has(item.id) &&
+      (item.preview_status === "pending" || item.preview_status === "generating"),
+  );
+  const mergedIncoming = incoming
+    .filter((item) => !deletedIds.has(item.id))
+    .map((item) => {
+      const local = current.find((row) => row.id === item.id);
+      if (!local) return item;
+      return {
+        ...local,
+        ...item,
+        thumbnail: item.thumbnail || local.thumbnail,
+        slide_image_urls:
+          item.slide_image_urls && item.slide_image_urls.length
+            ? item.slide_image_urls
+            : local.slide_image_urls,
+        preview_status: item.preview_status || local.preview_status,
+      };
+    });
   return [...pendingLocal, ...mergedIncoming];
 }
 
@@ -79,6 +90,7 @@ export default function LibraryPanel() {
   const [showUpload, setShowUpload] = useState(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
   const uploadingRef = useRef(false);
+  const deletedIdsRef = useRef<Set<string>>(new Set());
   queueRef.current = queue;
   const [canManage, setCanManage] = useState(false);
   const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
@@ -95,7 +107,9 @@ export default function LibraryPanel() {
         season,
         scene,
       });
-      setItems((currentItems) => mergeLibraryItems(currentItems, data.items || []));
+      setItems((currentItems) =>
+        mergeLibraryItems(currentItems, data.items || [], deletedIdsRef.current),
+      );
       setCanManage(Boolean(data.can_manage));
     } catch (error) {
       if (!silent) {
@@ -269,8 +283,11 @@ export default function LibraryPanel() {
     setBusyId(item.id);
     try {
       await LibraryService.remove(item.id);
+      deletedIdsRef.current.add(item.id);
+      setItems((current) => current.filter((row) => row.id !== item.id));
+      setPreviewItem((current) => (current?.id === item.id ? null : current));
       notify.success("已删除", "案例已从素材库移除");
-      await loadItems();
+      await loadItems(true);
     } catch (error) {
       notify.error("删除失败", error instanceof Error ? error.message : "请稍后重试");
     } finally {
