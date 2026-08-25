@@ -100,10 +100,14 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
     started.current = true;
     void (async () => {
       try {
-        const [current, existingOutline, templateList] = await Promise.all([
-          api<Presentation>(`/presentation/${presentationId}`),
-          api<PresentationOutline>(`/outlines/${presentationId}`),
-          api<TemplateList>("/template/all?page_size=100"),
+        const current = await api<Presentation>(`/presentation/${presentationId}`);
+        const [existingOutline, templateList] = await Promise.all([
+          api<PresentationOutline>(`/outlines/${presentationId}`).catch(
+            () => ({ slides: [] } as PresentationOutline),
+          ),
+          api<TemplateList>("/template/all?page_size=100").catch(
+            () => ({ items: [] } as TemplateList),
+          ),
         ]);
         setPresentation(current);
         setTemplates(templateList.items);

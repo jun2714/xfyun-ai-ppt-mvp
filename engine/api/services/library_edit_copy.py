@@ -321,9 +321,15 @@ async def persist_presentation_from_template(
 
 async def migrate_library_edit_copy_templates(sql_session: AsyncSession) -> int:
     """Move leftover library edit-copies out of 模板中心 into 我的项目."""
-    result = await sql_session.execute(
-        select(TemplateV2).where(TemplateV2.is_default == False)  # noqa: E712
-    )
+    from api.v1.auth.context import get_current_owner_id
+
+    owner_id = get_current_owner_id()
+    query = select(TemplateV2).where(TemplateV2.is_default == False)  # noqa: E712
+    if owner_id is not None:
+        query = query.where(TemplateV2.owner_id == owner_id)
+    else:
+        query = query.where(TemplateV2.owner_id.is_(None))
+    result = await sql_session.execute(query)
     templates = [
         template
         for template in result.scalars().all()

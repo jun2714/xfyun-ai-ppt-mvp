@@ -31,7 +31,7 @@ from models.sql.access_token import AccessToken
 from models.sql.provider_settings import ProviderSettings
 from models.sql.ppt_library_item import PptLibraryItem
 from api.v1.auth.context import get_current_owner_id
-from utils.get_env import get_migrate_database_on_startup_env
+from utils.get_env import get_migrate_database_on_startup_env, is_disable_auth_enabled
 from utils.db_utils import get_database_url_and_connect_args, get_pool_kwargs
 
 
@@ -76,14 +76,32 @@ _STRICT_OWNER_MODELS = (
 def _scope_owned_selects(execute_state) -> None:
     """Apply tenant criteria to every ORM SELECT performed during a request."""
     owner_id = get_current_owner_id()
-    if (
-        owner_id is None
-        or not execute_state.is_select
-        or execute_state.execution_options.get("skip_owner_scope")
-    ):
+    if not execute_state.is_select or execute_state.execution_options.get("skip_owner_scope"):
         return
 
     statement = execute_state.statement
+    if owner_id is None:
+        # Anonymous DISABLE_AUTH must not leak rows that already belong to a user.
+        if not is_disable_auth_enabled():
+            return
+        for model in _STRICT_OWNER_MODELS:
+            statement = statement.options(
+                with_loader_criteria(
+                    model,
+                    lambda row: row.owner_id.is_(None),
+                    include_aliases=True,
+                )
+            )
+        statement = statement.options(
+            with_loader_criteria(
+                TemplateV2,
+                lambda row: row.owner_id.is_(None),
+                include_aliases=True,
+            )
+        )
+        execute_state.statement = statement
+        return
+
     for model in _STRICT_OWNER_MODELS:
         statement = statement.options(
             with_loader_criteria(

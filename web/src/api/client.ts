@@ -70,6 +70,7 @@ function errorMessage(body: unknown, status: number, fallback: string) {
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     ...init,
+    credentials: "omit",
     headers: authHeaders({
       ...(init?.body ? { "content-type": "application/json" } : {}),
       ...(init?.headers ?? {}),
@@ -87,6 +88,7 @@ export async function consumeStream(path: string, onEvent: (event: StreamEvent) 
     ? `${API}${path}${path.includes("?") ? "&" : "?"}tn_session=${encodeURIComponent(token)}`
     : `${API}${path}`;
   const response = await fetch(streamUrl, {
+    credentials: "omit",
     headers: authHeaders({ accept: "text/event-stream" }),
   });
   if (!response.ok || !response.body) {
