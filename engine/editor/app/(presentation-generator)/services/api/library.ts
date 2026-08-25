@@ -170,37 +170,39 @@ export class LibraryService {
   static async download(itemId: string, title: string): Promise<void> {
     const response = await fetch(
       getApiUrl(`/api/v1/ppt/library/${encodeURIComponent(itemId)}/download`),
-      { headers: getHeaderForFormData() },
+      { headers: getHeaderForFormData(), cache: "no-store" },
     );
     if (!response.ok) {
       await ApiResponseHandler.handleResponse(response, "下载失败");
       return;
     }
     const contentType = response.headers.get("content-type") || "";
+    let blob: Blob;
     if (contentType.includes("application/json")) {
       const data = (await response.json()) as { url?: string };
       if (!data.url) {
         throw new Error("下载地址为空");
       }
-      const link = document.createElement("a");
-      link.href = data.url;
-      link.download = `${title || "案例"}.pptx`;
-      link.rel = "noopener";
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      return;
+      const fileResponse = await fetch(data.url, { cache: "no-store" });
+      if (!fileResponse.ok) {
+        throw new Error("原文件无法下载，请重新上传");
+      }
+      blob = await fileResponse.blob();
+    } else {
+      blob = await response.blob();
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
+    const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+    if (blob.size < 128 || head[0] !== 0x50 || head[1] !== 0x4b) {
+      throw new Error("下载的不是有效 PPTX，请重新上传后再试");
+    }
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
+    link.href = objectUrl;
     link.download = `${title || "案例"}.pptx`;
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(objectUrl);
   }
 
   static async remove(itemId: string): Promise<void> {

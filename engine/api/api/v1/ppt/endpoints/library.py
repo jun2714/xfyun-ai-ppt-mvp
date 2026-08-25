@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -42,6 +43,7 @@ from utils.oss_storage import (
     library_object_key,
     materialize_url_to_file,
     persist_local_path,
+    sign_get_url,
 )
 from utils.pptx_slide_preview import (
     count_pptx_slides,
@@ -161,6 +163,21 @@ def _safe_original_name(filename: str | None) -> str:
     return name
 
 
+def _assert_pptx_file(path: str) -> None:
+    with open(path, "rb") as handle:
+        magic = handle.read(4)
+    if magic[:2] != b"PK":
+        raise HTTPException(status_code=400, detail="不是有效的 PPTX 文件，请重新上传")
+
+
+def _readable_asset_url(url: str | None) -> str | None:
+    if not url:
+        return url
+    if is_oss_url(url):
+        return sign_get_url(url)
+    return url
+
+
 def _fallback_layouts(raw_layouts: RawSlideLayouts) -> SlideLayouts:
     generated: list[SlideLayout] = []
     for index, raw in enumerate(raw_layouts.layouts):
@@ -216,8 +233,8 @@ def _item_response(item: PptLibraryItem, include_slides: bool = True) -> Library
         season=getattr(item, "season", None) or "不限",
         scene=getattr(item, "scene", None) or "其他",
         page_count=int(item.page_count or len(slide_urls) or 0),
-        thumbnail=item.thumbnail or (slide_urls[0] if slide_urls else None),
-        slide_image_urls=slide_urls if include_slides else [],
+        thumbnail=_readable_asset_url(item.thumbnail or (slide_urls[0] if slide_urls else None)),
+        slide_image_urls=[_readable_asset_url(url) or url for url in slide_urls] if include_slides else [],
         download_count=int(item.download_count or 0),
         editable=bool(item.layouts),
         visibility=getattr(item, "visibility", None) or "official",
@@ -678,6 +695,11 @@ async def create_library_item(
     if size <= 0:
         shutil.rmtree(item_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail="上传文件为空")
+    try:
+        _assert_pptx_file(pptx_abs)
+    except HTTPException:
+        shutil.rmtree(item_dir, ignore_errors=True)
+        raise
 
     try:
         page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
@@ -784,6 +806,11 @@ async def update_library_item(
         if size <= 0:
             shutil.rmtree(item_dir, ignore_errors=True)
             raise HTTPException(status_code=400, detail="上传文件为空")
+        try:
+            _assert_pptx_file(pptx_abs)
+        except HTTPException:
+            shutil.rmtree(item_dir, ignore_errors=True)
+            raise
 
         try:
             page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
@@ -866,24 +893,47 @@ async def download_library_item(
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     item = await sql_session.get(PptLibraryItem, item_id)
-    if not item:
+    if not item or not item.pptx_path:
         raise HTTPException(status_code=404, detail="案例不存在")
+
+    download_name = _safe_original_name(f"{item.title}.pptx")
+    tmp_dir = None
+    abs_path = None
+    source = item.pptx_path
+    if is_oss_url(source) or (
+        isinstance(source, str) and source.startswith(("http://", "https://"))
+    ):
+        tmp_dir = tempfile.mkdtemp(prefix="ppt-dl-")
+        abs_path = os.path.join(tmp_dir, "original.pptx")
+        try:
+            await materialize_url_to_file(source, abs_path)
+        except Exception:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            LOGGER.exception("[ppt.library] download materialize failed item_id=%s", item_id)
+            raise HTTPException(status_code=404, detail="原文件不存在或无法读取") from None
+    else:
+        abs_path = resolve_app_path_to_filesystem(source)
+        if not abs_path or not os.path.isfile(abs_path):
+            raise HTTPException(status_code=404, detail="原文件不存在")
+
+    with open(abs_path, "rb") as handle:
+        magic = handle.read(4)
+    if magic[:2] != b"PK":
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail="原文件已损坏，请重新上传 PPTX")
+
     item.download_count = int(item.download_count or 0) + 1
     item.updated_at = get_current_utc_datetime()
     sql_session.add(item)
     await sql_session.commit()
-    if is_oss_url(item.pptx_path) or (
-        isinstance(item.pptx_path, str) and item.pptx_path.startswith(("http://", "https://"))
-    ):
-        return LibraryDownloadResponse(url=item.pptx_path)
-    abs_path = resolve_app_path_to_filesystem(item.pptx_path)
-    if not abs_path or not os.path.isfile(abs_path):
-        raise HTTPException(status_code=404, detail="原文件不存在")
-    download_name = _safe_original_name(f"{item.title}.pptx")
+
+    cleanup = BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True) if tmp_dir else None
     return FileResponse(
         abs_path,
         media_type=PPTX_CONTENT_TYPE,
         filename=download_name,
+        background=cleanup,
     )
 
 

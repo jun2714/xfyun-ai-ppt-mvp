@@ -737,6 +737,11 @@ export default function LibraryPanel() {
                       </div>
                     )}
                   </>
+                ) : previewLoading || isPreviewWaiting(previewItem) ? (
+                  <div className="flex items-center text-sm text-[#667085]">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    正在生成预览…
+                  </div>
                 ) : (
                   <div className="text-sm text-[#667085]">暂无页面预览，请直接下载原件</div>
                 )}
