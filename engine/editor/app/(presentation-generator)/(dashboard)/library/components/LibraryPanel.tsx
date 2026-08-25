@@ -96,6 +96,7 @@ export default function LibraryPanel() {
   const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null);
 
   const loadItems = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -278,17 +279,27 @@ export default function LibraryPanel() {
     }
   };
 
-  const handleDelete = async (item: LibraryItem) => {
-    if (!window.confirm(`确定删除「${item.title}」？这会删除素材库原件。`)) return;
+  const handleDelete = (item: LibraryItem, event?: React.MouseEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setDeleteTarget(item);
+  };
+
+  const confirmDelete = async () => {
+    const item = deleteTarget;
+    if (!item) return;
+    setDeleteTarget(null);
+    deletedIdsRef.current.add(item.id);
+    setItems((current) => current.filter((row) => row.id !== item.id));
+    setPreviewItem((current) => (current?.id === item.id ? null : current));
     setBusyId(item.id);
     try {
       await LibraryService.remove(item.id);
-      deletedIdsRef.current.add(item.id);
-      setItems((current) => current.filter((row) => row.id !== item.id));
-      setPreviewItem((current) => (current?.id === item.id ? null : current));
       notify.success("已删除", "案例已从素材库移除");
       await loadItems(true);
     } catch (error) {
+      deletedIdsRef.current.delete(item.id);
+      setItems((current) => (current.some((row) => row.id === item.id) ? current : [item, ...current]));
       notify.error("删除失败", error instanceof Error ? error.message : "请稍后重试");
     } finally {
       setBusyId(null);
@@ -599,7 +610,7 @@ export default function LibraryPanel() {
                         type="button"
                         className="text-[#D64545]"
                         title="删除案例原件"
-                        onClick={() => void handleDelete(item)}
+                        onClick={(event) => handleDelete(item, event)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -763,6 +774,39 @@ export default function LibraryPanel() {
                   <div className="text-sm text-[#667085]">暂无页面预览，请直接下载原件</div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-[20px] bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-base font-semibold text-[#191919]">删除案例原件</h4>
+            <p className="mt-2 text-sm leading-6 text-[#667085]">
+              确定删除「{deleteTarget.title}」？删除后素材库不再保留这份原件，此操作不可恢复。
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="h-10 rounded-full border border-[#EDEEEF] px-4 text-sm"
+                onClick={() => setDeleteTarget(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="h-10 rounded-full bg-[#D64545] px-4 text-sm font-semibold text-white"
+                onClick={() => void confirmDelete()}
+              >
+                确定删除
+              </button>
             </div>
           </div>
         </div>
