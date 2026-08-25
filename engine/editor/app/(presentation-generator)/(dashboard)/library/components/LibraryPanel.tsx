@@ -42,22 +42,24 @@ function isPreviewWaiting(item: LibraryItem) {
   return !(item.slide_image_urls || []).length;
 }
 
-function mergeLibraryItems(
+function isAbortError(error: unknown) {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
+function applyServerList(
   current: LibraryItem[],
   incoming: LibraryItem[],
-  deletedIds: Set<string> = new Set(),
+  deletedIds: Set<string>,
+  keepLocalUploads: boolean,
 ) {
-  const incomingIds = new Set(incoming.map((item) => item.id));
-  const pendingLocal = current.filter(
-    (item) =>
-      !incomingIds.has(item.id) &&
-      !deletedIds.has(item.id) &&
-      (item.preview_status === "pending" || item.preview_status === "generating"),
-  );
+  const deleted = new Set(Array.from(deletedIds).map(String));
   const mergedIncoming = incoming
-    .filter((item) => !deletedIds.has(item.id))
+    .filter((item) => !deleted.has(String(item.id)))
     .map((item) => {
-      const local = current.find((row) => row.id === item.id);
+      const local = current.find((row) => String(row.id) === String(item.id));
       if (!local) return item;
       return {
         ...local,
@@ -70,7 +72,14 @@ function mergeLibraryItems(
         preview_status: item.preview_status || local.preview_status,
       };
     });
-  return [...pendingLocal, ...mergedIncoming];
+  if (!keepLocalUploads) {
+    return mergedIncoming;
+  }
+  const incomingIds = new Set(mergedIncoming.map((item) => String(item.id)));
+  const pendingUploads = current.filter(
+    (item) => !incomingIds.has(String(item.id)) && !deleted.has(String(item.id)),
+  );
+  return [...pendingUploads, ...mergedIncoming];
 }
 
 export default function LibraryPanel() {
@@ -91,6 +100,8 @@ export default function LibraryPanel() {
   const queueRef = useRef<UploadQueueItem[]>([]);
   const uploadingRef = useRef(false);
   const deletedIdsRef = useRef<Set<string>>(new Set());
+  const listAbortRef = useRef<AbortController | null>(null);
+  const listGenerationRef = useRef(0);
   queueRef.current = queue;
   const [canManage, setCanManage] = useState(false);
   const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
@@ -99,6 +110,10 @@ export default function LibraryPanel() {
   const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null);
 
   const loadItems = useCallback(async (silent = false) => {
+    const generation = listGenerationRef.current;
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
     if (!silent) setLoading(true);
     try {
       const data = await LibraryService.list({
@@ -107,23 +122,37 @@ export default function LibraryPanel() {
         age_group: ageGroup,
         season,
         scene,
+        signal: controller.signal,
       });
+      if (generation !== listGenerationRef.current) return;
       setItems((currentItems) =>
-        mergeLibraryItems(currentItems, data.items || [], deletedIdsRef.current),
+        applyServerList(
+          currentItems,
+          data.items || [],
+          deletedIdsRef.current,
+          uploadingRef.current,
+        ),
       );
       setCanManage(Boolean(data.can_manage));
     } catch (error) {
+      if (isAbortError(error) || generation !== listGenerationRef.current) return;
       if (!silent) {
         notify.error("加载失败", error instanceof Error ? error.message : "无法加载素材库");
       }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && generation === listGenerationRef.current) setLoading(false);
     }
   }, [ageGroup, category, query, scene, season]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    return () => {
+      listAbortRef.current?.abort();
+    };
+  }, []);
 
   const pendingCovers = items.some(
     (item) =>
@@ -288,18 +317,23 @@ export default function LibraryPanel() {
   const confirmDelete = async () => {
     const item = deleteTarget;
     if (!item) return;
+    const itemId = String(item.id);
     setDeleteTarget(null);
-    deletedIdsRef.current.add(item.id);
-    setItems((current) => current.filter((row) => row.id !== item.id));
-    setPreviewItem((current) => (current?.id === item.id ? null : current));
-    setBusyId(item.id);
+    deletedIdsRef.current.add(itemId);
+    listGenerationRef.current += 1;
+    listAbortRef.current?.abort();
+    setLoading(false);
+    setItems((current) => current.filter((row) => String(row.id) !== itemId));
+    setPreviewItem((current) => (current && String(current.id) === itemId ? null : current));
+    setBusyId(itemId);
     try {
-      await LibraryService.remove(item.id);
+      await LibraryService.remove(itemId);
       notify.success("已删除", "案例已从素材库移除");
-      await loadItems(true);
     } catch (error) {
-      deletedIdsRef.current.delete(item.id);
-      setItems((current) => (current.some((row) => row.id === item.id) ? current : [item, ...current]));
+      deletedIdsRef.current.delete(itemId);
+      setItems((current) =>
+        current.some((row) => String(row.id) === itemId) ? current : [item, ...current],
+      );
       notify.error("删除失败", error instanceof Error ? error.message : "请稍后重试");
     } finally {
       setBusyId(null);
@@ -315,6 +349,7 @@ export default function LibraryPanel() {
     setPreviewLoading(!existing.length);
     try {
       const detail = await LibraryService.get(item.id);
+      if (deletedIdsRef.current.has(String(item.id))) return;
       setPreviewItem(detail);
       setItems((current) =>
         current.map((entry) => (entry.id === detail.id ? { ...entry, ...detail } : entry)),
@@ -335,6 +370,7 @@ export default function LibraryPanel() {
     const timer = window.setInterval(() => {
       void LibraryService.get(itemId)
         .then((detail) => {
+          if (deletedIdsRef.current.has(String(itemId))) return;
           setPreviewItem(detail);
           setItems((current) =>
             current.map((entry) => (entry.id === detail.id ? { ...entry, ...detail } : entry)),

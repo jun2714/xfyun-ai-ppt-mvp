@@ -639,6 +639,7 @@ async def list_library_items(
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     statement = select(PptLibraryItem).order_by(PptLibraryItem.created_at.desc())
     result = await sql_session.execute(statement)
     items = list(result.scalars().all())

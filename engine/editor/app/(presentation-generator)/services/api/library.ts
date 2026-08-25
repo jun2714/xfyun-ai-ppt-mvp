@@ -76,6 +76,7 @@ export class LibraryService {
     age_group?: string;
     season?: string;
     scene?: string;
+    signal?: AbortSignal;
   } = {}): Promise<LibraryListResponse> {
     const search = new URLSearchParams();
     if (params.q) search.set("q", params.q);
@@ -86,7 +87,15 @@ export class LibraryService {
     const query = search.toString();
     const response = await fetch(
       getApiUrl(`/api/v1/ppt/library${query ? `?${query}&` : "?"}_ts=${Date.now()}`),
-      { headers: getHeader(), cache: "no-store" },
+      {
+        headers: {
+          ...getHeader(),
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
+        signal: params.signal,
+      },
     );
     return ApiResponseHandler.handleResponse(response, "加载素材库失败");
   }
