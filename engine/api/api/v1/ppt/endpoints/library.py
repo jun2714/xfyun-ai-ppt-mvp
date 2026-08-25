@@ -8,7 +8,7 @@ import tempfile
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from sqlmodel import select
 
 from api.v1.auth.context import get_current_owner_id, get_current_owner_is_admin
 from models.sql.ppt_library_item import PptLibraryItem
-from services.database import get_async_session
+from services.database import async_session_maker, get_async_session
 from services.library_edit_copy import create_presentation_from_layouts
 from services.export_task_service import EXPORT_TASK_SERVICE
 from templates.fonts_and_slides_preview import render_pptx_slides_to_images
@@ -45,7 +45,9 @@ from utils.oss_storage import (
 )
 from utils.pptx_slide_preview import (
     count_pptx_slides,
+    has_slide_screenshot_backend,
     render_pptx_slide_previews,
+    render_pptx_via_libreoffice,
     render_pptx_via_office,
 )
 
@@ -63,6 +65,9 @@ LIBRARY_ROUTER = APIRouter(prefix="/library", tags=["PPT Library"])
 LARGE_FILE_LAYOUT_LIMIT = 25 * 1024 * 1024
 PREVIEW_MAX_WIDTH = 1280
 PREVIEW_JPEG_QUALITY = 72
+_PREVIEW_LOCKS: dict[str, asyncio.Lock] = {}
+SCREENSHOT_ENGINES = {"office", "libreoffice"}
+PENDING_PREVIEW_STATUSES = {"pending", "generating"}
 
 
 class LibraryItemResponse(BaseModel):
@@ -81,6 +86,8 @@ class LibraryItemResponse(BaseModel):
     download_count: int
     editable: bool = False
     visibility: str = "official"
+    preview_status: str = "ready"
+    preview_engine: str = ""
     created_at: object
     updated_at: object
 
@@ -193,6 +200,13 @@ def _slide_urls_of(item: PptLibraryItem) -> list[str]:
 def _item_response(item: PptLibraryItem, include_slides: bool = True) -> LibraryItemResponse:
     slide_urls = _slide_urls_of(item)
     now = get_current_utc_datetime()
+    assets = item.assets if isinstance(item.assets, dict) else {}
+    status = assets.get("preview_status")
+    if not isinstance(status, str) or not status.strip():
+        status = "ready" if (slide_urls or item.thumbnail) else "pending"
+    engine = assets.get("preview_engine")
+    if not isinstance(engine, str):
+        engine = ""
     return LibraryItemResponse(
         id=str(item.id),
         title=item.title or "",
@@ -207,20 +221,48 @@ def _item_response(item: PptLibraryItem, include_slides: bool = True) -> Library
         download_count=int(item.download_count or 0),
         editable=bool(item.layouts),
         visibility=getattr(item, "visibility", None) or "official",
+        preview_status=status,
+        preview_engine=engine,
         created_at=item.created_at or now,
         updated_at=item.updated_at or now,
     )
 
 
-def _preview_assets(pptx_url: str, slide_urls: list[str], preview_engine: str) -> dict:
+def _preview_assets(
+    pptx_url: str,
+    slide_urls: list[str],
+    preview_engine: str,
+    preview_status: str = "ready",
+) -> dict:
     assets = {
         "pptx_url": pptx_url,
         "slide_image_urls": slide_urls,
         "preview_engine": preview_engine,
+        "preview_status": preview_status,
     }
-    if has_preview_cjk_font():
+    if has_preview_cjk_font() or preview_engine in SCREENSHOT_ENGINES:
         assets["preview_charset"] = CJK_PREVIEW_MARK
     return assets
+
+
+def _preview_lock(item_id: str) -> asyncio.Lock:
+    lock = _PREVIEW_LOCKS.get(item_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _PREVIEW_LOCKS[item_id] = lock
+    return lock
+
+
+async def _save_upload_file(file: UploadFile, dest: str) -> int:
+    size = 0
+    with open(dest, "wb") as handle:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            handle.write(chunk)
+    return size
 
 
 async def _library_html_font_paths(pptx_abs: str, item_dir: str) -> list[str]:
@@ -244,6 +286,10 @@ async def _render_library_slides(
     office_paths = await asyncio.to_thread(render_pptx_via_office, pptx_abs, item_dir)
     if office_paths:
         return "office", office_paths
+    lo_dir = os.path.join(item_dir, "lo-screens")
+    lo_paths = await asyncio.to_thread(render_pptx_via_libreoffice, pptx_abs, lo_dir)
+    if lo_paths:
+        return "libreoffice", lo_paths
     if prefer_html:
         try:
             font_paths = await _library_html_font_paths(pptx_abs, item_dir)
@@ -338,55 +384,128 @@ async def _hydrate_missing_preview(
     item: PptLibraryItem,
     sql_session: AsyncSession,
 ) -> PptLibraryItem:
-    assets = item.assets if isinstance(item.assets, dict) else {}
-    existing_urls = [
-        url
-        for url in (assets.get("slide_image_urls") or [])
-        if isinstance(url, str) and url.strip()
-    ]
-    already_cjk = assets.get("preview_charset") == CJK_PREVIEW_MARK
-    if existing_urls and (already_cjk or not has_preview_cjk_font()):
-        return item
-    if not item.pptx_path:
-        return item
-    item_dir = _working_dir(item.id)
-    pptx_abs = os.path.join(item_dir, "original.pptx")
-    try:
-        await materialize_url_to_file(item.pptx_path, pptx_abs)
-        page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
-        preview_engine, rendered_paths = await _render_library_slides(
-            pptx_abs, item_dir, prefer_html=True
-        )
-        slide_urls = await _persist_slide_images(
-            rendered_paths, item_dir, item.category, item.id
-        )
-        if not slide_urls:
+    item_id = str(item.id)
+    async with _preview_lock(item_id):
+        fresh = await sql_session.get(PptLibraryItem, item_id)
+        if not fresh:
             return item
-        assets = dict(assets)
-        assets["slide_image_urls"] = slide_urls
-        assets["pptx_url"] = item.pptx_path
-        assets["preview_engine"] = preview_engine
-        if has_preview_cjk_font():
-            assets["preview_charset"] = CJK_PREVIEW_MARK
-        item.page_count = page_count or len(slide_urls)
-        item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
-        item.assets = assets
-        item.updated_at = get_current_utc_datetime()
-        sql_session.add(item)
-        await sql_session.commit()
-        await sql_session.refresh(item)
-    except Exception:
-        LOGGER.exception("[ppt.library] hydrate preview failed item_id=%s", item.id)
-        item = await _reload_library_item(sql_session, item.id, item)
-    finally:
-        if is_oss_enabled():
-            shutil.rmtree(item_dir, ignore_errors=True)
-    return item
+        item = fresh
+        assets = item.assets if isinstance(item.assets, dict) else {}
+        existing_urls = [
+            url
+            for url in (assets.get("slide_image_urls") or [])
+            if isinstance(url, str) and url.strip()
+        ]
+        engine = str(assets.get("preview_engine") or "")
+        already_cjk = assets.get("preview_charset") == CJK_PREVIEW_MARK
+        if existing_urls and engine in SCREENSHOT_ENGINES:
+            return item
+        can_upgrade_screenshot = engine in {"html", "fallback", "", "pending"} and (
+            has_slide_screenshot_backend()
+        )
+        if existing_urls and not can_upgrade_screenshot and (already_cjk or not has_preview_cjk_font()):
+            return item
+        if not item.pptx_path:
+            return item
+        item_dir = _working_dir(item.id)
+        pptx_abs = os.path.join(item_dir, "original.pptx")
+        try:
+            assets = dict(assets)
+            assets["preview_status"] = "generating"
+            item.assets = assets
+            sql_session.add(item)
+            await sql_session.commit()
+            await sql_session.refresh(item)
+
+            await materialize_url_to_file(item.pptx_path, pptx_abs)
+            page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
+            preview_engine, rendered_paths = await _render_library_slides(
+                pptx_abs, item_dir, prefer_html=True
+            )
+            slide_urls = await _persist_slide_images(
+                rendered_paths, item_dir, item.category, item.id
+            )
+            if not slide_urls:
+                assets = dict(item.assets if isinstance(item.assets, dict) else {})
+                assets["preview_status"] = "failed"
+                item.assets = assets
+                sql_session.add(item)
+                await sql_session.commit()
+                await sql_session.refresh(item)
+                return item
+            old_slides = existing_urls
+            assets = dict(item.assets if isinstance(item.assets, dict) else {})
+            assets["slide_image_urls"] = slide_urls
+            assets["pptx_url"] = item.pptx_path
+            assets["preview_engine"] = preview_engine
+            assets["preview_status"] = "ready"
+            if has_preview_cjk_font() or preview_engine in SCREENSHOT_ENGINES:
+                assets["preview_charset"] = CJK_PREVIEW_MARK
+            item.page_count = page_count or len(slide_urls)
+            item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
+            item.assets = assets
+            if not item.layouts:
+                file_size = os.path.getsize(pptx_abs) if os.path.isfile(pptx_abs) else 0
+                if file_size <= LARGE_FILE_LAYOUT_LIMIT:
+                    layouts_json, raw_layouts_json = await _parse_library_layouts(
+                        pptx_abs, page_count or len(slide_urls)
+                    )
+                    if layouts_json:
+                        item.layouts = layouts_json
+                        item.raw_layouts = raw_layouts_json
+            item.updated_at = get_current_utc_datetime()
+            sql_session.add(item)
+            await sql_session.commit()
+            await sql_session.refresh(item)
+            for url in old_slides:
+                if isinstance(url, str) and url not in slide_urls:
+                    await delete_by_url(url)
+        except Exception:
+            LOGGER.exception("[ppt.library] hydrate preview failed item_id=%s", item.id)
+            item = await _reload_library_item(sql_session, item.id, item)
+            try:
+                assets = dict(item.assets if isinstance(item.assets, dict) else {})
+                if not _slide_urls_of(item):
+                    assets["preview_status"] = "failed"
+                    item.assets = assets
+                    sql_session.add(item)
+                    await sql_session.commit()
+                    await sql_session.refresh(item)
+            except Exception:
+                LOGGER.exception("[ppt.library] mark preview failed item_id=%s", item.id)
+        finally:
+            if is_oss_enabled():
+                shutil.rmtree(item_dir, ignore_errors=True)
+        return item
+
+
+async def _generate_library_preview_job(item_id: str) -> None:
+    async with async_session_maker() as session:
+        item = await session.get(PptLibraryItem, item_id)
+        if not item:
+            return
+        try:
+            await _hydrate_missing_preview(item, session)
+        except Exception:
+            LOGGER.exception("[ppt.library] background preview failed item_id=%s", item_id)
+
+
+async def _persist_original_pptx(pptx_abs: str, category: str, item_id: str, title: str) -> str:
+    if is_oss_enabled():
+        return await persist_local_path(
+            pptx_abs,
+            library_object_key(category, item_id, "original.pptx"),
+            content_type=PPTX_CONTENT_TYPE,
+            download_name=_safe_original_name(f"{title}.pptx"),
+            delete_local=True,
+        )
+    return _to_app_data_url(pptx_abs)
 
 
 @LIBRARY_ROUTER.get("", response_model=LibraryListResponse)
 @LIBRARY_ROUTER.get("/", response_model=LibraryListResponse, include_in_schema=False)
 async def list_library_items(
+    background_tasks: BackgroundTasks,
     q: Optional[str] = None,
     category: Optional[str] = None,
     age_group: Optional[str] = None,
@@ -423,6 +542,15 @@ async def list_library_items(
             if keyword not in haystack:
                 continue
         filtered.append(item)
+    queued = 0
+    for item in filtered:
+        if queued >= 2:
+            break
+        assets = item.assets if isinstance(item.assets, dict) else {}
+        status = str(assets.get("preview_status") or "")
+        if not _slide_urls_of(item) and status in PENDING_PREVIEW_STATUSES:
+            background_tasks.add_task(_generate_library_preview_job, str(item.id))
+            queued += 1
     return LibraryListResponse(
         items=[_item_response(item, include_slides=include_slides) for item in filtered],
         total=len(filtered),
@@ -433,6 +561,7 @@ async def list_library_items(
 @LIBRARY_ROUTER.post("", response_model=LibraryItemResponse)
 @LIBRARY_ROUTER.post("/", response_model=LibraryItemResponse, include_in_schema=False)
 async def create_library_item(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str = Form(...),
     description: str = Form(""),
@@ -458,61 +587,32 @@ async def create_library_item(
     item_id = str(uuid.uuid4())
     item_dir = _working_dir(item_id)
     pptx_abs = os.path.join(item_dir, "original.pptx")
-    content = await file.read()
-    if not content:
+    size = await _save_upload_file(file, pptx_abs)
+    if size <= 0:
+        shutil.rmtree(item_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail="上传文件为空")
-    with open(pptx_abs, "wb") as handle:
-        handle.write(content)
 
-    page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
-    slide_urls: list[str] = []
-    preview_engine = "fallback"
-    layouts_json = None
-    raw_layouts_json = None
-    pptx_url = _to_app_data_url(pptx_abs) if not is_oss_enabled() else ""
     try:
-        preview_engine, rendered_paths = await _render_library_slides(
-            pptx_abs, item_dir, prefer_html=True
-        )
-        slide_urls = await _persist_slide_images(
-            rendered_paths, item_dir, category, item_id
-        )
-        if len(content) <= LARGE_FILE_LAYOUT_LIMIT:
-            layouts_json, raw_layouts_json = await _parse_library_layouts(
-                pptx_abs, len(slide_urls) or page_count
-            )
-        else:
-            LOGGER.info("[ppt.library] skip layout parse for large file item_id=%s size=%s", item_id, len(content))
-        if is_oss_enabled():
-            pptx_url = await persist_local_path(
-                pptx_abs,
-                library_object_key(category, item_id, "original.pptx"),
-                content_type=PPTX_CONTENT_TYPE,
-                download_name=_safe_original_name(f"{title}.pptx"),
-                delete_local=True,
-            )
+        page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
     except Exception:
-        LOGGER.exception("[ppt.library] preview/upload failed item_id=%s", item_id)
-        if is_oss_enabled() and os.path.isfile(pptx_abs) and not pptx_url:
-            try:
-                pptx_url = await persist_local_path(
-                    pptx_abs,
-                    library_object_key(category, item_id, "original.pptx"),
-                    content_type=PPTX_CONTENT_TYPE,
-                    download_name=_safe_original_name(f"{title}.pptx"),
-                    delete_local=True,
-                )
-            except Exception:
-                LOGGER.exception("[ppt.library] OSS fallback upload failed item_id=%s", item_id)
-        if is_oss_enabled() and not pptx_url:
+        LOGGER.exception("[ppt.library] count slides failed item_id=%s", item_id)
+        page_count = 0
+
+    pptx_url = ""
+    try:
+        pptx_url = await _persist_original_pptx(pptx_abs, category, item_id, title)
+    except Exception:
+        LOGGER.exception("[ppt.library] persist original failed item_id=%s", item_id)
+        if is_oss_enabled():
             shutil.rmtree(item_dir, ignore_errors=True)
-            raise HTTPException(status_code=500, detail="案例解析或上传对象存储失败")
+            raise HTTPException(status_code=500, detail="案例未能写入对象存储")
+        raise HTTPException(status_code=500, detail="案例未能保存到服务器")
     finally:
         if is_oss_enabled():
             shutil.rmtree(item_dir, ignore_errors=True)
 
-    if is_oss_enabled() and not pptx_url:
-        raise HTTPException(status_code=500, detail="案例未能写入对象存储")
+    if not pptx_url:
+        raise HTTPException(status_code=500, detail="案例未能写入存储")
 
     item = PptLibraryItem(
         id=item_id,
@@ -522,18 +622,19 @@ async def create_library_item(
         age_group=age_group,
         season=season,
         scene=scene,
-        page_count=page_count or len(slide_urls),
-        thumbnail=slide_urls[0] if slide_urls else None,
+        page_count=page_count,
+        thumbnail=None,
         pptx_path=pptx_url,
-        layouts=layouts_json,
-        raw_layouts=raw_layouts_json,
-        assets=_preview_assets(pptx_url, slide_urls, preview_engine),
+        layouts=None,
+        raw_layouts=None,
+        assets=_preview_assets(pptx_url, [], "pending", preview_status="pending"),
         visibility="official" if is_admin else "personal",
         created_by=get_current_owner_id(),
     )
     sql_session.add(item)
     await sql_session.commit()
     await sql_session.refresh(item)
+    background_tasks.add_task(_generate_library_preview_job, item.id)
     return _item_response(item)
 
 
@@ -541,6 +642,7 @@ async def create_library_item(
 @LIBRARY_ROUTER.put("/{item_id}", response_model=LibraryItemResponse)
 async def update_library_item(
     item_id: str,
+    background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -588,71 +690,46 @@ async def update_library_item(
         filename = (file.filename or "").lower()
         if not filename.endswith(".pptx"):
             raise HTTPException(status_code=400, detail="请上传 .pptx 文件")
-        content = await file.read()
-        if not content:
-            raise HTTPException(status_code=400, detail="上传文件为空")
 
         item_dir = _working_dir(item.id)
         pptx_abs = os.path.join(item_dir, "original.pptx")
-        with open(pptx_abs, "wb") as handle:
-            handle.write(content)
+        size = await _save_upload_file(file, pptx_abs)
+        if size <= 0:
+            shutil.rmtree(item_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail="上传文件为空")
 
-        page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
-        slide_urls: list[str] = []
-        preview_engine = "fallback"
-        layouts_json = None
-        raw_layouts_json = None
-        pptx_url = _to_app_data_url(pptx_abs) if not is_oss_enabled() else ""
         try:
-            preview_engine, rendered_paths = await _render_library_slides(
-                pptx_abs, item_dir, prefer_html=True
-            )
-            slide_urls = await _persist_slide_images(
-                rendered_paths, item_dir, next_category, item.id
-            )
-            layouts_json, raw_layouts_json = await _parse_library_layouts(
-                pptx_abs, len(slide_urls) or page_count
-            )
-            if is_oss_enabled():
-                pptx_url = await persist_local_path(
-                    pptx_abs,
-                    library_object_key(next_category, item.id, "original.pptx"),
-                    content_type=PPTX_CONTENT_TYPE,
-                    download_name=_safe_original_name(f"{next_title}.pptx"),
-                    delete_local=True,
-                )
+            page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
         except Exception:
-            LOGGER.exception("[ppt.library] replace preview/upload failed item_id=%s", item.id)
-            if is_oss_enabled() and os.path.isfile(pptx_abs) and not pptx_url:
-                try:
-                    pptx_url = await persist_local_path(
-                        pptx_abs,
-                        library_object_key(next_category, item.id, "original.pptx"),
-                        content_type=PPTX_CONTENT_TYPE,
-                        download_name=_safe_original_name(f"{next_title}.pptx"),
-                        delete_local=True,
-                    )
-                except Exception:
-                    LOGGER.exception("[ppt.library] OSS replace fallback failed item_id=%s", item.id)
-            if is_oss_enabled() and not pptx_url:
+            LOGGER.exception("[ppt.library] count slides failed item_id=%s", item.id)
+            page_count = 0
+
+        pptx_url = ""
+        try:
+            pptx_url = await _persist_original_pptx(pptx_abs, next_category, item.id, next_title)
+        except Exception:
+            LOGGER.exception("[ppt.library] replace persist failed item_id=%s", item.id)
+            if is_oss_enabled():
                 shutil.rmtree(item_dir, ignore_errors=True)
-                raise HTTPException(status_code=500, detail="案例解析或上传对象存储失败")
+                raise HTTPException(status_code=500, detail="案例未能写入对象存储")
+            raise HTTPException(status_code=500, detail="案例未能保存到服务器")
         finally:
             if is_oss_enabled():
                 shutil.rmtree(item_dir, ignore_errors=True)
 
-        if is_oss_enabled() and not pptx_url:
-            raise HTTPException(status_code=500, detail="案例未能写入对象存储")
+        if not pptx_url:
+            raise HTTPException(status_code=500, detail="案例未能写入存储")
 
-        item.page_count = page_count or len(slide_urls)
-        item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
+        item.page_count = page_count
+        item.thumbnail = None
         item.pptx_path = pptx_url
-        item.layouts = layouts_json
-        item.raw_layouts = raw_layouts_json
-        item.assets = _preview_assets(pptx_url, slide_urls, preview_engine)
+        item.layouts = None
+        item.raw_layouts = None
+        item.assets = _preview_assets(pptx_url, [], "pending", preview_status="pending")
         for url in old_urls:
-            if isinstance(url, str) and url not in slide_urls and url != pptx_url:
+            if isinstance(url, str) and url != pptx_url:
                 await delete_by_url(url)
+        background_tasks.add_task(_generate_library_preview_job, item.id)
 
     item.title = next_title
     item.description = next_description
@@ -670,16 +747,29 @@ async def update_library_item(
 @LIBRARY_ROUTER.get("/{item_id}", response_model=LibraryItemResponse)
 async def get_library_item(
     item_id: str,
+    background_tasks: BackgroundTasks,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     item = await sql_session.get(PptLibraryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="案例不存在")
-    try:
-        item = await _hydrate_missing_preview(item, sql_session)
-    except Exception:
-        LOGGER.exception("[ppt.library] get preview crashed item_id=%s", item_id)
-        item = await _reload_library_item(sql_session, item_id, item)
+    assets = item.assets if isinstance(item.assets, dict) else {}
+    engine = str(assets.get("preview_engine") or "")
+    status = str(assets.get("preview_status") or "")
+    urls = _slide_urls_of(item)
+    if not urls:
+        background_tasks.add_task(_generate_library_preview_job, item.id)
+        return _item_response(item)
+    should_upgrade = engine in {"html", "fallback", ""} and has_slide_screenshot_backend()
+    if should_upgrade:
+        if status != "generating":
+            assets = dict(assets)
+            assets["preview_status"] = "generating"
+            item.assets = assets
+            sql_session.add(item)
+            await sql_session.commit()
+            await sql_session.refresh(item)
+        background_tasks.add_task(_generate_library_preview_job, item.id)
     return _item_response(item)
 
 

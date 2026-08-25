@@ -1,14 +1,19 @@
 """Slide preview images for the PPT library.
 
-Windows uses WPS/PowerPoint to export real slide screenshots. Linux uses the
-HTML renderer. A lightweight python-pptx fallback is last resort only.
+Windows uses WPS/PowerPoint to export real slide screenshots. Linux prefers
+LibreOffice (PDF then rasterize) so previews match the source file. HTML
+reconstruction is a fallback. python-pptx drawing is last resort only.
 """
 
 from __future__ import annotations
 
+import glob
 import io
 import logging
 import os
+import shutil
+import subprocess
+import tempfile
 import threading
 from typing import Iterable
 
@@ -21,6 +26,36 @@ LOGGER = logging.getLogger(__name__)
 PREVIEW_WIDTH = 1280
 PREVIEW_HEIGHT = 720
 _OFFICE_LOCK = threading.Lock()
+_LIBREOFFICE_LOCK = threading.Lock()
+
+
+def _libreoffice_bin() -> str | None:
+    for name in ("soffice", "libreoffice"):
+        path = shutil.which(name)
+        if path:
+            return path
+    for path in (
+        "/usr/bin/soffice",
+        "/usr/bin/libreoffice",
+        "/usr/lib/libreoffice/program/soffice",
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+    ):
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def has_slide_screenshot_backend() -> bool:
+    """True when we can screenshot slides instead of rebuilding HTML."""
+    if os.name == "nt":
+        try:
+            import win32com.client  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            return True
+    return _libreoffice_bin() is not None
 
 
 def count_pptx_slides(pptx_path: str) -> int:
@@ -91,6 +126,106 @@ def render_pptx_via_office(pptx_path: str, dest_dir: str) -> list[str]:
             pythoncom.CoUninitialize()
         except Exception:
             pass
+
+
+def render_pptx_via_libreoffice(pptx_path: str, dest_dir: str) -> list[str]:
+    """Export slides via LibreOffice PDF + pdftoppm/ghostscript. Empty if tools missing."""
+    soffice = _libreoffice_bin()
+    if not soffice or not os.path.isfile(pptx_path):
+        return []
+    pdftoppm = shutil.which("pdftoppm")
+    gs = shutil.which("gs") or shutil.which("ghostscript")
+    if not pdftoppm and not gs:
+        LOGGER.info("[ppt.library] LibreOffice found but pdftoppm/gs missing; skip screenshot")
+        return []
+
+    os.makedirs(dest_dir, exist_ok=True)
+    work = tempfile.mkdtemp(prefix="lo-ppt-")
+    try:
+        with _LIBREOFFICE_LOCK:
+            profile = os.path.join(work, "profile")
+            os.makedirs(profile, exist_ok=True)
+            abs_pptx = os.path.abspath(pptx_path)
+            cmd = [
+                soffice,
+                "--headless",
+                "--norestore",
+                "--nologo",
+                "--nofirststartwizard",
+                f"-env:UserInstallation={_file_uri(profile)}",
+                "--convert-to",
+                "pdf:impress_pdf_Export",
+                "--outdir",
+                work,
+                abs_pptx,
+            ]
+            completed = subprocess.run(
+                cmd,
+                check=False,
+                timeout=240,
+                capture_output=True,
+            )
+            pdfs = glob.glob(os.path.join(work, "*.pdf"))
+            if not pdfs:
+                LOGGER.warning(
+                    "[ppt.library] LibreOffice produced no PDF rc=%s err=%s",
+                    completed.returncode,
+                    (completed.stderr or b"")[:500],
+                )
+                return []
+            pdf = pdfs[0]
+            prefix = os.path.join(dest_dir, "lo_slide")
+            if pdftoppm:
+                raster = subprocess.run(
+                    [pdftoppm, "-jpeg", "-r", "110", pdf, prefix],
+                    check=False,
+                    timeout=180,
+                    capture_output=True,
+                )
+            else:
+                raster = subprocess.run(
+                    [
+                        gs,
+                        "-dSAFER",
+                        "-dBATCH",
+                        "-dNOPAUSE",
+                        "-sDEVICE=jpeg",
+                        "-dJPEGQ=85",
+                        "-r110",
+                        f"-sOutputFile={prefix}-%02d.jpg",
+                        pdf,
+                    ],
+                    check=False,
+                    timeout=180,
+                    capture_output=True,
+                )
+            if raster.returncode not in (0, None):
+                LOGGER.warning(
+                    "[ppt.library] PDF rasterize rc=%s err=%s",
+                    raster.returncode,
+                    (raster.stderr or b"")[:400],
+                )
+        paths = sorted(
+            glob.glob(prefix + "*.jpg")
+            + glob.glob(prefix + "*.jpeg")
+            + glob.glob(prefix + "-*.jpg")
+        )
+        return [path for path in paths if os.path.isfile(path) and os.path.getsize(path) > 0]
+    except subprocess.TimeoutExpired:
+        LOGGER.warning("[ppt.library] LibreOffice screenshot timed out path=%s", pptx_path)
+        return []
+    except Exception:
+        LOGGER.exception("[ppt.library] LibreOffice screenshot failed path=%s", pptx_path)
+        return []
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _file_uri(path: str) -> str:
+    abs_path = os.path.abspath(path).replace("\\", "/")
+    if os.name == "nt":
+        return "file:///" + abs_path
+    return "file://" + abs_path
 
 
 def render_pptx_slide_previews(pptx_path: str, dest_dir: str) -> list[str]:

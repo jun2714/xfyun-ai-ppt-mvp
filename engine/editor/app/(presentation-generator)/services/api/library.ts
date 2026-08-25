@@ -17,6 +17,8 @@ export interface LibraryItem {
   slide_image_urls?: string[];
   download_count: number;
   editable: boolean;
+  preview_status?: string;
+  preview_engine?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -98,20 +100,29 @@ export class LibraryService {
     season?: string;
     scene?: string;
   }): Promise<LibraryItem> {
-    const form = new FormData();
-    form.append("file", payload.file);
-    form.append("title", payload.title);
-    form.append("description", payload.description || "");
-    form.append("category", payload.category);
-    form.append("age_group", payload.age_group);
-    form.append("season", payload.season || "不限");
-    form.append("scene", payload.scene || "其他");
-    const response = await fetch(getApiUrl("/api/v1/ppt/library"), {
-      method: "POST",
-      headers: getHeaderForFormData(),
-      body: form,
-    });
-    return ApiResponseHandler.handleResponse(response, "上传案例失败");
+    const maxAttempts = 3;
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const form = new FormData();
+      form.append("file", payload.file);
+      form.append("title", payload.title);
+      form.append("description", payload.description || "");
+      form.append("category", payload.category);
+      form.append("age_group", payload.age_group);
+      form.append("season", payload.season || "不限");
+      form.append("scene", payload.scene || "其他");
+      const response = await fetch(getApiUrl("/api/v1/ppt/library"), {
+        method: "POST",
+        headers: getHeaderForFormData(),
+        body: form,
+      });
+      if (response.ok || ![502, 503, 504].includes(response.status) || attempt === maxAttempts) {
+        return ApiResponseHandler.handleResponse(response, "上传案例失败");
+      }
+      lastError = new Error("网关暂时不可用，正在重试上传");
+      await new Promise((resolve) => window.setTimeout(resolve, 800 * attempt));
+    }
+    throw lastError ?? new Error("上传案例失败");
   }
 
   static async get(itemId: string): Promise<LibraryItem> {

@@ -28,6 +28,20 @@ type UploadQueueItem = {
   error?: string;
 };
 
+function isCoverPending(item: LibraryItem) {
+  if (item.preview_status === "failed") return false;
+  if (item.preview_status === "pending" || item.preview_status === "generating") {
+    return !item.thumbnail;
+  }
+  return !item.thumbnail;
+}
+
+function isPreviewWaiting(item: LibraryItem) {
+  if (item.preview_status === "failed") return false;
+  if (item.preview_status === "pending" || item.preview_status === "generating") return true;
+  return !(item.slide_image_urls || []).length;
+}
+
 export default function LibraryPanel() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -51,8 +65,8 @@ export default function LibraryPanel() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
+  const loadItems = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await LibraryService.list({
         q: query.trim() || undefined,
@@ -64,15 +78,32 @@ export default function LibraryPanel() {
       setItems(data.items || []);
       setCanManage(Boolean(data.can_manage));
     } catch (error) {
-      notify.error("加载失败", error instanceof Error ? error.message : "无法加载素材库");
+      if (!silent) {
+        notify.error("加载失败", error instanceof Error ? error.message : "无法加载素材库");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [ageGroup, category, query, scene, season]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  const pendingCovers = items.some(
+    (item) =>
+      item.preview_status === "pending" ||
+      item.preview_status === "generating" ||
+      isCoverPending(item),
+  );
+
+  useEffect(() => {
+    if (!pendingCovers) return undefined;
+    const timer = window.setInterval(() => {
+      void loadItems(true);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [pendingCovers, loadItems]);
 
   const handleSelectFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -102,7 +133,7 @@ export default function LibraryPanel() {
     queueRef.current = nextQueue;
     setQueue(nextQueue);
     setShowUpload(true);
-    setUploadProgress(`已选 ${nextQueue.length} 个文件，开始逐个解析封面`);
+    setUploadProgress(`已选 ${nextQueue.length} 个文件，正在保存原件`);
     void runUpload(nextQueue);
   };
 
@@ -128,7 +159,7 @@ export default function LibraryPanel() {
         const item = snapshot[index];
         const latest = queueRef.current.find((row) => row.key === item.key) || item;
         if (latest.status === "done") continue;
-        setUploadProgress(`正在上传 ${index + 1}/${snapshot.length}：《${latest.title}》，解析封面大约 1–2 分钟`);
+        setUploadProgress(`正在保存原件 ${index + 1}/${snapshot.length}：《${latest.title}》`);
         updateQueueItem(item.key, { status: "uploading", error: "" });
         try {
           const current = queueRef.current.find((row) => row.key === item.key) || latest;
@@ -215,15 +246,10 @@ export default function LibraryPanel() {
   const previewSlides = previewItem?.slide_image_urls?.filter(Boolean) || [];
 
   const openPreview = async (item: LibraryItem) => {
-    const existing = item.slide_image_urls?.filter(Boolean) || [];
-    if (existing.length) {
-      setPreviewItem(item);
-      setPreviewIndex(0);
-      return;
-    }
-    setPreviewLoading(true);
     setPreviewItem(item);
     setPreviewIndex(0);
+    const existing = item.slide_image_urls?.filter(Boolean) || [];
+    setPreviewLoading(!existing.length);
     try {
       const detail = await LibraryService.get(item.id);
       setPreviewItem(detail);
@@ -231,12 +257,30 @@ export default function LibraryPanel() {
         current.map((entry) => (entry.id === detail.id ? { ...entry, ...detail } : entry)),
       );
     } catch (error) {
-      notify.error("无法预览", error instanceof Error ? error.message : "请稍后重试");
-      setPreviewItem(null);
+      if (!existing.length) {
+        notify.error("无法预览", error instanceof Error ? error.message : "请稍后重试");
+        setPreviewItem(null);
+      }
     } finally {
       setPreviewLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!previewItem || !isPreviewWaiting(previewItem)) return undefined;
+    const itemId = previewItem.id;
+    const timer = window.setInterval(() => {
+      void LibraryService.get(itemId)
+        .then((detail) => {
+          setPreviewItem(detail);
+          setItems((current) =>
+            current.map((entry) => (entry.id === detail.id ? { ...entry, ...detail } : entry)),
+          );
+        })
+        .catch(() => undefined);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [previewItem?.id, previewItem?.preview_status, previewSlides.length]);
 
   useEffect(() => {
     if (!previewItem) return undefined;
@@ -370,7 +414,7 @@ export default function LibraryPanel() {
           <div className="mb-8 rounded-[22px] border border-[#EDEEEF] bg-white p-5">
             <div className="mb-1 text-sm font-semibold text-[#191919]">批量发布到素材库</div>
             <p className="mb-4 text-xs text-[#667085]">
-              已识别班级、学期和课型，可逐条改。大文件会排队解析封面，老师访问时只加载封面图，不会下载原 PPT。
+              已识别班级、学期和课型，可逐条改。先保存原件，封面在后台生成，老师访问时只加载封面图，不会下载原 PPT。
               {uploadProgress ? ` 进度 ${uploadProgress}` : ""}
             </p>
             <div className="max-h-[360px] space-y-3 overflow-auto">
@@ -402,7 +446,7 @@ export default function LibraryPanel() {
                     {LIBRARY_SCENES.filter((value) => value !== "全部").map((value) => <option key={value} value={value}>{value}</option>)}
                   </select>
                   <div className="flex items-center text-xs text-[#667085]">
-                    {item.status === "uploading" ? "正在解析封面…" : item.status === "done" ? "已进入素材库" : item.status === "error" ? item.error : "等待上传"}
+                    {item.status === "uploading" ? "正在保存原件…" : item.status === "done" ? "已进入素材库" : item.status === "error" ? item.error : "等待上传"}
                   </div>
                 </div>
               ))}
@@ -415,7 +459,7 @@ export default function LibraryPanel() {
                 className="inline-flex h-10 items-center gap-2 rounded-full bg-[#7A5AF8] px-4 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {uploading ? `正在解析上传 ${uploadProgress}` : `开始上传 ${queue.length} 个文件`}
+                {uploading ? `正在保存 ${uploadProgress}` : `开始上传 ${queue.length} 个文件`}
               </button>
               <button
                 type="button"
@@ -446,6 +490,7 @@ export default function LibraryPanel() {
             {items.map((item) => {
               const thumbnail = item.thumbnail ? resolveBackendAssetUrl(item.thumbnail) : "";
               const busy = busyId === item.id;
+              const coverPending = isCoverPending(item);
               return (
                 <article
                   key={item.id}
@@ -464,10 +509,22 @@ export default function LibraryPanel() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="flex h-full items-center justify-center text-xs text-[#98A2B3]">
-                        点击查看课件
+                      <span className="flex h-full flex-col items-center justify-center gap-1 text-xs text-[#98A2B3]">
+                        {coverPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            封面生成中
+                          </>
+                        ) : (
+                          "点击查看课件"
+                        )}
                       </span>
                     )}
+                    {coverPending && thumbnail ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-xs font-semibold text-white">
+                        封面生成中
+                      </span>
+                    ) : null}
                     <span className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">
                       {item.page_count || 0} 页
                     </span>
@@ -598,7 +655,7 @@ export default function LibraryPanel() {
                 {previewLoading ? (
                   <div className="flex items-center text-sm text-[#667085]">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    正在生成预览…
+                    正在按源文件生成预览…
                   </div>
                 ) : previewSlides.length ? (
                   <>
@@ -607,6 +664,12 @@ export default function LibraryPanel() {
                       alt={`${previewItem.title} 第 ${previewIndex + 1} 页`}
                       className="max-h-full max-w-full object-contain shadow-[0_8px_28px_rgba(16,24,40,0.08)]"
                     />
+                    {previewItem.preview_status === "generating" ? (
+                      <div className="absolute top-5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/65 px-3 py-1 text-xs text-white">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        正在按源文件重新截图
+                      </div>
+                    ) : null}
                     {previewSlides.length > 1 ? (
                       <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#EDEEEF] bg-white px-2 py-1 text-[#191919] shadow-sm">
                         <button
