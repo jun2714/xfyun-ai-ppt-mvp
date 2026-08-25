@@ -15,6 +15,7 @@ from api.v1.auth.users import get_jwt_strategy
 from models.sql.user import User
 from services.database import async_session_maker
 from utils.get_env import get_can_change_keys_env, is_disable_auth_enabled
+from utils.public_app_data import is_public_app_data_preview
 from utils.user_config import update_env_with_user_config
 
 
@@ -34,16 +35,12 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/logout",
         "/api/v1/auth/bridge/teachnova",
     }
-    _PUBLIC_APP_DATA_PREFIXES = (
-        "/app_data/fonts/",
-        "/app_data/templates/",
-    )
     _PROTECTED_NON_API_PATHS = {"/docs", "/openapi.json", "/redoc"}
 
     def _requires_auth(self, path: str) -> bool:
         if path.startswith("/api/"):
             return True
-        if any(path.startswith(prefix) for prefix in self._PUBLIC_APP_DATA_PREFIXES):
+        if is_public_app_data_preview(path):
             return False
         if path.startswith("/app_data/"):
             return True

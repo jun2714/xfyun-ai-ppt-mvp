@@ -98,8 +98,14 @@ def rewrite_library_asset_refs(payload: Any, library_id: str, presentation_id: s
         return payload
     text = json.dumps(payload, ensure_ascii=False)
     replacements = (
-        (f"/ppt-api/app_data/library/{library_id}/", f"/app_data/presentations/{presentation_id}/"),
-        (f"/app_data/library/{library_id}/", f"/app_data/presentations/{presentation_id}/"),
+        (
+            f"/ppt-api/app_data/library/{library_id}/",
+            f"/ppt-api/app_data/presentations/{presentation_id}/",
+        ),
+        (
+            f"/app_data/library/{library_id}/",
+            f"/app_data/presentations/{presentation_id}/",
+        ),
     )
     changed = False
     for old, new in replacements:
