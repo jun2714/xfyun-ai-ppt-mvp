@@ -42,6 +42,26 @@ function isPreviewWaiting(item: LibraryItem) {
   return !(item.slide_image_urls || []).length;
 }
 
+function mergeLibraryItems(current: LibraryItem[], incoming: LibraryItem[]) {
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const pendingLocal = current.filter((item) => !incomingIds.has(item.id));
+  const mergedIncoming = incoming.map((item) => {
+    const local = current.find((row) => row.id === item.id);
+    if (!local) return item;
+    return {
+      ...local,
+      ...item,
+      thumbnail: item.thumbnail || local.thumbnail,
+      slide_image_urls:
+        item.slide_image_urls && item.slide_image_urls.length
+          ? item.slide_image_urls
+          : local.slide_image_urls,
+      preview_status: item.preview_status || local.preview_status,
+    };
+  });
+  return [...pendingLocal, ...mergedIncoming];
+}
+
 export default function LibraryPanel() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -75,7 +95,7 @@ export default function LibraryPanel() {
         season,
         scene,
       });
-      setItems(data.items || []);
+      setItems((currentItems) => mergeLibraryItems(currentItems, data.items || []));
       setCanManage(Boolean(data.can_manage));
     } catch (error) {
       if (!silent) {
@@ -96,14 +116,16 @@ export default function LibraryPanel() {
       item.preview_status === "generating" ||
       isCoverPending(item),
   );
+  const forcePollUntilRef = useRef(0);
+  const shouldPollCovers = pendingCovers || Date.now() < forcePollUntilRef.current;
 
   useEffect(() => {
-    if (!pendingCovers) return undefined;
+    if (!shouldPollCovers) return undefined;
     const timer = window.setInterval(() => {
       void loadItems(true);
-    }, 4000);
+    }, 2000);
     return () => window.clearInterval(timer);
-  }, [pendingCovers, loadItems]);
+  }, [shouldPollCovers, loadItems]);
 
   const handleSelectFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -163,7 +185,7 @@ export default function LibraryPanel() {
         updateQueueItem(item.key, { status: "uploading", error: "" });
         try {
           const current = queueRef.current.find((row) => row.key === item.key) || latest;
-          await LibraryService.upload({
+          const created = await LibraryService.upload({
             file: current.file,
             title: current.title.trim() || current.file.name.replace(/\.pptx$/i, ""),
             category: current.category,
@@ -172,6 +194,16 @@ export default function LibraryPanel() {
             scene: current.scene,
           });
           updateQueueItem(item.key, { status: "done" });
+          forcePollUntilRef.current = Date.now() + 180000;
+          if (created?.id) {
+            setItems((currentItems) => {
+              if (currentItems.some((row) => row.id === created.id)) {
+                return currentItems.map((row) => (row.id === created.id ? { ...row, ...created } : row));
+              }
+              return [created, ...currentItems];
+            });
+          }
+          void loadItems(true);
         } catch (error) {
           updateQueueItem(item.key, {
             status: "error",
@@ -183,7 +215,10 @@ export default function LibraryPanel() {
       const failed = queueRef.current.filter((item) => item.status === "error").length;
       setUploadProgress(`完成：成功 ${succeeded} 个，失败 ${failed} 个。失败项可点「开始上传」重试。`);
       notify.success("批量上传完成", `成功 ${succeeded} 个，失败 ${failed} 个`);
-      if (succeeded) await loadItems();
+      if (succeeded) {
+        forcePollUntilRef.current = Date.now() + 180000;
+        await loadItems(true);
+      }
     } finally {
       uploadingRef.current = false;
       setUploading(false);

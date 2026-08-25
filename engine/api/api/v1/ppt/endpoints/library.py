@@ -8,7 +8,7 @@ import tempfile
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -351,6 +351,36 @@ async def _persist_slide_images(
     return slide_urls
 
 
+async def _commit_item_preview(
+    item: PptLibraryItem,
+    sql_session: AsyncSession,
+    *,
+    slide_urls: list[str],
+    preview_engine: str,
+    preview_status: str,
+    page_count: int = 0,
+    old_slide_urls: list[str] | None = None,
+) -> PptLibraryItem:
+    assets = dict(item.assets if isinstance(item.assets, dict) else {})
+    assets["slide_image_urls"] = slide_urls
+    assets["pptx_url"] = item.pptx_path
+    assets["preview_engine"] = preview_engine
+    assets["preview_status"] = preview_status
+    if has_preview_cjk_font() or preview_engine in SCREENSHOT_ENGINES:
+        assets["preview_charset"] = CJK_PREVIEW_MARK
+    item.assets = assets
+    item.page_count = page_count or item.page_count or len(slide_urls)
+    item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
+    item.updated_at = get_current_utc_datetime()
+    sql_session.add(item)
+    await sql_session.commit()
+    await sql_session.refresh(item)
+    for url in old_slide_urls or []:
+        if isinstance(url, str) and url not in slide_urls:
+            await delete_by_url(url)
+    return item
+
+
 async def _parse_library_layouts(pptx_abs: str, slide_count: int):
     layouts_json = None
     raw_layouts_json = None
@@ -419,13 +449,80 @@ async def _hydrate_missing_preview(
 
             await materialize_url_to_file(item.pptx_path, pptx_abs)
             page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
+            old_slides = existing_urls
+
+            if not existing_urls:
+                fallback_dir = os.path.join(item_dir, "fallback-screens")
+                fallback_paths = await asyncio.to_thread(
+                    render_pptx_slide_previews, pptx_abs, fallback_dir
+                )
+                fallback_urls = await _persist_slide_images(
+                    fallback_paths, item_dir, item.category, item.id
+                )
+                if fallback_urls:
+                    item = await _commit_item_preview(
+                        item,
+                        sql_session,
+                        slide_urls=fallback_urls,
+                        preview_engine="fallback",
+                        preview_status="generating",
+                        page_count=page_count,
+                    )
+                    existing_urls = fallback_urls
+                    old_slides = fallback_urls
+
             preview_engine, rendered_paths = await _render_library_slides(
                 pptx_abs, item_dir, prefer_html=True
             )
-            slide_urls = await _persist_slide_images(
-                rendered_paths, item_dir, item.category, item.id
-            )
-            if not slide_urls:
+            if preview_engine in SCREENSHOT_ENGINES or (
+                preview_engine == "html" and rendered_paths
+            ):
+                slide_urls = await _persist_slide_images(
+                    rendered_paths, item_dir, item.category, item.id
+                )
+                if slide_urls:
+                    item = await _commit_item_preview(
+                        item,
+                        sql_session,
+                        slide_urls=slide_urls,
+                        preview_engine=preview_engine,
+                        preview_status="ready",
+                        page_count=page_count,
+                        old_slide_urls=old_slides,
+                    )
+                elif existing_urls:
+                    current_engine = "fallback"
+                    if isinstance(item.assets, dict):
+                        current_engine = str(item.assets.get("preview_engine") or "fallback")
+                    item = await _commit_item_preview(
+                        item,
+                        sql_session,
+                        slide_urls=existing_urls,
+                        preview_engine=current_engine,
+                        preview_status="ready",
+                        page_count=page_count,
+                    )
+                else:
+                    assets = dict(item.assets if isinstance(item.assets, dict) else {})
+                    assets["preview_status"] = "failed"
+                    item.assets = assets
+                    sql_session.add(item)
+                    await sql_session.commit()
+                    await sql_session.refresh(item)
+                    return item
+            elif existing_urls:
+                current_engine = "fallback"
+                if isinstance(item.assets, dict):
+                    current_engine = str(item.assets.get("preview_engine") or "fallback")
+                item = await _commit_item_preview(
+                    item,
+                    sql_session,
+                    slide_urls=existing_urls,
+                    preview_engine=current_engine,
+                    preview_status="ready",
+                    page_count=page_count,
+                )
+            else:
                 assets = dict(item.assets if isinstance(item.assets, dict) else {})
                 assets["preview_status"] = "failed"
                 item.assets = assets
@@ -433,33 +530,20 @@ async def _hydrate_missing_preview(
                 await sql_session.commit()
                 await sql_session.refresh(item)
                 return item
-            old_slides = existing_urls
-            assets = dict(item.assets if isinstance(item.assets, dict) else {})
-            assets["slide_image_urls"] = slide_urls
-            assets["pptx_url"] = item.pptx_path
-            assets["preview_engine"] = preview_engine
-            assets["preview_status"] = "ready"
-            if has_preview_cjk_font() or preview_engine in SCREENSHOT_ENGINES:
-                assets["preview_charset"] = CJK_PREVIEW_MARK
-            item.page_count = page_count or len(slide_urls)
-            item.thumbnail = slide_urls[0] if slide_urls else item.thumbnail
-            item.assets = assets
+
             if not item.layouts:
                 file_size = os.path.getsize(pptx_abs) if os.path.isfile(pptx_abs) else 0
                 if file_size <= LARGE_FILE_LAYOUT_LIMIT:
                     layouts_json, raw_layouts_json = await _parse_library_layouts(
-                        pptx_abs, page_count or len(slide_urls)
+                        pptx_abs, page_count or len(_slide_urls_of(item))
                     )
                     if layouts_json:
                         item.layouts = layouts_json
                         item.raw_layouts = raw_layouts_json
-            item.updated_at = get_current_utc_datetime()
-            sql_session.add(item)
-            await sql_session.commit()
-            await sql_session.refresh(item)
-            for url in old_slides:
-                if isinstance(url, str) and url not in slide_urls:
-                    await delete_by_url(url)
+                        item.updated_at = get_current_utc_datetime()
+                        sql_session.add(item)
+                        await sql_session.commit()
+                        await sql_session.refresh(item)
         except Exception:
             LOGGER.exception("[ppt.library] hydrate preview failed item_id=%s", item.id)
             item = await _reload_library_item(sql_session, item.id, item)
@@ -506,6 +590,7 @@ async def _persist_original_pptx(pptx_abs: str, category: str, item_id: str, tit
 @LIBRARY_ROUTER.get("/", response_model=LibraryListResponse, include_in_schema=False)
 async def list_library_items(
     background_tasks: BackgroundTasks,
+    response: Response,
     q: Optional[str] = None,
     category: Optional[str] = None,
     age_group: Optional[str] = None,
@@ -515,6 +600,8 @@ async def list_library_items(
     include_slides: bool = Query(False),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
     statement = select(PptLibraryItem).order_by(PptLibraryItem.created_at.desc())
     result = await sql_session.execute(statement)
     items = list(result.scalars().all())
@@ -544,7 +631,7 @@ async def list_library_items(
         filtered.append(item)
     queued = 0
     for item in filtered:
-        if queued >= 2:
+        if queued >= 8:
             break
         assets = item.assets if isinstance(item.assets, dict) else {}
         status = str(assets.get("preview_status") or "")

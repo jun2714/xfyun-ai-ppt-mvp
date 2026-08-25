@@ -85,8 +85,8 @@ export class LibraryService {
     if (params.scene && params.scene !== "全部") search.set("scene", params.scene);
     const query = search.toString();
     const response = await fetch(
-      getApiUrl(`/api/v1/ppt/library${query ? `?${query}` : ""}`),
-      { headers: getHeader() },
+      getApiUrl(`/api/v1/ppt/library${query ? `?${query}&` : "?"}_ts=${Date.now()}`),
+      { headers: getHeader(), cache: "no-store" },
     );
     return ApiResponseHandler.handleResponse(response, "加载素材库失败");
   }
