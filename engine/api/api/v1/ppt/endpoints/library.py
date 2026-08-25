@@ -149,6 +149,22 @@ def _require_library_admin() -> None:
         raise HTTPException(status_code=403, detail="只有管理员可以维护素材库")
 
 
+def _permanent_original_path(item_id: str) -> str:
+    return os.path.join(_library_root(), str(item_id), "original.pptx")
+
+
+def _resolve_stored_original(item: PptLibraryItem) -> str | None:
+    source = item.pptx_path if isinstance(item.pptx_path, str) else ""
+    if source:
+        local = resolve_app_path_to_filesystem(source)
+        if local and os.path.isfile(local):
+            return local
+    fallback = _permanent_original_path(item.id)
+    if os.path.isfile(fallback):
+        return fallback
+    return None
+
+
 def _to_app_data_url(abs_path: str) -> str:
     app_data = os.path.realpath(get_app_data_directory_env() or "")
     real = os.path.realpath(abs_path)
@@ -464,7 +480,11 @@ async def _hydrate_missing_preview(
             await sql_session.commit()
             await sql_session.refresh(item)
 
-            await materialize_url_to_file(item.pptx_path, pptx_abs)
+            local_original = _resolve_stored_original(item)
+            if local_original and os.path.abspath(local_original) != os.path.abspath(pptx_abs):
+                shutil.copy2(local_original, pptx_abs)
+            elif not os.path.isfile(pptx_abs):
+                await materialize_url_to_file(item.pptx_path, pptx_abs)
             page_count = await asyncio.to_thread(count_pptx_slides, pptx_abs)
             old_slides = existing_urls
 
@@ -652,7 +672,7 @@ async def list_library_items(
             break
         assets = item.assets if isinstance(item.assets, dict) else {}
         status = str(assets.get("preview_status") or "")
-        if not _slide_urls_of(item) and status in PENDING_PREVIEW_STATUSES:
+        if not _slide_urls_of(item) and status in PENDING_PREVIEW_STATUSES.union({"failed", ""}):
             background_tasks.add_task(_generate_library_preview_job, str(item.id))
             queued += 1
     return LibraryListResponse(
@@ -898,11 +918,9 @@ async def download_library_item(
 
     download_name = _safe_original_name(f"{item.title}.pptx")
     tmp_dir = None
-    abs_path = None
-    source = item.pptx_path
-    if is_oss_url(source) or (
-        isinstance(source, str) and source.startswith(("http://", "https://"))
-    ):
+    abs_path = _resolve_stored_original(item)
+    if not abs_path:
+        source = item.pptx_path
         tmp_dir = tempfile.mkdtemp(prefix="ppt-dl-")
         abs_path = os.path.join(tmp_dir, "original.pptx")
         try:
@@ -911,10 +929,6 @@ async def download_library_item(
             shutil.rmtree(tmp_dir, ignore_errors=True)
             LOGGER.exception("[ppt.library] download materialize failed item_id=%s", item_id)
             raise HTTPException(status_code=404, detail="原文件不存在或无法读取") from None
-    else:
-        abs_path = resolve_app_path_to_filesystem(source)
-        if not abs_path or not os.path.isfile(abs_path):
-            raise HTTPException(status_code=404, detail="原文件不存在")
 
     with open(abs_path, "rb") as handle:
         magic = handle.read(4)

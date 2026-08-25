@@ -34,17 +34,35 @@ def is_oss_enabled() -> bool:
     return is_aliyun_oss_enabled()
 
 
+def is_local_app_data_url(value: str | None) -> bool:
+    """True for FastAPI-served /app_data files, including the /ppt-api reverse proxy."""
+    text = (value or "").strip()
+    if not text:
+        return False
+    path = unquote(urlparse(text).path or "") if text.startswith(("http://", "https://")) else text
+    if not path.startswith("/"):
+        path = "/" + path.lstrip("/")
+    return path.startswith("/ppt-api/app_data/") or path.startswith("/app_data/")
+
+
 def is_oss_url(value: str | None) -> bool:
     if not value:
         return False
     text = value.strip()
     if not text.startswith(("http://", "https://")):
         return False
+    if is_local_app_data_url(text):
+        return False
     public_base = get_aliyun_oss_public_base_url()
     if public_base and text.startswith(public_base + "/"):
         return True
     host = (urlparse(text).hostname or "").lower()
-    return "aliyuncs.com" in host or host.endswith("nxzhiyi.com")
+    if "aliyuncs.com" in host:
+        return True
+    if public_base:
+        public_host = (urlparse(public_base).hostname or "").lower()
+        return bool(public_host) and host == public_host
+    return False
 
 
 def public_url_for_key(key: str) -> str:
@@ -232,12 +250,6 @@ async def materialize_url_to_file(url: str, dest: str) -> str:
     if not text:
         raise FileNotFoundError("empty asset url")
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
-    if is_oss_url(text):
-        key = object_key_from_url(text)
-        if not key:
-            raise FileNotFoundError(text)
-        await asyncio.to_thread(_get_object_to_file_sync, key, dest)
-        return dest
     from utils.asset_directory_utils import resolve_app_path_to_filesystem
 
     local_path = resolve_app_path_to_filesystem(text)
@@ -252,6 +264,12 @@ async def materialize_url_to_file(url: str, dest: str) -> str:
             import shutil
 
             shutil.copy2(text, dest)
+        return dest
+    if is_oss_url(text):
+        key = object_key_from_url(text)
+        if not key:
+            raise FileNotFoundError(text)
+        await asyncio.to_thread(_get_object_to_file_sync, key, dest)
         return dest
     raise FileNotFoundError(text)
 
