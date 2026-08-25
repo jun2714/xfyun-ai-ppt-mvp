@@ -9,7 +9,7 @@ PRIVATE_APP_DATA_ROOTS = {
     "pptx-to-html",
     "pptx-to-json",
 }
-SHARED_APP_DATA_ROOTS = {"fonts", "templates", "library"}
+SHARED_APP_DATA_ROOTS = {"fonts", "templates", "library", "presentations"}
 
 
 def normalized_app_data_parts(path_or_uri: str) -> tuple[str, ...] | None:

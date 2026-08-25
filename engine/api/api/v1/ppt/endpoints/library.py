@@ -18,7 +18,12 @@ from sqlmodel import select
 from api.v1.auth.context import get_current_owner_id, get_current_owner_is_admin
 from models.sql.ppt_library_item import PptLibraryItem
 from services.database import async_session_maker, get_async_session
-from services.library_edit_copy import create_presentation_from_layouts
+from services.library_edit_copy import (
+    create_presentation_from_layouts,
+    discover_library_slide_files,
+    remove_presentation_asset_dir,
+    snapshot_library_assets_for_presentation,
+)
 from services.export_task_service import EXPORT_TASK_SERVICE
 from templates.fonts_and_slides_preview import render_pptx_slides_to_images
 from templates.v2.models.elements import Position
@@ -220,10 +225,17 @@ def _fallback_layouts(raw_layouts: RawSlideLayouts) -> SlideLayouts:
     return SlideLayouts(layouts=generated)
 
 
+def _discover_local_slide_urls(item: PptLibraryItem) -> list[str]:
+    return [_to_app_data_url(path) for path in discover_library_slide_files(str(item.id))]
+
+
 def _slide_urls_of(item: PptLibraryItem) -> list[str]:
     assets = item.assets if isinstance(item.assets, dict) else {}
     raw = assets.get("slide_image_urls")
     urls = [url for url in raw if isinstance(url, str) and url.strip()] if isinstance(raw, list) else []
+    discovered = _discover_local_slide_urls(item)
+    if len(discovered) > len(urls):
+        return discovered
     thumbnail = item.thumbnail if isinstance(item.thumbnail, str) else ""
     if not urls and thumbnail.strip():
         return [thumbnail.strip()]
@@ -634,7 +646,7 @@ async def list_library_items(
     season: Optional[str] = None,
     scene: Optional[str] = None,
     scope: str = Query("official"),
-    include_slides: bool = Query(False),
+    include_slides: bool = Query(True),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
@@ -965,23 +977,46 @@ async def clone_library_item_for_edit(
             status_code=400,
             detail="该案例暂不支持在线编辑，请直接下载原件",
         )
+    presentation_id = uuid.uuid4()
     try:
-        presentation, slides = create_presentation_from_layouts(
-            title=item.title,
-            description=item.description,
+        copied_urls, layouts, assets = await snapshot_library_assets_for_presentation(
+            presentation_id=str(presentation_id),
+            library_id=str(item.id),
+            slide_urls=_slide_urls_of(item),
+            original_source=_resolve_stored_original(item) or (
+                item.pptx_path if isinstance(item.pptx_path, str) else None
+            ),
             layouts=item.layouts,
             assets=item.assets,
         )
+        presentation, slides = create_presentation_from_layouts(
+            title=item.title,
+            description=item.description,
+            layouts=layouts,
+            assets=assets,
+            file_paths=copied_urls,
+            presentation_id=presentation_id,
+        )
     except ValueError as exc:
+        remove_presentation_asset_dir(str(presentation_id))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    sql_session.add(presentation)
-    sql_session.add_all(slides)
-    await sql_session.commit()
-    await sql_session.refresh(presentation)
-    presentation_id = str(presentation.id)
+    except Exception as exc:
+        remove_presentation_asset_dir(str(presentation_id))
+        LOGGER.exception("[ppt.library] clone snapshot failed item_id=%s", item_id)
+        raise HTTPException(status_code=500, detail="创建个人副本失败，请稍后重试") from exc
+    try:
+        sql_session.add(presentation)
+        sql_session.add_all(slides)
+        await sql_session.commit()
+        await sql_session.refresh(presentation)
+    except Exception:
+        remove_presentation_asset_dir(str(presentation_id))
+        await sql_session.rollback()
+        raise
+    presentation_uuid = str(presentation.id)
     return LibraryCloneResponse(
-        presentation_id=presentation_id,
-        id=presentation_id,
+        presentation_id=presentation_uuid,
+        id=presentation_uuid,
         title=presentation.title or item.title,
     )
 

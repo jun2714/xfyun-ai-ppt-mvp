@@ -23,6 +23,7 @@ class PresentationWithSlides(BaseModel):
     slides: List[SlideModel]
     fonts: Optional[Any] = None
     file_paths: Optional[List[str]] = None
+    source_assets_missing: bool = False
     generation_mode: Literal["standard", "smart"] = "standard"
     community_design_ids: Optional[List[int]] = None
     image_policy: ImagePolicy = ImagePolicy.STANDARD

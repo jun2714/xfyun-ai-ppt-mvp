@@ -414,6 +414,16 @@ def _presentation_response_data(presentation: PresentationModel) -> dict:
     return presentation.model_dump(exclude={"layout", "structure", "theme"})
 
 
+def _presentation_with_slides_payload(presentation: PresentationModel, slides: list) -> PresentationWithSlides:
+    from services.library_edit_copy import missing_library_file_paths
+
+    return PresentationWithSlides(
+        **_presentation_response_data(presentation),
+        slides=slides,
+        source_assets_missing=bool(missing_library_file_paths(presentation.file_paths)),
+    )
+
+
 def _insert_toc_layouts(
     structure: PresentationStructureModel,
     n_toc_slides: int,
@@ -1454,22 +1464,15 @@ async def get_all_presentations(
     results = await sql_session.execute(query)
     if not include_slides:
         return [
-            PresentationWithSlides(
-                **_presentation_response_data(presentation),
-                slides=[],
-            )
+            _presentation_with_slides_payload(presentation, [])
             for presentation in results.scalars().all()
         ]
 
     rows = results.all()
     presentations_with_slides = []
     for presentation, first_slide in rows:
-        slides = [first_slide]
         presentations_with_slides.append(
-            PresentationWithSlides(
-                **_presentation_response_data(presentation),
-                slides=slides,
-            )
+            _presentation_with_slides_payload(presentation, [first_slide])
         )
     return presentations_with_slides
 
@@ -1495,10 +1498,7 @@ async def get_presentation(
         await sql_session.commit()
         for slide in slides:
             await sql_session.refresh(slide)
-    return PresentationWithSlides(
-        **_presentation_response_data(presentation),
-        slides=slides,
-    )
+    return _presentation_with_slides_payload(presentation, slides)
 
 
 @PRESENTATION_ROUTER.delete("/{id}", status_code=204)
