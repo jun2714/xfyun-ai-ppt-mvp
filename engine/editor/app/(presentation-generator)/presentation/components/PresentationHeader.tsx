@@ -6,6 +6,7 @@ import {
   Redo2,
   Undo2,
   RotateCcw,
+  ArrowLeft,
   ArrowRightFromLine,
   ArrowUpRight,
   Pencil,
@@ -52,7 +53,7 @@ import {
 import MarkdownRenderer from "@/components/MarkDownRender";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
-import { requestTeachnovaHome } from "@/utils/teachnovaEmbed";
+import { teachnovaProjectsPath } from "@/utils/teachnovaEmbed";
 
 const MAX_EXPORT_TITLE_LENGTH = 40;
 
@@ -477,17 +478,30 @@ const PresentationHeader = ({
     </div>
   );
 
+  const goToProjects = () => {
+    const to = teachnovaProjectsPath();
+    trackEvent(MixpanelEvent.Navigation, { from: pathname, to });
+    router.push(to);
+  };
+
   return (
     <>
       <div className="sticky top-0 z-50 flex h-16 items-center justify-between gap-5 border-b border-[#E7E7EB] bg-white px-5 font-syne">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <button
             type="button"
-            onClick={() => {
-              if (!requestTeachnovaHome()) router.push("/dashboard");
-            }}
+            onClick={goToProjects}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#EDEEEF] bg-white px-3 py-1.5 text-sm font-semibold text-[#333333] transition-colors hover:border-[#C9C3F7] hover:bg-[#F7F6FF] hover:text-[#5146E5]"
+            aria-label="返回我的项目"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            返回
+          </button>
+          <button
+            type="button"
+            onClick={goToProjects}
             className="flex shrink-0 items-center gap-2 text-left"
-            aria-label="返回 Teachnova 首页"
+            aria-label="返回我的项目"
           >
             <img src="/teachnova-mark.png" alt="" className="h-9 w-9 object-contain" />
             <span className="hidden items-baseline gap-1.5 lg:flex">

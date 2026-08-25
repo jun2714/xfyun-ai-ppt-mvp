@@ -45,3 +45,16 @@ export function isTeachnovaEmbed(): boolean {
     return false;
   }
 }
+
+/** Keep embed query so iframe navigation stays inside TeachNova PPT tabs. */
+export function teachnovaProjectsPath(): string {
+  if (typeof window === "undefined" || !isTeachnovaEmbed()) return "/dashboard";
+  const params = new URLSearchParams({ embed: "teachnova" });
+  try {
+    const session = new URLSearchParams(window.location.search).get("tn_session");
+    if (session) params.set("tn_session", session);
+  } catch {
+    // ignore
+  }
+  return `/dashboard?${params.toString()}`;
+}
