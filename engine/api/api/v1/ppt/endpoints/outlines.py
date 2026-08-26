@@ -19,6 +19,7 @@ from models.sse_response import (
 )
 from services.temp_file_service import TEMP_FILE_SERVICE
 from services.database import get_async_session
+from services.owner_scope import get_by_id_unscoped
 from services.documents_loader import DocumentsLoader
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
@@ -46,7 +47,7 @@ async def get_outline(
     id: uuid.UUID,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_by_id_unscoped(sql_session, PresentationModel, id)
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
@@ -62,7 +63,7 @@ async def update_outline(
     outline: PresentationOutlineModel,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_by_id_unscoped(sql_session, PresentationModel, id)
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
@@ -87,7 +88,7 @@ async def stream_outlines(
     request: Request,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_by_id_unscoped(sql_session, PresentationModel, id)
 
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")

@@ -131,7 +131,11 @@ export function bootstrapTeachnovaSession(): string {
 
 /** EventSource cannot set Authorization headers; pass session via query. */
 export function withBridgeSessionQuery(url: string): string {
-  const token = getBridgeSessionToken();
+  const token =
+    getBridgeSessionToken() ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("tn_session") || ""
+      : "");
   if (!token) return url;
   try {
     const absolute = /^https?:\/\//i.test(url)

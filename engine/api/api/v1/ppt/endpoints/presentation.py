@@ -70,6 +70,7 @@ from models.sse_response import (
 
 from services.database import get_async_session
 from services.database import async_session_maker
+from services.owner_scope import get_by_id_unscoped
 from services.concurrent_service import CONCURRENT_SERVICE
 from models.sql.presentation import PresentationModel, PresentationVersion
 from models.sql.template_v2 import TemplateV2
@@ -412,16 +413,6 @@ def _extract_template_fonts_from_assets(assets: Any) -> Optional[dict[str, str]]
 
 def _presentation_response_data(presentation: PresentationModel) -> dict:
     return presentation.model_dump(exclude={"layout", "structure", "theme"})
-
-
-def _presentation_with_slides_payload(presentation: PresentationModel, slides: list) -> PresentationWithSlides:
-    from services.library_edit_copy import missing_library_file_paths
-
-    return PresentationWithSlides(
-        **_presentation_response_data(presentation),
-        slides=slides,
-        source_assets_missing=bool(missing_library_file_paths(presentation.file_paths)),
-    )
 
 
 def _insert_toc_layouts(
@@ -1464,15 +1455,22 @@ async def get_all_presentations(
     results = await sql_session.execute(query)
     if not include_slides:
         return [
-            _presentation_with_slides_payload(presentation, [])
+            PresentationWithSlides(
+                **_presentation_response_data(presentation),
+                slides=[],
+            )
             for presentation in results.scalars().all()
         ]
 
     rows = results.all()
     presentations_with_slides = []
     for presentation, first_slide in rows:
+        slides = [first_slide]
         presentations_with_slides.append(
-            _presentation_with_slides_payload(presentation, [first_slide])
+            PresentationWithSlides(
+                **_presentation_response_data(presentation),
+                slides=slides,
+            )
         )
     return presentations_with_slides
 
@@ -1483,13 +1481,14 @@ async def get_presentation(
     request: Request,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_by_id_unscoped(sql_session, PresentationModel, id)
     if not presentation:
         raise HTTPException(404, "Presentation not found")
     slides_result = await sql_session.scalars(
         select(SlideModel)
         .where(SlideModel.presentation == id)
         .order_by(SlideModel.index)
+        .execution_options(skip_owner_scope=True)
     )
     slides = list(slides_result)
     if _repair_template_placeholder_slides(presentation, slides):
@@ -1498,7 +1497,10 @@ async def get_presentation(
         await sql_session.commit()
         for slide in slides:
             await sql_session.refresh(slide)
-    return _presentation_with_slides_payload(presentation, slides)
+    return PresentationWithSlides(
+        **_presentation_response_data(presentation),
+        slides=slides,
+    )
 
 
 @PRESENTATION_ROUTER.delete("/{id}", status_code=204)

@@ -3,6 +3,16 @@ import type { StreamEvent } from "../entities/types";
 const API = import.meta.env.VITE_API_BASE_URL ?? "/api/v1/ppt";
 const BRIDGE_SESSION_KEY = "presenton_bridge_session";
 
+if (typeof window !== "undefined") {
+  try {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("tn_session") || "";
+    if (token) sessionStorage.setItem(BRIDGE_SESSION_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
 function captureBridgeSessionFromUrl() {
   try {
     const url = new URL(window.location.href);
