@@ -28,7 +28,7 @@ def upgrade() -> None:
             batch_op.add_column(
                 sa.Column(
                     "generation_mode",
-                    sa.String(),
+                    sa.String(32),
                     nullable=False,
                     server_default="standard",
                 )

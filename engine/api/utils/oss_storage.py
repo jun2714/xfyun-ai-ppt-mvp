@@ -72,7 +72,11 @@ def public_url_for_key(key: str) -> str:
     return f"{get_aliyun_oss_public_base_url()}/{encoded}"
 
 
-def sign_get_url(url: str, expires: int = 86400 * 7) -> str:
+def sign_get_url(
+    url: str,
+    expires: int = 86400 * 7,
+    download_name: str | None = None,
+) -> str:
     """Sign a private OSS object so the browser can download or show it."""
     text = (url or "").strip()
     if not text or not is_oss_enabled() or not is_oss_url(text):
@@ -80,12 +84,23 @@ def sign_get_url(url: str, expires: int = 86400 * 7) -> str:
     key = object_key_from_url(text)
     if not key:
         return text
+    params = None
+    if download_name:
+        encoded = quote(download_name, safe="")
+        ascii_name = _ascii_download_name(download_name)
+        params = {
+            "response-content-disposition": (
+                f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{encoded}'
+            )
+        }
     try:
         bucket = _bucket()
         try:
-            return bucket.sign_url("GET", key, expires, slash_safe=True)
+            return bucket.sign_url(
+                "GET", key, expires, params=params, slash_safe=True
+            )
         except TypeError:
-            return bucket.sign_url("GET", key, expires)
+            return bucket.sign_url("GET", key, expires, params=params)
     except Exception:
         LOGGER.warning("[oss] sign_url failed key=%s", key, exc_info=True)
         return text

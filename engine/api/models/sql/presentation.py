@@ -66,16 +66,16 @@ class PresentationModel(SQLModel, table=True):
     )
     layout: Optional[dict] = Field(sa_column=Column(JSON), default=None)
     structure: Optional[dict] = Field(sa_column=Column(JSON), default=None)
-    instructions: Optional[str] = Field(sa_column=Column(String), default=None)
-    tone: Optional[str] = Field(sa_column=Column(String), default=None)
-    verbosity: Optional[str] = Field(sa_column=Column(String), default=None)
+    instructions: Optional[str] = Field(sa_column=Column(String(1024)), default=None)
+    tone: Optional[str] = Field(sa_column=Column(String(64)), default=None)
+    verbosity: Optional[str] = Field(sa_column=Column(String(64)), default=None)
     include_table_of_contents: bool = Field(sa_column=Column(Boolean), default=False)
     include_title_slide: bool = Field(sa_column=Column(Boolean), default=True)
     web_search: bool = Field(sa_column=Column(Boolean), default=False)
     theme: Optional[dict] = Field(sa_column=Column(JSON), default=None)
     fonts: Optional[dict] = Field(sa_column=Column(JSON), default=None)
     generation_mode: Literal["standard", "smart"] = Field(
-        sa_column=Column(String, nullable=False, default="standard"),
+        sa_column=Column(String(32), nullable=False, default="standard"),
         default="standard",
     )
     community_design_ids: Optional[List[int]] = Field(

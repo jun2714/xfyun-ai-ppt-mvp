@@ -39,6 +39,7 @@ from models.api_error_model import APIErrorModel
 from models.sql.async_task import AsyncTaskModel
 from models.sql.template_v2 import TemplateV2
 from services.database import async_session_maker, get_async_session
+from services.owner_scope import owner_id_from_session
 from services.export_task_service import EXPORT_TASK_SERVICE
 from templates.preview import (
     FontsUploadAndSlidesPreviewResponse,
@@ -1044,14 +1045,22 @@ async def list_templates(
             TemplateV2.updated_at,
         )
         .order_by(TemplateV2.created_at.desc())
+        .execution_options(skip_owner_scope=True)
     )
     if default is not None:
         query = query.where(TemplateV2.is_default == default)
 
-    owner_id = get_current_owner_id()
+    owner_id = owner_id_from_session(sql_session)
     if mine:
-        if owner_id is not None:
-            query = query.where(TemplateV2.owner_id == owner_id)
+        if owner_id is None:
+            return TemplateListResponse(
+                items=[],
+                total=0,
+                page=page,
+                page_size=page_size,
+                can_manage=can_manage_official_templates(),
+            )
+        query = query.where(TemplateV2.owner_id == owner_id)
     elif owner_id is not None:
         from sqlalchemy import or_
         query = query.where(
@@ -1060,6 +1069,8 @@ async def list_templates(
                 TemplateV2.owner_id.is_(None) & TemplateV2.is_default.is_(True),
             )
         )
+    else:
+        query = query.where(TemplateV2.is_default.is_(True))
 
     result = await sql_session.execute(query)
     keyword = (q or "").strip().lower()

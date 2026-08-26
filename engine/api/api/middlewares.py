@@ -1,7 +1,12 @@
+import logging
+import traceback
+
 from fastapi import Request
 from sqlalchemy import func, select
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+_MW_LOGGER = logging.getLogger("api.middlewares")
 
 from api.v1.auth.assets import is_app_data_path_authorized
 from api.v1.auth.principal import resolve_request_principal
@@ -136,17 +141,24 @@ class SessionAuthMiddleware(BaseHTTPMiddleware):
 
     async def _dispatch_with_optional_owner(self, request: Request, call_next):
         """Local DISABLE_AUTH keeps the API open, but bridged sessions still scope data."""
-        async with async_session_maker() as session:
-            principal, user = await resolve_request_principal(request, session)
-            if principal is None:
-                return await call_next(request)
-            request.state.auth_principal = principal
-            request.state.current_user = user
-            request.state.auth_username = principal.username
-            context_token = set_current_owner_id(principal.user_id)
-            admin_context_token = set_current_owner_is_admin(principal.is_admin)
-            try:
-                return await call_next(request)
-            finally:
-                reset_current_owner_is_admin(admin_context_token)
-                reset_current_owner_id(context_token)
+        try:
+            async with async_session_maker() as session:
+                principal, user = await resolve_request_principal(request, session)
+                if principal is None:
+                    return await call_next(request)
+                request.state.auth_principal = principal
+                request.state.current_user = user
+                request.state.auth_username = principal.username
+                context_token = set_current_owner_id(principal.user_id)
+                admin_context_token = set_current_owner_is_admin(principal.is_admin)
+                try:
+                    return await call_next(request)
+                finally:
+                    reset_current_owner_is_admin(admin_context_token)
+                    reset_current_owner_id(context_token)
+        except Exception:
+            _MW_LOGGER.error(
+                "Unhandled error in middleware for %s %s:\n%s",
+                request.method, request.url.path, traceback.format_exc(),
+            )
+            raise

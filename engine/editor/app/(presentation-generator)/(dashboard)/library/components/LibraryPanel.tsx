@@ -89,6 +89,8 @@ export default function LibraryPanel() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof LIBRARY_CATEGORIES)[number]>("全部");
   const [ageGroup, setAgeGroup] = useState<(typeof LIBRARY_AGE_GROUPS)[number]>("全部");
@@ -274,21 +276,25 @@ export default function LibraryPanel() {
   };
 
   const handleDownload = async (item: LibraryItem) => {
-    setBusyId(item.id);
+    if (downloadingId) return;
+    setDownloadingId(item.id);
+    setDownloadPercent(null);
     try {
-      await LibraryService.download(item.id, item.title);
+      await LibraryService.download(item.id, item.title, setDownloadPercent);
     } catch (error) {
-      notify.error("下载失败", error instanceof Error ? error.message : "请稍后重试");
+      const raw = error instanceof Error ? error.message : "";
+      const message =
+        error instanceof TypeError || /failed to fetch/i.test(raw)
+          ? "文件较大或网络中断，请稍后重试"
+          : raw || "请稍后重试";
+      notify.error("下载失败", message);
     } finally {
-      setBusyId(null);
+      setDownloadingId(null);
+      setDownloadPercent(null);
     }
   };
 
   const handleEdit = async (item: LibraryItem) => {
-    if (!item.editable) {
-      notify.warning("暂不支持编辑", "该案例解析未完成，请直接下载原件");
-      return;
-    }
     setBusyId(item.id);
     try {
       const cloned = await LibraryService.cloneForEdit(item.id);
@@ -589,6 +595,7 @@ export default function LibraryPanel() {
             {items.map((item) => {
               const thumbnail = item.thumbnail ? resolveBackendAssetUrl(item.thumbnail) : "";
               const busy = busyId === item.id;
+              const downloading = downloadingId === item.id;
               const coverPending = isCoverPending(item);
               return (
                 <article
@@ -655,20 +662,28 @@ export default function LibraryPanel() {
                     <div className="mt-4 flex gap-2">
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={downloading || busy}
                         onClick={() => void handleDownload(item)}
                         className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#EDEEEF] text-xs font-semibold text-[#191919] disabled:opacity-60"
                       >
-                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        下载原件
+                        {downloading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        {downloading
+                          ? downloadPercent != null
+                            ? `正在下载 ${downloadPercent}%`
+                            : "正在下载…"
+                          : "下载原件"}
                       </button>
                       <button
                         type="button"
-                        disabled={busy || !item.editable}
+                        disabled={busy}
                         onClick={() => void handleEdit(item)}
                         className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#7A5AF8] text-xs font-semibold text-white disabled:opacity-50"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
                         加入我的项目
                       </button>
                     </div>

@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table(
         "ppt_library_items",
         sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("title", sa.String(), nullable=False),
+        sa.Column("title", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("category", sa.String(length=64), nullable=False),
         sa.Column("age_group", sa.String(length=32), nullable=False),

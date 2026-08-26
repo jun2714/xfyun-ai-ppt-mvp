@@ -31,7 +31,7 @@ class ChatHistoryMessageModel(SQLModel, table=True):
     template_v2_id: Optional[str] = Field(
         default=None,
         sa_column=Column(
-            String,
+            String(255),
             ForeignKey("template_v2.id", ondelete="CASCADE"),
             index=True,
             nullable=True,

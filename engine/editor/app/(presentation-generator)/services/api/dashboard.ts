@@ -82,6 +82,7 @@ export class DashboardApi {
           method: "GET",
           credentials: "include",
           cache: options?.cache,
+          headers: getHeader(),
         }
       );
 

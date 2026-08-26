@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import MarkdownRenderer from "@/components/MarkDownRender";
 import { cn } from "@/lib/utils";
-import { teachnovaProjectsPath } from "@/utils/teachnovaEmbed";
+import { requestTeachnovaCloseEditor, consumeReturnTo, teachnovaProjectsPath } from "@/utils/teachnovaEmbed";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 
 const MAX_EXPORT_TITLE_LENGTH = 40;
@@ -479,6 +479,13 @@ const PresentationHeader = ({
   );
 
   const goToProjects = () => {
+    if (requestTeachnovaCloseEditor()) return;
+    const returnTo = consumeReturnTo();
+    if (returnTo) {
+      trackEvent(MixpanelEvent.Navigation, { from: pathname, to: returnTo });
+      window.location.assign(returnTo);
+      return;
+    }
     const to = teachnovaProjectsPath();
     trackEvent(MixpanelEvent.Navigation, { from: pathname, to });
     router.push(to);

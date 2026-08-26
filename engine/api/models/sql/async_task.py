@@ -28,7 +28,7 @@ class AsyncTaskModel(SQLModel, table=True):
     )
     type: str = Field(index=True)
     status: AsyncTaskStatus = Field(
-        sa_column=Column(String, index=True, nullable=False),
+        sa_column=Column(String(32), index=True, nullable=False),
     )
     message: Optional[str] = None
     error: Optional[dict[str, Any]] = Field(sa_column=Column(JSON), default=None)

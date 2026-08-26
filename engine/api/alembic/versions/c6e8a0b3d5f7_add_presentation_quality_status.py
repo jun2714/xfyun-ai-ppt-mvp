@@ -26,7 +26,7 @@ def upgrade() -> None:
             batch_op.add_column(
                 sa.Column(
                     "quality_status",
-                    sa.String(),
+                    sa.String(32),
                     nullable=False,
                     server_default="pending",
                 )

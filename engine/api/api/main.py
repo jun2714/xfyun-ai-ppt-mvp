@@ -119,6 +119,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Content-Length", "Content-Type"],
 )
 
 app.add_middleware(UserConfigEnvUpdateMiddleware)
@@ -138,3 +139,34 @@ async def static_icon_fallback_middleware(request: Request, call_next):
     if not os.path.isfile(placeholder):
         return response
     return FileResponse(placeholder, media_type="image/svg+xml")
+
+
+import logging as _logging
+import traceback as _traceback
+
+_err_logger = _logging.getLogger("api.error_catcher")
+
+_inner_app = app
+
+
+class _ErrorLoggingASGIMiddleware:
+    """Pure ASGI middleware that logs exceptions before ServerErrorMiddleware swallows them."""
+    def __init__(self, wrapped):
+        self.app = wrapped
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        try:
+            await self.app(scope, receive, send)
+        except Exception:
+            _err_logger.error(
+                "Unhandled ASGI error for %s %s:\n%s",
+                scope.get("method", "?"), scope.get("path", "?"),
+                _traceback.format_exc(),
+            )
+            raise
+
+
+app = _ErrorLoggingASGIMiddleware(_inner_app)

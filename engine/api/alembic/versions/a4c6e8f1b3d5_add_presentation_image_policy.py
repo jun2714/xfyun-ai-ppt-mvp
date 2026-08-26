@@ -26,7 +26,7 @@ def upgrade() -> None:
             batch_op.add_column(
                 sa.Column(
                     "image_policy",
-                    sa.String(),
+                    sa.String(32),
                     nullable=False,
                     server_default="standard",
                 )

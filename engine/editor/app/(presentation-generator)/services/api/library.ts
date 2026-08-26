@@ -1,8 +1,24 @@
 import { getApiUrl } from "@/utils/api";
+import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import { ApiResponseHandler } from "./api-error-handler";
 import { getHeader, getHeaderForFormData } from "./header";
 import { pickUuid } from "@/utils/uuid";
 import { materializeTemplateAsPresentation } from "./materialize-template";
+
+function resolveNativeDownloadUrl(fileUrl: string): string {
+  const href = /^https?:\/\//i.test(fileUrl)
+    ? fileUrl
+    : new URL(fileUrl, window.location.origin).toString();
+  try {
+    const host = new URL(href).hostname;
+    if (/aliyuncs\.com$/i.test(host) || host.includes("oss-")) {
+      return href;
+    }
+  } catch {
+    // fall through
+  }
+  return withBridgeSessionQuery(href);
+}
 
 export interface LibraryItem {
   id: string;
@@ -176,42 +192,36 @@ export class LibraryService {
     throw new Error("未返回有效项目编号");
   }
 
-  static async download(itemId: string, title: string): Promise<void> {
+  static async download(
+    itemId: string,
+    title: string,
+    onProgress?: (percent: number | null) => void,
+  ): Promise<void> {
+    onProgress?.(null);
     const response = await fetch(
-      getApiUrl(`/api/v1/ppt/library/${encodeURIComponent(itemId)}/download`),
-      { headers: getHeaderForFormData(), cache: "no-store" },
+      getApiUrl(
+        `/api/v1/ppt/library/${encodeURIComponent(itemId)}/download?mode=link`,
+      ),
+      { headers: getHeader(), cache: "no-store" },
     );
-    if (!response.ok) {
-      await ApiResponseHandler.handleResponse(response, "下载失败");
-      return;
+    const data = await ApiResponseHandler.handleResponse(response, "下载失败");
+    const fileUrl = String(data?.url || "").trim();
+    if (!fileUrl) {
+      throw new Error("下载地址为空");
     }
-    const contentType = response.headers.get("content-type") || "";
-    let blob: Blob;
-    if (contentType.includes("application/json")) {
-      const data = (await response.json()) as { url?: string };
-      if (!data.url) {
-        throw new Error("下载地址为空");
-      }
-      const fileResponse = await fetch(data.url, { cache: "no-store" });
-      if (!fileResponse.ok) {
-        throw new Error("原文件无法下载，请重新上传");
-      }
-      blob = await fileResponse.blob();
-    } else {
-      blob = await response.blob();
-    }
-    const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
-    if (blob.size < 128 || head[0] !== 0x50 || head[1] !== 0x4b) {
-      throw new Error("下载的不是有效 PPTX，请重新上传后再试");
-    }
-    const objectUrl = URL.createObjectURL(blob);
+    onProgress?.(100);
+    const href = resolveNativeDownloadUrl(fileUrl);
     const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = `${title || "案例"}.pptx`;
+    link.href = href;
+    link.download = String(data?.filename || `${title || "案例"}.pptx`);
+    link.rel = "noopener";
+    link.style.display = "none";
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(objectUrl);
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 800);
+    });
   }
 
   static async remove(itemId: string): Promise<void> {

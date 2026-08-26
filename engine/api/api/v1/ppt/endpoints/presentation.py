@@ -1440,16 +1440,29 @@ async def get_all_presentations(
     from services.library_edit_copy import migrate_library_edit_copy_templates
 
     await migrate_library_edit_copy_templates(sql_session)
+    owner_id = get_current_owner_id()
+    if owner_id is None:
+        return []
+
+    # Skip the global loader criteria here: list filtering is explicit, and an
+    # INNER JOIN on slides.index=0 hid most of the owner's decks (no homepage
+    # row). LEFT JOIN keeps those projects visible without a preview image.
     if include_slides:
-        query = select(PresentationModel, SlideModel).join(
-            SlideModel,
-            (SlideModel.presentation == PresentationModel.id) & (SlideModel.index == 0),
+        query = (
+            select(PresentationModel, SlideModel)
+            .outerjoin(
+                SlideModel,
+                (SlideModel.presentation == PresentationModel.id)
+                & (SlideModel.index == 0),
+            )
+            .execution_options(skip_owner_scope=True)
         )
     else:
-        query = select(PresentationModel)
+        query = select(PresentationModel).execution_options(skip_owner_scope=True)
 
     if version is not None:
         query = query.where(PresentationModel.version == version)
+    query = query.where(PresentationModel.owner_id == owner_id)
     query = query.order_by(PresentationModel.created_at.desc())
 
     results = await sql_session.execute(query)
@@ -1462,14 +1475,12 @@ async def get_all_presentations(
             for presentation in results.scalars().all()
         ]
 
-    rows = results.all()
     presentations_with_slides = []
-    for presentation, first_slide in rows:
-        slides = [first_slide]
+    for presentation, first_slide in results.all():
         presentations_with_slides.append(
             PresentationWithSlides(
                 **_presentation_response_data(presentation),
-                slides=slides,
+                slides=[first_slide] if first_slide is not None else [],
             )
         )
     return presentations_with_slides

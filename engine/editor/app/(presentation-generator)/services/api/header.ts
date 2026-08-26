@@ -12,9 +12,6 @@ export const getHeader = () => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
   const token = getBridgeSessionToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -22,11 +19,7 @@ export const getHeader = () => {
 };
 
 export const getHeaderForFormData = () => {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
+  const headers: Record<string, string> = {};
   const token = getBridgeSessionToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;

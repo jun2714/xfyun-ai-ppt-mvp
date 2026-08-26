@@ -56,7 +56,7 @@ def upgrade() -> None:
     if "access_tokens" not in existing_tables:
         op.create_table(
             "access_tokens",
-            sa.Column("token", sa.String(), nullable=False),
+            sa.Column("token", sa.String(255), nullable=False),
             sa.Column("user_id", sa.Uuid(), nullable=False),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
             sa.ForeignKeyConstraint(["user_id"], ["user.id"], ondelete="CASCADE"),

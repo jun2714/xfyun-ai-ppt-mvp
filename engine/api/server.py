@@ -1,11 +1,11 @@
 import uvicorn
 import argparse
 import asyncio
+import os
 import sys
 from api.main import app
 
 if __name__ == "__main__":
-    # The PPTX export runtime is a child process; Windows requires Proactor for asyncio subprocesses.
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     parser = argparse.ArgumentParser(description="Run the FastAPI server")
@@ -21,14 +21,27 @@ if __name__ == "__main__":
         default="info",
         help="Uvicorn log level",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of worker processes (default: 1, ignored when --reload is true)",
+    )
     args = parser.parse_args()
     reload = args.reload == "true"
-    host = "127.0.0.1"
+    host = os.getenv("API_HOST", "127.0.0.1")
 
-    uvicorn.run(
-        "api.main:app",
-        host=host,
-        port=args.port,
-        log_level=args.log_level,
-        reload=reload,
-    )
+    workers = args.workers
+    if workers is None:
+        workers = int(os.getenv("API_WORKERS", "1"))
+
+    run_kwargs: dict = {
+        "host": host,
+        "port": args.port,
+        "log_level": args.log_level,
+        "reload": reload,
+    }
+    if not reload and workers > 1:
+        run_kwargs["workers"] = workers
+
+    uvicorn.run("api.main:app", **run_kwargs)

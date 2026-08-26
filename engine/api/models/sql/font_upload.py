@@ -20,12 +20,12 @@ class FontUpload(SQLModel, table=True):
     filename: str
     path: str
     normalized_family_name: str = Field(index=True)
-    family_name: Optional[str] = Field(sa_column=Column(String), default=None)
-    subfamily_name: Optional[str] = Field(sa_column=Column(String), default=None)
-    full_name: Optional[str] = Field(sa_column=Column(String), default=None)
-    postscript_name: Optional[str] = Field(sa_column=Column(String), default=None)
+    family_name: Optional[str] = Field(sa_column=Column(String(255)), default=None)
+    subfamily_name: Optional[str] = Field(sa_column=Column(String(255)), default=None)
+    full_name: Optional[str] = Field(sa_column=Column(String(255)), default=None)
+    postscript_name: Optional[str] = Field(sa_column=Column(String(255)), default=None)
     weight_class: Optional[int] = Field(sa_column=Column(Integer), default=None)
     width_class: Optional[int] = Field(sa_column=Column(Integer), default=None)
-    format: Optional[str] = Field(sa_column=Column(String), default=None)
+    format: Optional[str] = Field(sa_column=Column(String(32)), default=None)
     size_bytes: int
     extras: Optional[dict] = Field(sa_column=Column(JSON), default=None)

@@ -53,6 +53,14 @@ export function captureTeachnovaSessionFromUrl(): string {
     if (url.searchParams.get("embed") === "teachnova") {
       markTeachnovaEmbed(true);
     }
+    try {
+      const from = url.searchParams.get("from") || "";
+      const returnTo = url.searchParams.get("return_to") || "";
+      if (from) sessionStorage.setItem("teachnova_from", from);
+      if (returnTo) sessionStorage.setItem("teachnova_return_to", returnTo);
+    } catch {
+      // ignore
+    }
     const fromQuery = url.searchParams.get("tn_session") || "";
     if (fromQuery) {
       setBridgeSessionToken(fromQuery);

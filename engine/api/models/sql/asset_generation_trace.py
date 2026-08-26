@@ -28,13 +28,13 @@ class AssetGenerationTrace(SQLModel, table=True):
             index=True,
         ),
     )
-    generation_mode: str = Field(sa_column=Column(String, nullable=False))
-    model: str = Field(sa_column=Column(String, nullable=False))
+    generation_mode: str = Field(sa_column=Column(String(64), nullable=False))
+    model: str = Field(sa_column=Column(String(255), nullable=False))
     output_count: int = 0
     consumer_slot_count: int = 0
     reused_consumer_slot_count: int = 0
     retry_of: Optional[str] = Field(default=None, nullable=True)
-    status: str = Field(sa_column=Column(String, nullable=False))
+    status: str = Field(sa_column=Column(String(32), nullable=False))
     cost: Optional[float] = Field(default=None, sa_column=Column(Float, nullable=True))
     error: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     created_at: datetime = Field(
