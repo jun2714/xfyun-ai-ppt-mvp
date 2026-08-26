@@ -52,8 +52,8 @@ import {
 } from "@/components/ui/dialog";
 import MarkdownRenderer from "@/components/MarkDownRender";
 import { cn } from "@/lib/utils";
-import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { teachnovaProjectsPath } from "@/utils/teachnovaEmbed";
+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 
 const MAX_EXPORT_TITLE_LENGTH = 40;
 

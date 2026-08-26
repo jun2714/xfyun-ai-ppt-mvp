@@ -1047,10 +1047,19 @@ async def list_templates(
     )
     if default is not None:
         query = query.where(TemplateV2.is_default == default)
+
+    owner_id = get_current_owner_id()
     if mine:
-        owner_id = get_current_owner_id()
         if owner_id is not None:
             query = query.where(TemplateV2.owner_id == owner_id)
+    elif owner_id is not None:
+        from sqlalchemy import or_
+        query = query.where(
+            or_(
+                TemplateV2.owner_id == owner_id,
+                TemplateV2.owner_id.is_(None) & TemplateV2.is_default.is_(True),
+            )
+        )
 
     result = await sql_session.execute(query)
     keyword = (q or "").strip().lower()
