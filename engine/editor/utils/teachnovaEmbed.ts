@@ -46,15 +46,7 @@ export function isTeachnovaEmbed(): boolean {
   }
 }
 
-/** Keep embed query so iframe navigation stays inside TeachNova PPT tabs. */
+/** In-app path for 「我的项目」; keep the editor inside PPT instead of jumping to the official site. */
 export function teachnovaProjectsPath(): string {
-  if (typeof window === "undefined" || !isTeachnovaEmbed()) return "/dashboard";
-  const params = new URLSearchParams({ embed: "teachnova" });
-  try {
-    const session = new URLSearchParams(window.location.search).get("tn_session");
-    if (session) params.set("tn_session", session);
-  } catch {
-    // ignore
-  }
-  return `/dashboard?${params.toString()}`;
+  return "/dashboard";
 }
