@@ -18,7 +18,6 @@ from models.kindergarten_lesson_plan import (
 from models.presentation_outline_model import PresentationOutlineModel
 from services.database import get_async_session
 from services.kindergarten_presentation_planning_service import (
-    KindergartenPlanningQualityError,
     ValidatedKindergartenPlanningResult,
     generate_validated_kindergarten_presentation_outline,
 )
