@@ -7,6 +7,7 @@ import {
   toEditableOutlineContent,
   toStoredOutlineContent,
 } from "./outlineFormat";
+import { resolveAutoTemplateId } from "./templateRouting";
 
 const DEFAULT_TEMPLATE_ID = "general";
 const EDITOR_BASE =
@@ -196,7 +197,11 @@ export function OutlineEditor({
   };
 
   const confirmTopic = async () => {
-    await prepareWithLayout(template || DEFAULT_TEMPLATE_ID);
+    const layoutId =
+      template === DEFAULT_TEMPLATE_ID
+        ? resolveAutoTemplateId(presentation, outline, templates)
+        : template;
+    await prepareWithLayout(layoutId || DEFAULT_TEMPLATE_ID);
   };
 
   const renderTemplatePickCard = (item: TemplateItem) => {
