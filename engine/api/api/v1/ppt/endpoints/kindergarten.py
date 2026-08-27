@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import Optional
+import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,7 @@ from models.kindergarten_lesson_plan import (
 from models.presentation_outline_model import PresentationOutlineModel
 from services.database import get_async_session
 from services.kindergarten_presentation_planning_service import (
+    KindergartenPlanningQualityError,
     ValidatedKindergartenPlanningResult,
     generate_validated_kindergarten_presentation_outline,
 )
@@ -36,7 +38,10 @@ class KindergartenLessonPlanRequest(BaseModel):
     domain: KindergartenDomain = "comprehensive"
     duration_minutes: int = Field(default=20, ge=5, le=90)
     n_slides: Optional[int] = Field(default=None, ge=3, le=40)
-    instructions: Optional[str] = Field(default=None, max_length=4000)
+    # PresentationModel currently stores instructions in VARCHAR(1024). Keep this
+    # endpoint inside that persistence contract instead of accepting data that can
+    # plan successfully but fail when the prepared deck is saved.
+    instructions: Optional[str] = Field(default=None, max_length=1000)
     source_context: Optional[str] = Field(default=None, max_length=30000)
 
 
@@ -54,23 +59,35 @@ class KindergartenPresentationPrepareRequest(KindergartenLessonPlanRequest):
 
 
 class KindergartenPresentationPrepareResponse(KindergartenLessonPlanResponse):
-    presentation_id: str
+    presentation_id: uuid.UUID
+    stream_path: str
 
 
 async def _generate_validated_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
 ) -> ValidatedKindergartenPlanningResult:
-    return await generate_validated_kindergarten_presentation_outline(
-        topic=payload.topic,
-        age_group=payload.age_group,
-        domain=payload.domain,
-        duration_minutes=payload.duration_minutes,
-        n_slides=payload.n_slides,
-        instructions=payload.instructions,
-        source_context=payload.source_context,
-        disconnect_checker=request.is_disconnected,
-    )
+    try:
+        return await generate_validated_kindergarten_presentation_outline(
+            topic=payload.topic,
+            age_group=payload.age_group,
+            domain=payload.domain,
+            duration_minutes=payload.duration_minutes,
+            n_slides=payload.n_slides,
+            instructions=payload.instructions,
+            source_context=payload.source_context,
+            disconnect_checker=request.is_disconnected,
+        )
+    except KindergartenPlanningQualityError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "KINDERGARTEN_PLAN_QUALITY_FAILED",
+                "message": "幼教课堂规划经过自动修复后仍未通过硬性质量校验",
+                "planning_attempts": exc.attempts,
+                "quality": exc.report.model_dump(mode="json"),
+            },
+        ) from exc
 
 
 @KINDERGARTEN_ROUTER.post(
@@ -138,8 +155,10 @@ async def prepare_kindergarten_presentation(
         await sql_session.commit()
         raise
 
+    presentation_id = prepared.presentation_id
     return KindergartenPresentationPrepareResponse(
-        presentation_id=str(prepared.presentation_id),
+        presentation_id=presentation_id,
+        stream_path=f"/api/v1/ppt/presentation/stream/{presentation_id}",
         plan=result.plan,
         outline=result.outline,
         quality=result.quality,
