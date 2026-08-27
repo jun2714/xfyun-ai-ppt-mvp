@@ -9,6 +9,10 @@ from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_utils import DisconnectChecker, generate_structured_with_schema_retries
 from utils.llm_provider import get_model
 from utils.get_dynamic_models import get_presentation_structure_model_with_n_slides
+from utils.layout_compatibility import (
+    LayoutCompatibilityError,
+    get_allowed_layout_indices_for_outline,
+)
 from utils.schema_utils import prepare_schema_for_validation
 from models.presentation_structure_model import PresentationStructureModel
 
@@ -197,6 +201,72 @@ def get_messages_for_slides_markdown(
     return [SystemMessage(content=system_prompt), UserMessage(content=data)]
 
 
+def _normalize_allowed_layout_indices(
+    allowed_layout_indices: Optional[list[list[int]]],
+    *,
+    slide_count: int,
+    layout_count: int,
+) -> Optional[list[list[int]]]:
+    if allowed_layout_indices is None:
+        return None
+    if len(allowed_layout_indices) != slide_count:
+        raise LayoutCompatibilityError(
+            "Hard layout compatibility count does not match the outline count"
+        )
+
+    normalized: list[list[int]] = []
+    for slide_number, indices in enumerate(allowed_layout_indices, start=1):
+        if not isinstance(indices, list):
+            raise LayoutCompatibilityError(
+                f"Slide {slide_number} hard layout choices must be a list",
+                slide_number=slide_number,
+            )
+        unique_indices: list[int] = []
+        for index in indices:
+            if not isinstance(index, int) or isinstance(index, bool):
+                raise LayoutCompatibilityError(
+                    f"Slide {slide_number} hard layout choice must be an integer",
+                    slide_number=slide_number,
+                )
+            if index < 0 or index >= layout_count:
+                raise LayoutCompatibilityError(
+                    f"Slide {slide_number} hard layout choice {index} is out of range",
+                    slide_number=slide_number,
+                )
+            if index not in unique_indices:
+                unique_indices.append(index)
+        if not unique_indices:
+            raise LayoutCompatibilityError(
+                f"Slide {slide_number} has no allowed layout choices",
+                slide_number=slide_number,
+            )
+        normalized.append(unique_indices)
+    return normalized
+
+
+def _validate_structure_against_allowed_layouts(
+    structure: PresentationStructureModel,
+    allowed_layout_indices: Optional[list[list[int]]],
+) -> PresentationStructureModel:
+    if allowed_layout_indices is None:
+        return structure
+    if len(structure.slides) != len(allowed_layout_indices):
+        raise LayoutCompatibilityError(
+            "Generated layout selection count does not match hard compatibility choices"
+        )
+
+    for slide_number, (selected, allowed) in enumerate(
+        zip(structure.slides, allowed_layout_indices),
+        start=1,
+    ):
+        if selected not in allowed:
+            raise LayoutCompatibilityError(
+                f"Slide {slide_number} selected layout {selected}, outside allowed choices {allowed}",
+                slide_number=slide_number,
+            )
+    return structure
+
+
 async def generate_presentation_structure(
     presentation_outline: PresentationOutlineModel,
     presentation_layout: PresentationLayoutModel,
@@ -206,6 +276,27 @@ async def generate_presentation_structure(
     disconnect_checker: Optional[DisconnectChecker] = None,
     allowed_layout_indices: Optional[list[list[int]]] = None,
 ) -> PresentationStructureModel:
+    if allowed_layout_indices is None:
+        allowed_layout_indices = get_allowed_layout_indices_for_outline(
+            presentation_outline,
+            presentation_layout,
+        )
+    allowed_layout_indices = _normalize_allowed_layout_indices(
+        allowed_layout_indices,
+        slide_count=len(presentation_outline.slides),
+        layout_count=len(presentation_layout.slides),
+    )
+
+    # If metadata narrows every slide to exactly one audited layout, there is no
+    # useful choice left for an LLM to make. Returning the deterministic structure
+    # saves a paid call and removes the last chance of violating the hard contract.
+    if allowed_layout_indices is not None and all(
+        len(indices) == 1 for indices in allowed_layout_indices
+    ):
+        return PresentationStructureModel(
+            slides=[indices[0] for indices in allowed_layout_indices]
+        )
+
     client = get_client(config=get_llm_config())
     model = get_model()
     response_model = get_presentation_structure_model_with_n_slides(
@@ -252,6 +343,11 @@ async def generate_presentation_structure(
             validate_schema=True,
             disconnect_checker=disconnect_checker,
         )
-        return PresentationStructureModel(**content)
+        structure = PresentationStructureModel(**content)
     except Exception as e:
         raise handle_llm_client_exceptions(e)
+
+    return _validate_structure_against_allowed_layouts(
+        structure,
+        allowed_layout_indices,
+    )
