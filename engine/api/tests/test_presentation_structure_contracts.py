@@ -51,6 +51,8 @@ def _outline() -> PresentationOutlineModel:
                     requires_images=True,
                     media_role="framed-image",
                     visible_characters=18,
+                    teaching_goal="通过局部特征识别小兔子",
+                    required_asset_semantics=["小兔子的两只长耳朵"],
                     preferred_layout_capabilities=["question"],
                 ),
             )
@@ -64,7 +66,17 @@ def _layout() -> PresentationLayoutModel:
         slides=[
             SlideLayoutModel(
                 id="question-image",
-                json_schema={"type": "object", "properties": {}},
+                json_schema={
+                    "type": "object",
+                    "properties": {
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "image_prompt": {"type": "string"}
+                            },
+                        }
+                    },
+                },
                 metadata=_metadata(),
             )
         ],
