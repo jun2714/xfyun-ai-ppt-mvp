@@ -7,7 +7,6 @@ import uuid
 
 from models.json_path_guide import DictGuide, JsonPathGuide
 from models.sql.slide import SlideModel
-from utils.dict_utils import get_dict_at_path
 from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
 
 
@@ -26,6 +25,16 @@ class AssetSemanticCoverageError(ValueError):
 
 
 @dataclass(frozen=True)
+class AssetSemanticExpectation:
+    planning_slot: str
+    semantic_label: str
+    description: str | None
+    expected_count: int
+    role: AssetRole
+    qa_required: bool
+
+
+@dataclass(frozen=True)
 class AssetSlotRequest:
     slide_index: int
     content_path: JsonPathGuide
@@ -40,10 +49,15 @@ class AssetSlotRequest:
     text_safe_area: str
     width: float
     height: float
+    semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
 
     @property
     def consumer_id(self) -> str:
         return f"slide-{self.slide_index + 1}.{self.slot_name}"
+
+    @property
+    def requires_semantic_qa(self) -> bool:
+        return any(expectation.qa_required for expectation in self.semantic_expectations)
 
 
 @dataclass(frozen=True)
@@ -57,6 +71,10 @@ class AssetPlanItem:
     @property
     def consumer_slot_count(self) -> int:
         return len(self.slots)
+
+    @property
+    def requires_semantic_qa(self) -> bool:
+        return any(slot.requires_semantic_qa for slot in self.slots)
 
 
 def _walk_image_elements(value: Any) -> list[dict[str, Any]]:
@@ -90,13 +108,56 @@ def _normalized_semantic_text(value: str) -> str:
     return re.sub(r"[\W_]+", "", value.casefold(), flags=re.UNICODE)
 
 
-def _required_asset_semantics(slide: SlideModel) -> list[str]:
+def _hidden_slide_contract(slide: SlideModel) -> dict[str, Any]:
     if not isinstance(slide.content, dict):
-        return []
+        return {}
     contract = slide.content.get("__content_contract__")
-    if not isinstance(contract, dict):
+    return contract if isinstance(contract, dict) else {}
+
+
+def _asset_semantic_expectations(slide: SlideModel) -> list[AssetSemanticExpectation]:
+    raw = _hidden_slide_contract(slide).get("asset_contracts")
+    if not isinstance(raw, list):
         return []
-    raw = contract.get("required_asset_semantics")
+
+    expectations: list[AssetSemanticExpectation] = []
+    for value in raw:
+        if not isinstance(value, dict):
+            continue
+        label = value.get("semantic_label")
+        planning_slot = value.get("planning_slot")
+        role = value.get("role")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        if not isinstance(planning_slot, str) or not planning_slot.strip():
+            planning_slot = "asset"
+        if role not in {"background", "framed-image", "cutout"}:
+            role = "framed-image"
+        try:
+            expected_count = int(value.get("expected_count", 1))
+        except (TypeError, ValueError):
+            expected_count = 1
+        expected_count = max(1, min(expected_count, 12))
+        description = value.get("description")
+        expectations.append(
+            AssetSemanticExpectation(
+                planning_slot=" ".join(planning_slot.strip().split()),
+                semantic_label=" ".join(label.strip().split()),
+                description=(
+                    " ".join(description.strip().split())
+                    if isinstance(description, str) and description.strip()
+                    else None
+                ),
+                expected_count=expected_count,
+                role=role,
+                qa_required=bool(value.get("qa_required", True)),
+            )
+        )
+    return expectations
+
+
+def _required_asset_semantics(slide: SlideModel) -> list[str]:
+    raw = _hidden_slide_contract(slide).get("required_asset_semantics")
     if not isinstance(raw, list):
         return []
 
@@ -112,6 +173,18 @@ def _required_asset_semantics(slide: SlideModel) -> list[str]:
         seen.add(normalized)
         semantics.append(label)
     return semantics
+
+
+def _expectations_for_prompt(
+    prompt: str,
+    expectations: list[AssetSemanticExpectation],
+) -> tuple[AssetSemanticExpectation, ...]:
+    normalized_prompt = _normalized_semantic_text(prompt)
+    return tuple(
+        expectation
+        for expectation in expectations
+        if _normalized_semantic_text(expectation.semantic_label) in normalized_prompt
+    )
 
 
 def validate_asset_semantic_coverage(
@@ -204,6 +277,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
             for element in _walk_image_elements(slide.ui)
             if isinstance(element.get("name"), str)
         }
+        semantic_expectations = _asset_semantic_expectations(slide)
         for path, parent, prompt in _asset_dicts_with_prompt(
             slide.content, IMAGE_PROMPT_KEYS
         ):
@@ -240,6 +314,9 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     text_safe_area=str(element.get("text_safe_area") or "none"),
                     width=width,
                     height=height,
+                    semantic_expectations=_expectations_for_prompt(
+                        prompt, semantic_expectations
+                    ),
                 )
             )
     return slots
