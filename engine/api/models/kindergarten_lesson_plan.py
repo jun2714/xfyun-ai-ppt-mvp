@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from models.presentation_outline_model import (
     PresentationOutlineModel,
+    SlideAssetContract,
     SlideContentContract,
     SlideOutlineModel,
 )
@@ -139,9 +140,8 @@ class KindergartenLessonPlan(BaseModel):
                 visible_lines.append(slide.screen_content.instruction)
 
             relationship = _relationship_for_slide(slide)
-            required_semantics = [
-                asset.semantic_label for asset in slide.assets if asset.required
-            ]
+            required_assets = [asset for asset in slide.assets if asset.required]
+            required_semantics = [asset.semantic_label for asset in required_assets]
             answer_key = slide.game.answer_key if slide.game else None
             activity_id = slide.game.activity_id if slide.game else None
 
@@ -164,6 +164,17 @@ class KindergartenLessonPlan(BaseModel):
                         activity_id=activity_id,
                         answer_key=answer_key,
                         required_asset_semantics=required_semantics,
+                        asset_contracts=[
+                            SlideAssetContract(
+                                planning_slot=asset.slot,
+                                semantic_label=asset.semantic_label,
+                                description=asset.description,
+                                expected_count=asset.expected_count,
+                                role=asset.role,
+                                qa_required=asset.qa_required,
+                            )
+                            for asset in required_assets
+                        ],
                     ),
                 )
             )
