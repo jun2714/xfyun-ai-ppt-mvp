@@ -13,9 +13,11 @@ def get_presentation_outline_model_with_n_slides(n_slides: int):
         content: str = Field(
             description=(
                 "Audience-facing Markdown content and data for the finished slide. "
+                "Short question, reveal, transition and young-child teaching slides are "
+                "valid; do not pad them with filler just to reach a character minimum. "
                 f"Maximum {MAX_OUTLINE_CONTENT_WORDS} words."
             ),
-            min_length=100,
+            min_length=1,
             max_length=1200,
         )
 
