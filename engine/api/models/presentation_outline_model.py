@@ -5,6 +5,29 @@ from constants.presentation import MAX_NUMBER_OF_SLIDES, MAX_OUTLINE_CONTENT_WOR
 from utils.outline_limits import normalize_outline_content
 
 
+class SlideAssetContract(BaseModel):
+    """Hidden requirements for one planned visual asset.
+
+    `planning_slot` is a semantic planning handle, not a template element id. The
+    content generation stage is free to map it to any compatible image field; later
+    stages correlate the contract by the semantic phrase present in image prompts.
+    """
+
+    planning_slot: str = Field(min_length=1, max_length=80)
+    semantic_label: str = Field(min_length=1, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=800)
+    expected_count: int = Field(default=1, ge=1, le=12)
+    role: Literal["background", "framed-image", "cutout"] = "framed-image"
+    qa_required: bool = True
+
+    @field_validator("planning_slot", "semantic_label", mode="before")
+    @classmethod
+    def normalize_required_text(cls, value):
+        if not isinstance(value, str):
+            return value
+        return " ".join(value.strip().split())
+
+
 class SlideContentContract(BaseModel):
     relationship: Literal[
         "single",
@@ -48,6 +71,7 @@ class SlideContentContract(BaseModel):
     activity_id: Optional[str] = Field(default=None, max_length=120)
     answer_key: Optional[str] = Field(default=None, max_length=300)
     required_asset_semantics: List[str] = Field(default_factory=list, max_length=12)
+    asset_contracts: List[SlideAssetContract] = Field(default_factory=list, max_length=12)
 
     @field_validator("relationship", mode="before")
     @classmethod
