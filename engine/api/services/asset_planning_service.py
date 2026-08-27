@@ -21,6 +21,10 @@ GenerationMode = Literal[
 ]
 
 
+class AssetSemanticCoverageError(ValueError):
+    """Raised before paid generation when image prompts violate a slide contract."""
+
+
 @dataclass(frozen=True)
 class AssetSlotRequest:
     slide_index: int
@@ -77,6 +81,79 @@ def _slot_name(path: JsonPathGuide) -> str:
 
 def _normalized_prompt(prompt: str) -> str:
     return re.sub(r"\s+", " ", prompt.strip().casefold())
+
+
+def _normalized_semantic_text(value: str) -> str:
+    # Semantic labels are authored by the planner and are intentionally short.
+    # Removing punctuation/spacing makes the gate insensitive to harmless prompt
+    # formatting while still requiring the same noun/feature phrase verbatim.
+    return re.sub(r"[\W_]+", "", value.casefold(), flags=re.UNICODE)
+
+
+def _required_asset_semantics(slide: SlideModel) -> list[str]:
+    if not isinstance(slide.content, dict):
+        return []
+    contract = slide.content.get("__content_contract__")
+    if not isinstance(contract, dict):
+        return []
+    raw = contract.get("required_asset_semantics")
+    if not isinstance(raw, list):
+        return []
+
+    semantics: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        label = " ".join(item.strip().split())
+        normalized = _normalized_semantic_text(label)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        semantics.append(label)
+    return semantics
+
+
+def validate_asset_semantic_coverage(
+    slides: list[SlideModel],
+    slots: list[AssetSlotRequest] | None = None,
+) -> None:
+    """Require planned visual semantics to survive slide-content generation.
+
+    This is deliberately a pre-generation gate: if a lesson contract says a slide
+    must show an apple, carrot, flower and leaf, but the generated image prompts
+    describe a lamp, flashlight, television and cloud, the request fails here and
+    no image provider call is made. Slides without a hidden contract keep the
+    existing generic behavior.
+    """
+    slots = slots if slots is not None else extract_asset_slots(slides)
+    prompts_by_slide: dict[int, list[str]] = {}
+    for slot in slots:
+        prompts_by_slide.setdefault(slot.slide_index, []).append(slot.prompt)
+
+    for slide in slides:
+        required = _required_asset_semantics(slide)
+        if not required:
+            continue
+
+        prompt_text = " ".join(prompts_by_slide.get(slide.index, []))
+        normalized_prompt = _normalized_semantic_text(prompt_text)
+        missing = [
+            semantic
+            for semantic in required
+            if _normalized_semantic_text(semantic) not in normalized_prompt
+        ]
+        if not missing:
+            continue
+
+        if not prompt_text.strip():
+            detail = "没有生成任何 image_prompt"
+        else:
+            detail = f"image_prompt 未覆盖：{', '.join(missing)}"
+        raise AssetSemanticCoverageError(
+            f"第 {slide.index + 1} 页图片语义预检失败：{detail}。"
+            "已在调用图片模型前阻断，请重新生成该页内容。"
+        )
 
 
 def _ratio(width: float, height: float) -> str:
@@ -166,6 +243,7 @@ def _grid_for(count: int) -> tuple[int, int]:
 
 def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
     slots = extract_asset_slots(slides)
+    validate_asset_semantic_coverage(slides, slots)
     plan: list[AssetPlanItem] = []
     consumed: set[str] = set()
 
