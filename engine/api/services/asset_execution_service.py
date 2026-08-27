@@ -6,7 +6,17 @@ from models.image_prompt import ImagePrompt
 from models.sql.image_asset import ImageAsset
 from models.sql.asset_generation_trace import AssetGenerationTrace
 from models.sql.slide import SlideModel
-from services.asset_planning_service import AssetPlanItem, AssetSlotRequest, build_asset_plan
+from services.asset_planning_service import (
+    AssetPlanItem,
+    AssetSemanticExpectation,
+    AssetSlotRequest,
+    build_asset_plan,
+)
+from services.asset_semantic_quality_service import (
+    AssetSemanticQualityError,
+    AssetSemanticQualityService,
+    build_default_asset_semantic_quality_service,
+)
 from services.image_generation_service import ImageGenerationService
 from services.sprite_sheet_service import (
     create_transparent_cutout,
@@ -17,7 +27,10 @@ from services.asset_trace_service import record_asset_generation_trace
 # Kept as a module export for compatibility with existing validation tests and
 # optional callers. The interactive generation path no longer blocks on OCR.
 from services.image_quality_service import materialize_and_validate_no_text
-from utils.asset_directory_utils import filesystem_image_path_to_app_data_url, normalize_slide_asset_url
+from utils.asset_directory_utils import (
+    filesystem_image_path_to_app_data_url,
+    normalize_slide_asset_url,
+)
 from utils.dict_utils import get_dict_at_path, set_dict_at_path
 from utils.process_slides import _set_asset_url, _uses_template_asset_fields
 
@@ -73,15 +86,95 @@ def _assign_url(slide: SlideModel, slot: AssetSlotRequest, url: str) -> None:
     set_dict_at_path(slide.content, slot.content_path, target)
 
 
+def _quality_expectations(
+    slots: tuple[AssetSlotRequest, ...],
+) -> tuple[AssetSemanticExpectation, ...]:
+    """Return unique QA-required contracts for images shared by several slots."""
+    unique: dict[
+        tuple[str, str, str, int, str], AssetSemanticExpectation
+    ] = {}
+    for slot in slots:
+        for expectation in slot.semantic_expectations:
+            if not expectation.qa_required:
+                continue
+            key = (
+                expectation.planning_slot.strip().casefold(),
+                expectation.semantic_label.strip().casefold(),
+                expectation.description.strip().casefold(),
+                expectation.expected_count,
+                expectation.role,
+            )
+            unique.setdefault(key, expectation)
+    return tuple(unique.values())
+
+
+async def _validate_semantic_quality(
+    quality_service: AssetSemanticQualityService | None,
+    item: AssetPlanItem,
+    result: str | ImageAsset,
+    derived_outputs: list[str],
+) -> None:
+    """Validate the final consumer image, not merely the provider source image."""
+    if quality_service is None:
+        return
+
+    if item.generation_mode == "sprite-sheet":
+        if len(derived_outputs) != len(item.slots):
+            raise ValueError("Sprite sheet did not produce one image for every slot")
+        for slot, output in zip(item.slots, derived_outputs):
+            expectations = _quality_expectations((slot,))
+            if not expectations:
+                continue
+            quality = await quality_service.validate(output, expectations)
+            if not quality.passed:
+                raise AssetSemanticQualityError(quality)
+        return
+
+    if item.generation_mode == "single-cutout":
+        if not derived_outputs:
+            raise ValueError("Cutout processing produced no consumer image")
+        expectations = _quality_expectations((item.slots[0],))
+        if not expectations:
+            return
+        quality = await quality_service.validate(derived_outputs[0], expectations)
+        if not quality.passed:
+            raise AssetSemanticQualityError(quality)
+        return
+
+    expectations = _quality_expectations(item.slots)
+    if not expectations:
+        return
+    quality = await quality_service.validate(result, expectations)
+    if not quality.passed:
+        raise AssetSemanticQualityError(quality)
+
+
+def _trace_error_payload(exc: Exception) -> dict:
+    payload: dict = {
+        "type": type(exc).__name__,
+        "message": str(exc)[:500],
+    }
+    if isinstance(exc, AssetSemanticQualityError):
+        # Keep the structured failure in the existing trace table. This becomes
+        # the per-asset quality report without introducing another persistence
+        # write in the retry path.
+        payload["semantic_quality"] = exc.result.model_dump(mode="json")
+    return payload
+
+
 async def process_presentation_assets(
     image_generation_service: ImageGenerationService,
     slides: list[SlideModel],
     presentation_id=None,
     on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
+    semantic_quality_service: AssetSemanticQualityService | None = None,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
     generated_assets: list[ImageAsset] = []
+    quality_service = (
+        semantic_quality_service or build_default_asset_semantic_quality_service()
+    )
 
     for item in plan:
         item_asset_start = len(generated_assets)
@@ -136,6 +229,17 @@ async def process_presentation_assets(
                                 "aspect_ratio": item.slots[0].aspect_ratio,
                             },
                         )
+
+                # A generated image is not accepted merely because the provider
+                # returned 200. Validate the actual final crop/cutout against the
+                # planner's semantic contract before writing it into slide JSON.
+                await _validate_semantic_quality(
+                    quality_service,
+                    item,
+                    result,
+                    derived_outputs,
+                )
+
                 await record_asset_generation_trace(
                     AssetGenerationTrace(
                         request_id=trace_id,
@@ -174,7 +278,7 @@ async def process_presentation_assets(
                         retry_of=item.request_id if attempt else None,
                         status="failed",
                         cost=None,
-                        error={"type": type(exc).__name__, "message": str(exc)[:500]},
+                        error=_trace_error_payload(exc),
                     )
                 )
         if result is None:
