@@ -27,6 +27,10 @@ from services.kindergarten_plan_quality_service import (
     KindergartenPlanQualityReport,
     validate_kindergarten_lesson_plan,
 )
+from services.kindergarten_template_routing_service import (
+    AUTO_TEMPLATE_NAME,
+    resolve_kindergarten_template,
+)
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
@@ -53,7 +57,10 @@ class KindergartenLessonPlanResponse(BaseModel):
 
 
 class KindergartenPresentationPrepareRequest(KindergartenLessonPlanRequest):
-    template: str = Field(default="general", min_length=1, max_length=200)
+    # `auto` is resolved only after the reviewed lesson plan exists, so routing can
+    # use domain + actual slide semantics rather than guessing from the raw title.
+    # Sending a concrete template id/name still preserves manual selection exactly.
+    template: str = Field(default=AUTO_TEMPLATE_NAME, min_length=1, max_length=200)
     language: str = Field(default="Chinese", min_length=1, max_length=80)
     image_policy: ImagePolicy = ImagePolicy.STANDARD
 
@@ -61,6 +68,9 @@ class KindergartenPresentationPrepareRequest(KindergartenLessonPlanRequest):
 class KindergartenPresentationPrepareResponse(KindergartenLessonPlanResponse):
     presentation_id: uuid.UUID
     stream_path: str
+    selected_template: str
+    template_selection_reason: str
+    template_scores: dict[str, int] = Field(default_factory=dict)
 
 
 async def _generate_validated_plan(
@@ -116,15 +126,20 @@ async def prepare_kindergarten_presentation(
     request: Request,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    """Create a reviewed-outline deck that continues through the normal PPT stream.
+    """Plan, route and prepare a kindergarten deck for the normal PPT stream.
 
-    The important boundary is that the kindergarten lesson plan is converted into
-    `SlideOutlineModel` objects *with hidden machine contracts intact* before the
-    standard layout selector and slide-content generator run. The existing
-    `/presentation/stream/{id}` route then performs slide generation, semantic
-    preflight, image generation, post-image vision QA, persistence, and resume.
+    The reviewed kindergarten plan is converted into `SlideOutlineModel` objects
+    with hidden machine contracts intact. Automatic template routing happens only
+    after that review. The existing `/presentation/stream/{id}` route then performs
+    slide generation, semantic preflight, image generation, post-image vision QA,
+    persistence, resume and export-compatible materialization.
     """
     result = await _generate_validated_plan(payload, request)
+    routing = resolve_kindergarten_template(
+        result.plan,
+        payload.template,
+        instructions=payload.instructions,
+    )
 
     presentation = await create_presentation(
         content=payload.topic,
@@ -144,7 +159,7 @@ async def prepare_kindergarten_presentation(
         prepared = await prepare_presentation(
             presentation_id=presentation.id,
             outlines=result.outline.slides,
-            layout=payload.template,
+            layout=routing.template,
             title=payload.topic,
             sql_session=sql_session,
         )
@@ -159,6 +174,9 @@ async def prepare_kindergarten_presentation(
     return KindergartenPresentationPrepareResponse(
         presentation_id=presentation_id,
         stream_path=f"/api/v1/ppt/presentation/stream/{presentation_id}",
+        selected_template=routing.template,
+        template_selection_reason=routing.reason,
+        template_scores=routing.scores,
         plan=result.plan,
         outline=result.outline,
         quality=result.quality,
