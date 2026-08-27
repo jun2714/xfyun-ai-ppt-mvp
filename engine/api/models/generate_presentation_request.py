@@ -49,3 +49,40 @@ class GeneratePresentationRequest(BaseModel):
         default=ImagePolicy.STANDARD,
         description="Whether images are disabled, minimized, or generated normally",
     )
+
+    # `presentation_mode` is deliberately separate from the persisted
+    # standard/smart generation mode. It selects the content-planning contract
+    # used before layout generation while keeping existing API requests backward
+    # compatible.
+    presentation_mode: Literal["general", "kindergarten"] = Field(
+        default="general",
+        description=(
+            "Content planning mode. Kindergarten mode creates a structured lesson "
+            "plan with teaching, interaction, game-answer, and image-semantic contracts "
+            "before normal slide/layout generation."
+        ),
+    )
+    kindergarten_age_group: str = Field(
+        default="4-5岁",
+        min_length=1,
+        max_length=40,
+        description="Target kindergarten age group when presentation_mode=kindergarten",
+    )
+    kindergarten_domain: Literal[
+        "science",
+        "language",
+        "math",
+        "health",
+        "social",
+        "art",
+        "comprehensive",
+    ] = Field(
+        default="comprehensive",
+        description="Kindergarten curriculum domain",
+    )
+    kindergarten_duration_minutes: int = Field(
+        default=20,
+        ge=5,
+        le=90,
+        description="Lesson duration when presentation_mode=kindergarten",
+    )
