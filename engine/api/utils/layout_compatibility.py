@@ -107,6 +107,28 @@ def _normalized_capabilities(values: list[str]) -> set[str]:
     }
 
 
+def _is_teaching_contract(contract: SlideContentContract) -> bool:
+    return bool(
+        contract.teaching_goal
+        or contract.teacher_note
+        or contract.activity_id
+        or contract.required_asset_semantics
+        or contract.preferred_layout_capabilities
+    )
+
+
+def _structural_layout_matches_contract(
+    contract: SlideContentContract,
+    layout_schema: dict[str, Any],
+) -> bool:
+    # This check intentionally enforces only facts that can be proven from the
+    # generated JSON schema. Relationship, item capacity and exact media role need
+    # audited LayoutMetadata; guessing them here would create false hard failures.
+    if contract.requires_images and not schema_contains_image_slot(layout_schema):
+        return False
+    return True
+
+
 def _media_matches(contract: SlideContentContract, metadata: LayoutMetadata) -> bool:
     media = metadata.media
     if not contract.requires_images:
@@ -166,13 +188,14 @@ def get_allowed_layout_indices_for_outline(
     presentation_outline: PresentationOutlineModel,
     presentation_layout: PresentationLayoutModel,
 ) -> list[list[int]] | None:
-    """Build per-slide hard choices when a template carries audited metadata.
+    """Build per-slide hard choices from safe structural facts and audits.
 
-    Existing community/general templates often have no capability metadata. Those
-    keep the legacy LLM layout selection unchanged. Once a template is audited,
-    however, an incompatible question/matching/image/count/readability layout is
-    removed *before* the LLM selects a layout. We never silently fall back from a
-    fully audited template whose metadata says no layout can satisfy the contract.
+    Generic legacy decks keep their old LLM-only layout choice when no audited
+    metadata or teaching contract is present. Kindergarten contracts activate a
+    minimal structural guard immediately: a slide whose lesson contract requires
+    imagery cannot be assigned a schema with no editable image slot. When audited
+    metadata exists, stronger relationship/media/capacity/readability checks are
+    applied on top of that structural guard.
     """
     audited_indices = [
         index
@@ -180,7 +203,12 @@ def get_allowed_layout_indices_for_outline(
         if layout.metadata is not None
         and layout.metadata.quality_status.strip().casefold() == "passed"
     ]
-    if not audited_indices:
+    has_teaching_contract = any(
+        slide.content_contract is not None
+        and _is_teaching_contract(slide.content_contract)
+        for slide in presentation_outline.slides
+    )
+    if not audited_indices and not has_teaching_contract:
         return None
 
     all_indices = list(range(len(presentation_layout.slides)))
@@ -191,21 +219,41 @@ def get_allowed_layout_indices_for_outline(
             allowed_by_slide.append(all_indices)
             continue
 
-        compatible = [
+        structural = [
             index
-            for index in audited_indices
-            if _metadata_matches_contract(
+            for index in all_indices
+            if _structural_layout_matches_contract(
                 contract,
-                presentation_layout.slides[index].metadata,
+                presentation_layout.slides[index].json_schema,
             )
         ]
-        if not compatible:
+        if not structural:
             raise LayoutCompatibilityError(
-                f"Slide {slide_number} has no audited layout compatible with its content contract",
+                f"Slide {slide_number} requires visual assets but the selected template has no compatible image layout",
                 slide_number=slide_number,
                 contract=contract.model_dump(mode="json"),
             )
-        allowed_by_slide.append(compatible)
+
+        if audited_indices:
+            compatible = [
+                index
+                for index in structural
+                if index in audited_indices
+                and _metadata_matches_contract(
+                    contract,
+                    presentation_layout.slides[index].metadata,
+                )
+            ]
+            if not compatible:
+                raise LayoutCompatibilityError(
+                    f"Slide {slide_number} has no audited layout compatible with its content contract",
+                    slide_number=slide_number,
+                    contract=contract.model_dump(mode="json"),
+                )
+            allowed_by_slide.append(compatible)
+            continue
+
+        allowed_by_slide.append(structural)
 
     return allowed_by_slide
 
