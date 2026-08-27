@@ -17,28 +17,31 @@ from utils.layout_compatibility import (
 )
 
 
+def _image_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "image": {
+                "type": "object",
+                "properties": {"image_prompt": {"type": "string"}},
+            }
+        },
+    }
+
+
+def _text_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {"title": {"type": "string"}},
+    }
+
+
 def _layout() -> PresentationLayoutModel:
     return PresentationLayoutModel(
         name="test",
         slides=[
-            SlideLayoutModel(
-                id="visual",
-                json_schema={
-                    "type": "object",
-                    "properties": {
-                        "image": {
-                            "properties": {"image_prompt": {"type": "string"}}
-                        }
-                    },
-                },
-            ),
-            SlideLayoutModel(
-                id="text",
-                json_schema={
-                    "type": "object",
-                    "properties": {"title": {"type": "string"}},
-                },
-            ),
+            SlideLayoutModel(id="visual", json_schema=_image_schema()),
+            SlideLayoutModel(id="text", json_schema=_text_schema()),
         ],
     )
 
@@ -103,7 +106,23 @@ def _question_outline() -> PresentationOutlineModel:
                     requires_images=True,
                     media_role="framed-image",
                     visible_characters=18,
+                    teaching_goal="通过局部特征识别动物",
+                    required_asset_semantics=["小兔子的两只长耳朵"],
                     preferred_layout_capabilities=["question", "image-text"],
+                ),
+            )
+        ]
+    )
+
+
+def _generic_outline_without_teaching_metadata() -> PresentationOutlineModel:
+    return PresentationOutlineModel(
+        slides=[
+            SlideOutlineModel(
+                content="General presentation content",
+                content_contract=SlideContentContract(
+                    relationship="single",
+                    requires_images=True,
                 ),
             )
         ]
@@ -140,7 +159,7 @@ def test_layout_selection_count_must_match_confirmed_outline():
 
 def test_chart_schema_detection_handles_generated_chart_contract():
     assert schema_contains_chart_slot(_chart_schema()) is True
-    assert schema_contains_chart_slot({"properties": {"title": {"type": "string"}}}) is False
+    assert schema_contains_chart_slot(_text_schema()) is False
 
 
 def test_kindergarten_template_family_excludes_legacy_chart_layouts():
@@ -193,13 +212,38 @@ def test_explicit_chart_override_wins_over_kindergarten_family_default():
     ] == ["chart"]
 
 
+def test_kindergarten_contract_requires_image_capable_layout_without_audit():
+    allowed = get_allowed_layout_indices_for_outline(_question_outline(), _layout())
+
+    assert allowed == [[0]]
+
+
+def test_image_disabled_fails_early_when_kindergarten_contract_requires_visuals():
+    candidates = get_layout_candidates(_layout(), ImagePolicy.DISABLED)
+
+    with pytest.raises(LayoutCompatibilityError, match="requires visual assets") as exc_info:
+        get_allowed_layout_indices_for_outline(_question_outline(), candidates.layout)
+
+    assert exc_info.value.slide_number == 1
+
+
+def test_legacy_non_teaching_contract_keeps_previous_layout_selection_behavior():
+    assert (
+        get_allowed_layout_indices_for_outline(
+            _generic_outline_without_teaching_metadata(),
+            _layout(),
+        )
+        is None
+    )
+
+
 def test_audited_layouts_are_filtered_by_hidden_slide_contract():
     layout = PresentationLayoutModel(
         name="kindergarten-audited",
         slides=[
             SlideLayoutModel(
                 id="question-image",
-                json_schema={},
+                json_schema=_image_schema(),
                 metadata=_audited_metadata(
                     relationship="question",
                     capabilities=["question", "image-text"],
@@ -210,7 +254,7 @@ def test_audited_layouts_are_filtered_by_hidden_slide_contract():
             ),
             SlideLayoutModel(
                 id="single-text",
-                json_schema={},
+                json_schema=_text_schema(),
                 metadata=_audited_metadata(
                     relationship="single",
                     capabilities=["single", "text"],
@@ -226,17 +270,13 @@ def test_audited_layouts_are_filtered_by_hidden_slide_contract():
     assert allowed == [[0]]
 
 
-def test_templates_without_audited_metadata_keep_legacy_selection():
-    assert get_allowed_layout_indices_for_outline(_question_outline(), _layout()) is None
-
-
 def test_audited_template_without_compatible_layout_fails_before_generation():
     layout = PresentationLayoutModel(
         name="kindergarten-audited",
         slides=[
             SlideLayoutModel(
-                id="question-no-image",
-                json_schema={},
+                id="question-image-but-audit-says-no-image",
+                json_schema=_image_schema(),
                 metadata=_audited_metadata(
                     relationship="question",
                     capabilities=["question"],
