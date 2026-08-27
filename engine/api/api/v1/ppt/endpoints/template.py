@@ -254,6 +254,7 @@ class TemplateListItem(BaseModel):
     layout_count: int = 0
     thumbnail: Optional[str] = None
     slide_image_urls: list[str] = Field(default_factory=list)
+    routing_metadata: dict[str, Any] = Field(default_factory=dict)
     is_default: bool = False
     can_manage: bool = False
     created_at: datetime
@@ -1110,6 +1111,12 @@ async def list_templates(
                 layout_count=layout_count,
                 thumbnail=_get_template_thumbnail_from_assets(assets, layouts),
                 slide_image_urls=slide_urls,
+                routing_metadata=(
+                    dict(assets.get("template_metadata"))
+                    if isinstance(assets, dict)
+                    and isinstance(assets.get("template_metadata"), dict)
+                    else {}
+                ),
                 is_default=is_default,
                 can_manage=can_manage_official_templates(),
                 created_at=created_at,

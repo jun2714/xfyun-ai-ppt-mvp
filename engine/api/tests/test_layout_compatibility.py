@@ -7,6 +7,7 @@ from utils.layout_compatibility import (
     LayoutCompatibilityError,
     get_layout_candidates,
     remap_and_validate_structure,
+    schema_contains_chart_slot,
 )
 
 
@@ -46,9 +47,10 @@ def test_disabled_policy_excludes_layouts_with_image_slots():
     ).slides == [1]
 
 
-def test_kindergarten_template_excludes_chart_layouts():
+def test_template_disallowing_charts_excludes_chart_layouts():
     layout = PresentationLayoutModel(
-        name="dynamic",
+        name="child-facing-template",
+        allow_charts=False,
         slides=[
             SlideLayoutModel(
                 id="chart",
@@ -87,9 +89,10 @@ def test_kindergarten_template_excludes_chart_layouts():
     assert candidates.original_indices == [1]
 
 
-def test_non_kindergarten_template_keeps_chart_layouts():
+def test_template_allowing_charts_keeps_chart_layouts():
     layout = PresentationLayoutModel(
         name="executive",
+        allow_charts=True,
         slides=[
             SlideLayoutModel(
                 id="chart",
@@ -116,6 +119,51 @@ def test_non_kindergarten_template_keeps_chart_layouts():
     candidates = get_layout_candidates(layout, ImagePolicy.STANDARD)
 
     assert candidates.original_indices == [0, 1]
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"x-element-type": "chart"},
+        {"properties": {"chart_type": {"type": "string"}}},
+        {"properties": {"chartType": {"type": "string"}}},
+    ],
+)
+def test_chart_schema_variants_are_detected(schema):
+    assert schema_contains_chart_slot(schema) is True
+
+
+def test_template_id_does_not_implicitly_disable_charts():
+    layout = PresentationLayoutModel(
+        name="dynamic",
+        allow_charts=True,
+        slides=[
+            SlideLayoutModel(
+                id="chart",
+                json_schema={"properties": {"chart_type": {"type": "string"}}},
+            )
+        ],
+    )
+
+    candidates = get_layout_candidates(layout, ImagePolicy.STANDARD)
+
+    assert candidates.original_indices == [0]
+
+
+def test_no_compatible_non_chart_layout_is_rejected():
+    layout = PresentationLayoutModel(
+        name="child-facing-template",
+        allow_charts=False,
+        slides=[
+            SlideLayoutModel(
+                id="chart",
+                json_schema={"properties": {"chart_type": {"type": "string"}}},
+            )
+        ],
+    )
+
+    with pytest.raises(LayoutCompatibilityError, match="no non-chart layout"):
+        get_layout_candidates(layout, ImagePolicy.STANDARD)
 
 
 def test_invalid_layout_index_is_rejected_instead_of_randomly_replaced():

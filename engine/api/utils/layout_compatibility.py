@@ -7,13 +7,6 @@ from models.presentation_structure_model import PresentationStructureModel
 
 
 IMAGE_PROMPT_KEYS = {"image_prompt", "__image_prompt__"}
-KINDERGARTEN_TEMPLATE_IDS = {
-    "dynamic",
-    "modern",
-    "momentum",
-    "standard",
-    "swift",
-}
 
 
 class LayoutCompatibilityError(ValueError):
@@ -73,13 +66,11 @@ def get_layout_candidates(
             if not schema_contains_image_slot(layout.slides[index].json_schema)
         ]
 
-    # The bundled kindergarten template families contain a few legacy chart/
-    # dashboard layouts. They are useful source designs but are unsafe defaults
-    # for child-facing lesson decks because the content model may be forced to
-    # invent numeric values merely to satisfy the chart schema. Keep those
-    # layouts out of the automatic candidate pool. Business/general templates
-    # are deliberately unaffected by this guard.
-    if layout.name in KINDERGARTEN_TEMPLATE_IDS:
+    # Child-facing templates declare allow_charts=false in template metadata.
+    # Keep legacy chart/dashboard layouts out of their candidate pool so the
+    # content model is never forced to invent numeric values. Adult-facing and
+    # custom templates remain unaffected unless they opt in to the same guard.
+    if not layout.allow_charts:
         original_indices = [
             index
             for index in original_indices
@@ -88,9 +79,9 @@ def get_layout_candidates(
 
     if not original_indices:
         detail = (
-            "The selected kindergarten template has no non-chart layout compatible "
+            "The selected template has no non-chart layout compatible "
             "with the current image policy"
-            if layout.name in KINDERGARTEN_TEMPLATE_IDS
+            if not layout.allow_charts
             else "The selected template has no layout compatible with imagePolicy=disabled"
         )
         raise LayoutCompatibilityError(detail)
@@ -104,6 +95,7 @@ def get_layout_candidates(
             ordered=layout.ordered and len(candidate_slides) == len(layout.slides),
             icon_type=layout.icon_type,
             icon_weight=layout.icon_weight,
+            allow_charts=layout.allow_charts,
             slides=candidate_slides,
         ),
         original_indices=original_indices,

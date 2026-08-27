@@ -5,26 +5,6 @@ import { clearReturnTo, peekReturnTo } from "../../navigation/returnTo";
 import { Shell } from "../create/CreateAndGenerate";
 import { ArrowLeftIcon, ArrowRightIcon } from "../../components/Icons";
 
-const DISPLAY_NAMES: Record<string, string> = {
-  dynamic: "动感橙黑",
-  executive: "柔光紫",
-  general: "通用模板",
-  modern: "现代蓝",
-  momentum: "商务蓝",
-  standard: "经典图文",
-  swift: "简洁青蓝",
-};
-
-const DISPLAY_DESCRIPTIONS: Record<string, string> = {
-  dynamic: "深色高对比、暖橙强调，适合故事化和强视觉表达。",
-  executive: "明亮留白与柔和紫色强调，适合清晰、正式的内容。",
-  general: "通用白底图文布局，结构简单，适合多数演示主题。",
-  modern: "现代留白和蓝色强调，适合简洁的图文展示。",
-  momentum: "大字号和流动蓝色装饰，适合节奏明确的汇报。",
-  standard: "经典大图与正文组合，适合稳定、清楚地讲述内容。",
-  swift: "轻量图文布局和青蓝点缀，适合短篇演示。",
-};
-
 function assetUrl(value?: string | null) {
   if (!value) return "";
   if (/^https?:\/\//i.test(value)) return value;
@@ -38,7 +18,7 @@ function assetUrl(value?: string | null) {
 
 function TemplateCard({ template }: { template: TemplateItem }) {
   const thumbnail = assetUrl(template.thumbnail);
-  const displayName = DISPLAY_NAMES[template.id] ?? template.name;
+  const displayName = template.name;
   const previewBase = import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
   const previewUrl = `${previewBase}/template-preview?templateV2Id=${encodeURIComponent(template.id)}`;
 
@@ -49,7 +29,7 @@ function TemplateCard({ template }: { template: TemplateItem }) {
     </div>
     <div className="template-card-copy">
       <h2>{displayName}</h2>
-      <p>{DISPLAY_DESCRIPTIONS[template.id] || template.description || "查看模板包含的页面布局与视觉样式"}</p>
+      <p>{template.description || "查看模板包含的页面布局与视觉样式"}</p>
       <span>查看模板 <ArrowRightIcon /></span>
     </div>
   </a>;
@@ -120,6 +100,18 @@ export function TemplateBuilder() {
   const studioUrl = `${base}/custom-template?embed=teachnova&fastapiUrl=${encodeURIComponent(fastApiUrl)}`;
   return <Shell><main className="template-builder-page">
     <div className="template-builder-toolbar"><TemplateReturnLink /></div>
+    <section className="template-upload-guide" aria-label="模板上传说明">
+      <div>
+        <strong>上传可编辑的 PPTX</strong>
+        <span>建议先删除版权说明页、示例文案和不需要的版式；扫描版 PDF 或整页图片不能直接成为可编辑模板。</span>
+      </div>
+      <ol>
+        <li><b>1</b>检查并补齐字体</li>
+        <li><b>2</b>确认逐页预览</li>
+        <li><b>3</b>生成可复用布局</li>
+        <li><b>4</b>命名后保存到“我的模板”</li>
+      </ol>
+    </section>
     <iframe title="制作模板" src={studioUrl} />
   </main></Shell>;
 }

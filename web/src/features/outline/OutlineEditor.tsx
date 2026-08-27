@@ -7,21 +7,9 @@ import {
   toEditableOutlineContent,
   toStoredOutlineContent,
 } from "./outlineFormat";
-import { resolveAutoTemplateId } from "./templateRouting";
-
-const DEFAULT_TEMPLATE_ID = "general";
+import { AUTO_TEMPLATE_ID, resolveAutoTemplateId } from "./templateRouting";
 const EDITOR_BASE =
   import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
-
-const DISPLAY_NAMES: Record<string, string> = {
-  general: "自动匹配",
-  swift: "简洁明快",
-  standard: "标准清晰",
-  momentum: "活力节奏",
-  modern: "现代简约",
-  executive: "清晰专业",
-  dynamic: "灵动多彩",
-};
 
 function readOutlineQueryOptions() {
   if (typeof window === "undefined") {
@@ -37,10 +25,7 @@ function readOutlineQueryOptions() {
 }
 
 function templateName(template: TemplateItem) {
-  return (
-    DISPLAY_NAMES[template.id] ??
-    (/\?{2,}|�/.test(template.name) ? "通用模板" : template.name)
-  );
+  return /\?{2,}|�/.test(template.name) ? "未命名模板" : template.name;
 }
 
 function assetUrl(value?: string | null) {
@@ -92,7 +77,7 @@ export function OutlineEditor({
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
   const [template, setTemplate] = useState(
-    preferred || (resolvedCreateMode === "template" ? "" : DEFAULT_TEMPLATE_ID),
+    preferred || (resolvedCreateMode === "template" ? "" : AUTO_TEMPLATE_ID),
   );
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
@@ -131,6 +116,10 @@ export function OutlineEditor({
     () => splitTemplates(templates),
     [templates],
   );
+  const autoMatchedTemplate = useMemo(() => {
+    const id = resolveAutoTemplateId(presentation, outline, templates);
+    return templates.find((item) => item.id === id) ?? null;
+  }, [outline, presentation, templates]);
   const showTemplateStage =
     resolvedCreateMode === "template" && stage === "template" && !streaming;
 
@@ -198,10 +187,10 @@ export function OutlineEditor({
 
   const confirmTopic = async () => {
     const layoutId =
-      template === DEFAULT_TEMPLATE_ID
+      template === AUTO_TEMPLATE_ID
         ? resolveAutoTemplateId(presentation, outline, templates)
         : template;
-    await prepareWithLayout(layoutId || DEFAULT_TEMPLATE_ID);
+    await prepareWithLayout(layoutId || AUTO_TEMPLATE_ID);
   };
 
   const renderTemplatePickCard = (item: TemplateItem) => {
@@ -329,7 +318,9 @@ export function OutlineEditor({
                       disabled={streaming || saving}
                       onChange={(event) => setTemplate(event.target.value)}
                     >
-                      <option value="general">自动匹配</option>
+                      <option value={AUTO_TEMPLATE_ID}>
+                        自动匹配{autoMatchedTemplate ? ` · ${templateName(autoMatchedTemplate)}` : ""}
+                      </option>
                       {selectableTemplates.map((item) => (
                         <option value={item.id} key={item.id}>
                           {templateName(item)} · {item.layout_count} 种布局

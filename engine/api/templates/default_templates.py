@@ -160,6 +160,15 @@ def _load_default_template(template_dir: Path) -> TemplateV2:
     if not isinstance(raw, dict):
         raise ValueError(f"Default template must be a JSON object: {template_json_path}")
 
+    routing_metadata_path = template_dir / "routing.json"
+    if routing_metadata_path.is_file():
+        routing_metadata = json.loads(routing_metadata_path.read_text(encoding="utf-8"))
+        if not isinstance(routing_metadata, dict):
+            raise ValueError(
+                f"Template routing metadata must be a JSON object: {routing_metadata_path}"
+            )
+        raw = {**raw, "metadata": routing_metadata}
+
     template_id = _read_template_id(raw, template_dir)
     rewritten = _rewrite_static_asset_urls(raw, template_id)
 

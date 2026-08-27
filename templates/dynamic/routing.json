@@ -1,0 +1,11 @@
+{
+  "audiences": ["child"],
+  "domains": ["科学"],
+  "scenes": ["教学", "公开课"],
+  "styles": ["明亮童趣", "自然探索"],
+  "routing_terms": ["科学", "探索", "自然", "观察", "发现", "植物", "动物", "实验", "天气", "昆虫", "宇宙", "种子", "叶子", "花朵", "春天", "夏天", "秋天", "冬天"],
+  "auto_match": true,
+  "auto_priority": 20,
+  "allow_charts": false,
+  "quality_status": "candidate"
+}

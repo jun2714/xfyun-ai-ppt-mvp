@@ -2,86 +2,54 @@ import type { Presentation, PresentationOutline, TemplateItem } from "../../enti
 
 export const AUTO_TEMPLATE_ID = "general";
 
-const AUTO_TEMPLATE_ORDER = [
-  "dynamic",
-  "modern",
-  "swift",
-  "momentum",
-  "standard",
-] as const;
-
-const KEYWORDS: Record<(typeof AUTO_TEMPLATE_ORDER)[number], string[]> = {
-  dynamic: [
-    "科学",
-    "探索",
-    "自然",
-    "观察",
-    "发现",
-    "植物",
-    "动物",
-    "实验",
-    "季节",
-    "天气",
-    "环境",
-    "昆虫",
-    "宇宙",
-    "生物",
-    "种子",
-    "叶子",
-    "花朵",
-  ],
-  modern: [
-    "绘本",
-    "故事",
-    "童话",
-    "阅读",
-    "语言",
-    "讲述",
-    "情绪",
-    "情感",
-    "角色",
-    "睡前",
-  ],
-  swift: [
-    "游戏",
-    "互动",
-    "猜一猜",
-    "找一找",
-    "说一说",
-    "配对",
-    "闯关",
-    "选择",
-    "问答",
-    "律动",
-  ],
-  momentum: [
-    "活动",
-    "主题",
-    "分享",
-    "家园",
-    "亲子",
-    "节日",
-    "手工",
-    "艺术",
-    "音乐",
-    "社会",
-    "健康",
-    "运动",
-  ],
-  standard: [],
-};
-
-function searchableText(
+function searchableTextParts(
   presentation: Presentation,
   outline: PresentationOutline,
 ) {
-  return [
-    presentation.title ?? "",
-    presentation.content ?? "",
-    ...outline.slides.map((slide) => slide.content ?? ""),
-  ]
-    .join("\n")
-    .toLocaleLowerCase();
+  return {
+    topic: [
+      presentation.title ?? "",
+      presentation.content ?? "",
+    ]
+      .join("\n")
+      .toLocaleLowerCase(),
+    outline: outline.slides
+      .map((slide) => slide.content ?? "")
+      .join("\n")
+      .toLocaleLowerCase(),
+  };
+}
+
+function routingScore(
+  template: TemplateItem,
+  text: { topic: string; outline: string },
+) {
+  const metadata = template.routing_metadata;
+  if (
+    template.is_default === false ||
+    metadata?.auto_match !== true ||
+    metadata.quality_status === "failed"
+  ) {
+    return null;
+  }
+
+  const terms = metadata.routing_terms ?? [];
+  const isAdultTemplate = metadata.audiences?.includes("adult") === true;
+  const score = terms.reduce((total, rawTerm) => {
+    const term = rawTerm.trim().toLocaleLowerCase();
+    if (!term) return total;
+    return (
+      total +
+      (text.topic.includes(term) ? 4 : 0) +
+      (isAdultTemplate && text.topic.includes(term) ? 4 : 0) +
+      (text.outline.includes(term) ? 1 : 0)
+    );
+  }, 0);
+
+  return {
+    score,
+    priority: metadata.auto_priority ?? Number.MAX_SAFE_INTEGER,
+  };
 }
 
 /**
@@ -98,32 +66,40 @@ export function resolveAutoTemplateId(
   outline: PresentationOutline,
   templates: TemplateItem[],
 ): string {
-  const available = new Set(templates.map((item) => item.id));
-  const text = searchableText(presentation, outline);
-  const scores = new Map<string, number>();
+  const text = searchableTextParts(presentation, outline);
+  const ranked = templates
+    .map((template) => ({ template, routing: routingScore(template, text) }))
+    .filter(
+      (item): item is {
+        template: TemplateItem;
+        routing: { score: number; priority: number };
+      } => item.routing !== null,
+    )
+    .filter((item) => item.routing.score > 0)
+    .sort(
+      (left, right) =>
+        right.routing.score - left.routing.score ||
+        left.routing.priority - right.routing.priority ||
+        left.template.id.localeCompare(right.template.id),
+    );
 
-  for (const templateId of AUTO_TEMPLATE_ORDER) {
-    if (!available.has(templateId)) continue;
-    scores.set(templateId, templateId === "standard" ? 1 : 0);
-    for (const keyword of KEYWORDS[templateId]) {
-      if (text.includes(keyword.toLocaleLowerCase())) {
-        scores.set(templateId, (scores.get(templateId) ?? 0) + 2);
-      }
-    }
-  }
+  if (ranked[0]) return ranked[0].template.id;
 
-  let bestId: string | null = null;
-  let bestScore = Number.NEGATIVE_INFINITY;
-  for (const templateId of AUTO_TEMPLATE_ORDER) {
-    const score = scores.get(templateId);
-    if (score === undefined) continue;
-    if (score > bestScore) {
-      bestId = templateId;
-      bestScore = score;
-    }
-  }
+  const fallback = templates
+    .filter(
+      (template) =>
+        template.is_default !== false &&
+        template.routing_metadata?.auto_match === true &&
+        template.routing_metadata?.fallback === true,
+    )
+    .sort(
+      (left, right) =>
+        (left.routing_metadata?.auto_priority ?? Number.MAX_SAFE_INTEGER) -
+          (right.routing_metadata?.auto_priority ?? Number.MAX_SAFE_INTEGER) ||
+        left.id.localeCompare(right.id),
+    )[0];
 
-  // Keep the existing behaviour as the final compatibility fallback when the
-  // expected bundled templates are not present in the current deployment.
-  return bestId ?? AUTO_TEMPLATE_ID;
+  // Preserve compatibility while older deployments are waiting for their
+  // bundled template metadata to be re-imported on API restart.
+  return fallback?.id ?? AUTO_TEMPLATE_ID;
 }

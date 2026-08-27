@@ -260,6 +260,12 @@ def _copy_template_layout_payload(
     layout_payload["icon_weight"] = icon_type
     layout_payload["name"] = _template_reference(template.id)
     layout_payload["template_id"] = template.id
+    if isinstance(template.assets, dict) and isinstance(
+        template.assets.get("template_metadata"), dict
+    ):
+        layout_payload["template_metadata"] = copy.deepcopy(
+            template.assets["template_metadata"]
+        )
     return layout_payload
 
 
@@ -494,10 +500,16 @@ def _build_template_layout_model(
             detail="Template layout JSON must contain at least one layout",
         )
 
+    template_metadata = layout_payload.get("template_metadata")
+    allow_charts = True
+    if isinstance(template_metadata, dict):
+        allow_charts = template_metadata.get("allow_charts") is not False
+
     return PresentationLayoutModel(
         name=layout_name,
         ordered=False,
         icon_type=extract_icon_type_from_settings(layout_payload),
+        allow_charts=allow_charts,
         slides=slides,
     )
 

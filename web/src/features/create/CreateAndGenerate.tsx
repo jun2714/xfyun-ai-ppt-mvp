@@ -106,7 +106,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
             () => ({ slides: [] } as PresentationOutline),
           ),
           api<TemplateList>("/template/all?page_size=100").catch(
-            () => ({ items: [] } as TemplateList),
+            () => ({ items: [], total: 0 }),
           ),
         ]);
         setPresentation(current);
