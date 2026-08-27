@@ -27,6 +27,18 @@ export type TemplateItem = {
   description?: string | null;
   layout_count: number;
   thumbnail?: string | null;
+  routing_metadata?: {
+    audiences?: string[];
+    domains?: string[];
+    scenes?: string[];
+    styles?: string[];
+    routing_terms?: string[];
+    auto_match?: boolean;
+    auto_priority?: number;
+    fallback?: boolean;
+    allow_charts?: boolean;
+    quality_status?: string;
+  };
   is_default?: boolean;
 };
 

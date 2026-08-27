@@ -1,0 +1,11 @@
+{
+  "audiences": ["child", "adult"],
+  "domains": ["通用"],
+  "scenes": ["教学", "公开课", "家长会", "教研"],
+  "styles": ["基础通用"],
+  "routing_terms": [],
+  "auto_match": false,
+  "fallback": false,
+  "allow_charts": true,
+  "quality_status": "candidate"
+}

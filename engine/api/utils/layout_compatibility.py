@@ -34,6 +34,19 @@ def schema_contains_image_slot(value: Any) -> bool:
     return False
 
 
+def schema_contains_chart_slot(value: Any) -> bool:
+    """Detect an editable chart field in a generated template content schema."""
+    if isinstance(value, dict):
+        if value.get("x-element-type") == "chart":
+            return True
+        if "chart_type" in value or "chartType" in value:
+            return True
+        return any(schema_contains_chart_slot(child) for child in value.values())
+    if isinstance(value, list):
+        return any(schema_contains_chart_slot(child) for child in value)
+    return False
+
+
 @dataclass(frozen=True)
 class LayoutCandidates:
     layout: PresentationLayoutModel
@@ -44,19 +57,34 @@ def get_layout_candidates(
     layout: PresentationLayoutModel,
     image_policy: ImagePolicy,
 ) -> LayoutCandidates:
+    original_indices = list(range(len(layout.slides)))
+
     if image_policy is ImagePolicy.DISABLED:
         original_indices = [
             index
-            for index, slide in enumerate(layout.slides)
-            if not schema_contains_image_slot(slide.json_schema)
+            for index in original_indices
+            if not schema_contains_image_slot(layout.slides[index].json_schema)
         ]
-    else:
-        original_indices = list(range(len(layout.slides)))
+
+    # Child-facing templates declare allow_charts=false in template metadata.
+    # Keep legacy chart/dashboard layouts out of their candidate pool so the
+    # content model is never forced to invent numeric values. Adult-facing and
+    # custom templates remain unaffected unless they opt in to the same guard.
+    if not layout.allow_charts:
+        original_indices = [
+            index
+            for index in original_indices
+            if not schema_contains_chart_slot(layout.slides[index].json_schema)
+        ]
 
     if not original_indices:
-        raise LayoutCompatibilityError(
-            "The selected template has no layout compatible with imagePolicy=disabled"
+        detail = (
+            "The selected template has no non-chart layout compatible "
+            "with the current image policy"
+            if not layout.allow_charts
+            else "The selected template has no layout compatible with imagePolicy=disabled"
         )
+        raise LayoutCompatibilityError(detail)
 
     candidate_slides = [layout.slides[index] for index in original_indices]
     return LayoutCandidates(
@@ -67,6 +95,7 @@ def get_layout_candidates(
             ordered=layout.ordered and len(candidate_slides) == len(layout.slides),
             icon_type=layout.icon_type,
             icon_weight=layout.icon_weight,
+            allow_charts=layout.allow_charts,
             slides=candidate_slides,
         ),
         original_indices=original_indices,
@@ -100,4 +129,3 @@ def remap_and_validate_structure(
     return PresentationStructureModel(
         slides=[candidates.original_indices[index] for index in structure.slides]
     )
-

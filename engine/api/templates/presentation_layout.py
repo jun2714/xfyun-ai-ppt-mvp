@@ -22,6 +22,7 @@ class PresentationLayoutModel(BaseModel):
     ordered: bool = Field(default=False)
     icon_type: str = Field(default=DEFAULT_ICON_TYPE)
     icon_weight: str = Field(default=DEFAULT_ICON_TYPE)
+    allow_charts: bool = Field(default=True)
     slides: List[SlideLayoutModel]
 
     @model_validator(mode="before")

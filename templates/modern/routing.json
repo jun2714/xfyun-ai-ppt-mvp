@@ -1,0 +1,11 @@
+{
+  "audiences": ["child"],
+  "domains": ["语言", "社会"],
+  "scenes": ["教学", "公开课"],
+  "styles": ["温暖自然", "绘本叙事"],
+  "routing_terms": ["绘本", "故事", "童话", "阅读", "语言", "讲述", "情绪", "情感", "角色", "睡前", "成长故事"],
+  "auto_match": true,
+  "auto_priority": 30,
+  "allow_charts": false,
+  "quality_status": "candidate"
+}

@@ -1,0 +1,11 @@
+{
+  "audiences": ["adult"],
+  "domains": ["教研", "园务", "家园共育"],
+  "scenes": ["家长会", "教研", "培训", "园务汇报"],
+  "styles": ["清晰专业"],
+  "routing_terms": ["家长会", "教研", "园务", "培训", "汇报", "述职", "工作总结", "教师成长", "家园沟通"],
+  "auto_match": true,
+  "auto_priority": 10,
+  "allow_charts": true,
+  "quality_status": "candidate"
+}

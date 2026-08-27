@@ -1,0 +1,12 @@
+{
+  "audiences": ["child"],
+  "domains": ["健康", "语言", "社会", "科学", "艺术", "通用"],
+  "scenes": ["教学", "公开课"],
+  "styles": ["清晰日常"],
+  "routing_terms": ["安全", "卫生", "健康", "生活习惯", "礼仪", "规则", "常规", "区角", "认识", "认知"],
+  "auto_match": true,
+  "auto_priority": 60,
+  "fallback": true,
+  "allow_charts": false,
+  "quality_status": "candidate"
+}
