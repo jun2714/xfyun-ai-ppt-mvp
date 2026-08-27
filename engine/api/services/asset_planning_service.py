@@ -125,18 +125,30 @@ def validate_asset_semantic_coverage(
     describe a lamp, flashlight, television and cloud, the request fails here and
     no image provider call is made. Slides without a hidden contract keep the
     existing generic behavior.
+
+    Only slides with unresolved image slots are checked. A completed deck may still
+    carry its original prompts and contract, but reopening it must never be treated
+    as a new paid generation request.
     """
     slots = slots if slots is not None else extract_asset_slots(slides)
-    prompts_by_slide: dict[int, list[str]] = {}
-    for slot in slots:
-        prompts_by_slide.setdefault(slot.slide_index, []).append(slot.prompt)
+    pending_slide_indices = {slot.slide_index for slot in slots}
+    if not pending_slide_indices:
+        return
 
     for slide in slides:
+        if slide.index not in pending_slide_indices:
+            continue
         required = _required_asset_semantics(slide)
         if not required:
             continue
 
-        prompt_text = " ".join(prompts_by_slide.get(slide.index, []))
+        all_prompts = [
+            prompt
+            for _path, _parent, prompt in _asset_dicts_with_prompt(
+                slide.content, IMAGE_PROMPT_KEYS
+            )
+        ]
+        prompt_text = " ".join(all_prompts)
         normalized_prompt = _normalized_semantic_text(prompt_text)
         missing = [
             semantic
