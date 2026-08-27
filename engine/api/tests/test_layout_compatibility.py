@@ -2,9 +2,15 @@ import pytest
 
 from models.image_policy import ImagePolicy
 from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
+from models.presentation_outline_model import (
+    PresentationOutlineModel,
+    SlideContentContract,
+    SlideOutlineModel,
+)
 from models.presentation_structure_model import PresentationStructureModel
 from utils.layout_compatibility import (
     LayoutCompatibilityError,
+    get_allowed_layout_indices_for_outline,
     get_layout_candidates,
     remap_and_validate_structure,
 )
@@ -36,6 +42,57 @@ def _layout() -> PresentationLayoutModel:
     )
 
 
+def _audited_metadata(
+    *,
+    relationship: str,
+    capabilities: list[str],
+    min_items: int = 0,
+    max_items: int = 4,
+    framed_images: int = 0,
+    background_images: int = 0,
+    maximum_visible_characters: int = 120,
+) -> dict:
+    return {
+        "capabilities": capabilities,
+        "contentShape": {
+            "relationship": relationship,
+            "minItems": min_items,
+            "maxItems": max_items,
+            "textBlocks": 2,
+            "imageSlots": framed_images + background_images,
+        },
+        "media": {
+            "backgroundSlots": background_images,
+            "framedImageSlots": framed_images,
+            "cutoutSlots": 0,
+            "required": framed_images + background_images > 0,
+        },
+        "readability": {
+            "minimumFontSize": 24,
+            "maximumVisibleCharacters": maximum_visible_characters,
+        },
+        "qualityStatus": "passed",
+    }
+
+
+def _question_outline() -> PresentationOutlineModel:
+    return PresentationOutlineModel(
+        slides=[
+            SlideOutlineModel(
+                content="猜猜是谁？\n- 谁有长长的耳朵？",
+                content_contract=SlideContentContract(
+                    relationship="question",
+                    item_count=2,
+                    requires_images=True,
+                    media_role="framed-image",
+                    visible_characters=18,
+                    preferred_layout_capabilities=["question", "image-text"],
+                ),
+            )
+        ]
+    )
+
+
 def test_disabled_policy_excludes_layouts_with_image_slots():
     candidates = get_layout_candidates(_layout(), ImagePolicy.DISABLED)
 
@@ -62,3 +119,65 @@ def test_layout_selection_count_must_match_confirmed_outline():
         remap_and_validate_structure(
             PresentationStructureModel(slides=[0]), candidates, 2
         )
+
+
+def test_audited_layouts_are_filtered_by_hidden_slide_contract():
+    layout = PresentationLayoutModel(
+        name="kindergarten-audited",
+        slides=[
+            SlideLayoutModel(
+                id="question-image",
+                json_schema={},
+                metadata=_audited_metadata(
+                    relationship="question",
+                    capabilities=["question", "image-text"],
+                    min_items=1,
+                    max_items=3,
+                    framed_images=1,
+                ),
+            ),
+            SlideLayoutModel(
+                id="single-text",
+                json_schema={},
+                metadata=_audited_metadata(
+                    relationship="single",
+                    capabilities=["single", "text"],
+                    min_items=0,
+                    max_items=2,
+                ),
+            ),
+        ],
+    )
+
+    allowed = get_allowed_layout_indices_for_outline(_question_outline(), layout)
+
+    assert allowed == [[0]]
+
+
+def test_templates_without_audited_metadata_keep_legacy_selection():
+    assert get_allowed_layout_indices_for_outline(_question_outline(), _layout()) is None
+
+
+def test_audited_template_without_compatible_layout_fails_before_generation():
+    layout = PresentationLayoutModel(
+        name="kindergarten-audited",
+        slides=[
+            SlideLayoutModel(
+                id="question-no-image",
+                json_schema={},
+                metadata=_audited_metadata(
+                    relationship="question",
+                    capabilities=["question"],
+                    min_items=1,
+                    max_items=3,
+                    framed_images=0,
+                ),
+            )
+        ],
+    )
+
+    with pytest.raises(LayoutCompatibilityError) as exc_info:
+        get_allowed_layout_indices_for_outline(_question_outline(), layout)
+
+    assert exc_info.value.slide_number == 1
+    assert "no audited layout compatible" in str(exc_info.value)
