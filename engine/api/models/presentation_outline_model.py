@@ -72,6 +72,15 @@ class SlideContentContract(BaseModel):
     answer_key: Optional[str] = Field(default=None, max_length=300)
     required_asset_semantics: List[str] = Field(default_factory=list, max_length=12)
     asset_contracts: List[SlideAssetContract] = Field(default_factory=list, max_length=12)
+    preferred_layout_capabilities: List[str] = Field(
+        default_factory=list,
+        max_length=8,
+        description=(
+            "Hidden semantic layout preferences such as question, reveal, scene, "
+            "matching, classification, sequence, image-text, or recap. These are "
+            "capability hints, never template ids."
+        ),
+    )
 
     @field_validator("relationship", mode="before")
     @classmethod
@@ -123,9 +132,13 @@ class SlideContentContract(BaseModel):
         }
         return normalized if normalized in allowed else "unknown"
 
-    @field_validator("required_asset_semantics", mode="before")
+    @field_validator(
+        "required_asset_semantics",
+        "preferred_layout_capabilities",
+        mode="before",
+    )
     @classmethod
-    def normalize_asset_semantics(cls, value):
+    def normalize_unique_string_list(cls, value):
         if value is None:
             return []
         if not isinstance(value, list):
