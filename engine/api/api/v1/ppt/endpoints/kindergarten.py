@@ -2,16 +2,25 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.v1.ppt.endpoints.presentation import (
+    create_presentation,
+    prepare_presentation,
+)
+from models.image_policy import ImagePolicy
 from models.kindergarten_lesson_plan import (
     KindergartenDomain,
     KindergartenLessonPlan,
 )
 from models.presentation_outline_model import PresentationOutlineModel
-from services.kindergarten_lesson_planning_service import (
-    generate_kindergarten_lesson_plan,
+from services.database import get_async_session
+from services.kindergarten_presentation_planning_service import (
+    KindergartenPlanningQualityError,
+    ValidatedKindergartenPlanningResult,
+    generate_validated_kindergarten_presentation_outline,
 )
 from services.kindergarten_plan_quality_service import (
     KindergartenPlanQualityReport,
@@ -36,6 +45,33 @@ class KindergartenLessonPlanResponse(BaseModel):
     plan: KindergartenLessonPlan
     outline: PresentationOutlineModel
     quality: KindergartenPlanQualityReport
+    planning_attempts: int = 1
+
+
+class KindergartenPresentationPrepareRequest(KindergartenLessonPlanRequest):
+    template: str = Field(default="general", min_length=1, max_length=200)
+    language: str = Field(default="Chinese", min_length=1, max_length=80)
+    image_policy: ImagePolicy = ImagePolicy.STANDARD
+
+
+class KindergartenPresentationPrepareResponse(KindergartenLessonPlanResponse):
+    presentation_id: str
+
+
+async def _generate_validated_plan(
+    payload: KindergartenLessonPlanRequest,
+    request: Request,
+) -> ValidatedKindergartenPlanningResult:
+    return await generate_validated_kindergarten_presentation_outline(
+        topic=payload.topic,
+        age_group=payload.age_group,
+        domain=payload.domain,
+        duration_minutes=payload.duration_minutes,
+        n_slides=payload.n_slides,
+        instructions=payload.instructions,
+        source_context=payload.source_context,
+        disconnect_checker=request.is_disconnected,
+    )
 
 
 @KINDERGARTEN_ROUTER.post(
@@ -46,21 +82,69 @@ async def create_kindergarten_lesson_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
 ):
-    plan = await generate_kindergarten_lesson_plan(
-        topic=payload.topic,
-        age_group=payload.age_group,
-        domain=payload.domain,
-        duration_minutes=payload.duration_minutes,
-        n_slides=payload.n_slides,
-        instructions=payload.instructions,
-        source_context=payload.source_context,
-        disconnect_checker=request.is_disconnected,
-    )
-    quality = validate_kindergarten_lesson_plan(plan)
+    result = await _generate_validated_plan(payload, request)
     return KindergartenLessonPlanResponse(
-        plan=plan,
-        outline=plan.to_presentation_outline(),
-        quality=quality,
+        plan=result.plan,
+        outline=result.outline,
+        quality=result.quality,
+        planning_attempts=result.attempts,
+    )
+
+
+@KINDERGARTEN_ROUTER.post(
+    "/presentation/prepare",
+    response_model=KindergartenPresentationPrepareResponse,
+)
+async def prepare_kindergarten_presentation(
+    payload: KindergartenPresentationPrepareRequest,
+    request: Request,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    """Create a reviewed-outline deck that continues through the normal PPT stream.
+
+    The important boundary is that the kindergarten lesson plan is converted into
+    `SlideOutlineModel` objects *with hidden machine contracts intact* before the
+    standard layout selector and slide-content generator run. The existing
+    `/presentation/stream/{id}` route then performs slide generation, semantic
+    preflight, image generation, post-image vision QA, persistence, and resume.
+    """
+    result = await _generate_validated_plan(payload, request)
+
+    presentation = await create_presentation(
+        content=payload.topic,
+        n_slides=len(result.outline.slides),
+        language=payload.language,
+        file_paths=None,
+        instructions=payload.instructions,
+        include_table_of_contents=False,
+        include_title_slide=True,
+        web_search=False,
+        generation_mode="standard",
+        community_design_ids=None,
+        image_policy=payload.image_policy,
+        sql_session=sql_session,
+    )
+    try:
+        prepared = await prepare_presentation(
+            presentation_id=presentation.id,
+            outlines=result.outline.slides,
+            layout=payload.template,
+            title=payload.topic,
+            sql_session=sql_session,
+        )
+    except Exception:
+        # The presentation row is useful only if preparation succeeds. Avoid
+        # leaving an empty shell when a template/layout contract rejects the plan.
+        await sql_session.delete(presentation)
+        await sql_session.commit()
+        raise
+
+    return KindergartenPresentationPrepareResponse(
+        presentation_id=str(prepared.presentation_id),
+        plan=result.plan,
+        outline=result.outline,
+        quality=result.quality,
+        planning_attempts=result.attempts,
     )
 
 
