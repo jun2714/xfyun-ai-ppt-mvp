@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Type
 
 from llmai import get_client
 from llmai.shared import JSONSchemaResponse, Message, SystemMessage, UserMessage
+from pydantic import Field
 
-from models.kindergarten_lesson_plan import KindergartenLessonPlan
+from models.kindergarten_lesson_plan import (
+    KindergartenLessonPlan,
+    KindergartenSlidePlan,
+)
 from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_config import get_llm_config
 from utils.llm_provider import get_model
@@ -89,6 +93,21 @@ def build_kindergarten_lesson_messages(
     ]
 
 
+def _lesson_plan_response_model(
+    n_slides: Optional[int],
+) -> Type[KindergartenLessonPlan]:
+    if n_slides is None:
+        return KindergartenLessonPlan
+
+    class KindergartenLessonPlanWithSlideCount(KindergartenLessonPlan):
+        slides: list[KindergartenSlidePlan] = Field(
+            min_length=n_slides,
+            max_length=n_slides,
+        )
+
+    return KindergartenLessonPlanWithSlideCount
+
+
 async def generate_kindergarten_lesson_plan(
     *,
     topic: str,
@@ -102,8 +121,9 @@ async def generate_kindergarten_lesson_plan(
 ) -> KindergartenLessonPlan:
     client = get_client(config=get_llm_config())
     model = get_model()
+    response_model = _lesson_plan_response_model(n_slides)
     schema = prepare_schema_for_validation(
-        KindergartenLessonPlan.model_json_schema(),
+        response_model.model_json_schema(),
         strict=False,
     )
     response_format = JSONSchemaResponse(
@@ -131,11 +151,6 @@ async def generate_kindergarten_lesson_plan(
             validate_schema=True,
             disconnect_checker=disconnect_checker,
         )
-        plan = KindergartenLessonPlan(**content)
-        if n_slides is not None and len(plan.slides) != n_slides:
-            raise ValueError(
-                f"模型返回 {len(plan.slides)} 页，但请求要求 {n_slides} 页"
-            )
-        return plan
+        return KindergartenLessonPlan(**content)
     except Exception as exc:
         raise handle_llm_client_exceptions(exc)
