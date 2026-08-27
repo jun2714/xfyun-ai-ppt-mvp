@@ -13,6 +13,7 @@ from utils.layout_compatibility import (
     get_allowed_layout_indices_for_outline,
     get_layout_candidates,
     remap_and_validate_structure,
+    schema_contains_chart_slot,
 )
 
 
@@ -40,6 +41,22 @@ def _layout() -> PresentationLayoutModel:
             ),
         ],
     )
+
+
+def _chart_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "chart": {
+                "type": "object",
+                "properties": {
+                    "chart_type": {"type": "string"},
+                    "labels": {"type": "array"},
+                    "series": {"type": "array"},
+                },
+            }
+        },
+    }
 
 
 def _audited_metadata(
@@ -119,6 +136,61 @@ def test_layout_selection_count_must_match_confirmed_outline():
         remap_and_validate_structure(
             PresentationStructureModel(slides=[0]), candidates, 2
         )
+
+
+def test_chart_schema_detection_handles_generated_chart_contract():
+    assert schema_contains_chart_slot(_chart_schema()) is True
+    assert schema_contains_chart_slot({"properties": {"title": {"type": "string"}}}) is False
+
+
+def test_kindergarten_template_family_excludes_legacy_chart_layouts():
+    layout = PresentationLayoutModel(
+        name="dynamic",
+        slides=[
+            SlideLayoutModel(id="chart", json_schema=_chart_schema()),
+            SlideLayoutModel(
+                id="image-text",
+                json_schema={
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "image": {
+                            "properties": {"image_prompt": {"type": "string"}}
+                        },
+                    },
+                },
+            ),
+        ],
+    )
+
+    assert layout.allow_charts is False
+    candidates = get_layout_candidates(layout, ImagePolicy.STANDARD)
+    assert [slide.id for slide in candidates.layout.slides] == ["image-text"]
+    assert candidates.original_indices == [1]
+
+
+def test_adult_or_general_template_keeps_chart_layouts():
+    for template_name in ("executive", "general", "custom-school-report"):
+        layout = PresentationLayoutModel(
+            name=template_name,
+            slides=[SlideLayoutModel(id="chart", json_schema=_chart_schema())],
+        )
+        assert layout.allow_charts is True
+        candidates = get_layout_candidates(layout, ImagePolicy.STANDARD)
+        assert [slide.id for slide in candidates.layout.slides] == ["chart"]
+
+
+def test_explicit_chart_override_wins_over_kindergarten_family_default():
+    layout = PresentationLayoutModel(
+        name="dynamic",
+        allow_charts=True,
+        slides=[SlideLayoutModel(id="chart", json_schema=_chart_schema())],
+    )
+
+    assert layout.allow_charts is True
+    assert [
+        slide.id for slide in get_layout_candidates(layout, ImagePolicy.STANDARD).layout.slides
+    ] == ["chart"]
 
 
 def test_audited_layouts_are_filtered_by_hidden_slide_contract():
