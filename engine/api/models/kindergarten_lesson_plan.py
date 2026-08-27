@@ -150,11 +150,7 @@ class KindergartenLessonPlan(BaseModel):
                     content="\n".join(visible_lines),
                     content_contract=SlideContentContract(
                         relationship=relationship,
-                        item_count=max(
-                            len(slide.screen_content.points),
-                            len(slide.game.options) if slide.game else 0,
-                            len(slide.game.answer_map) if slide.game else 0,
-                        ),
+                        item_count=_item_count_for_slide(slide),
                         requires_images=bool(required_semantics),
                         media_role=_media_role_for_assets(slide.assets),
                         visible_characters=len("".join(visible_lines)),
@@ -175,6 +171,7 @@ class KindergartenLessonPlan(BaseModel):
                             )
                             for asset in required_assets
                         ],
+                        preferred_layout_capabilities=slide.layout_capabilities,
                     ),
                 )
             )
@@ -182,7 +179,7 @@ class KindergartenLessonPlan(BaseModel):
 
 
 def _relationship_for_slide(slide: KindergartenSlidePlan):
-    if slide.slide_type in {"guess-partial", "guess-shadow"}:
+    if slide.slide_type in {"guess-partial", "guess-shadow", "memory-missing"}:
         return "question"
     if slide.slide_type == "answer-reveal":
         return "reveal"
@@ -196,9 +193,37 @@ def _relationship_for_slide(slide: KindergartenSlidePlan):
         return "comparison"
     if slide.slide_type in {"cover-scene", "story-intro", "ending-scene"}:
         return "story"
+    if slide.slide_type == "memory-show":
+        return "multi-item"
     if len(slide.screen_content.points) > 1:
         return "multi-item"
     return "single"
+
+
+def _item_count_for_slide(slide: KindergartenSlidePlan) -> int:
+    game = slide.game
+    game_item_count = max(
+        len(game.options) if game else 0,
+        len(game.answer_map) if game else 0,
+        len(game.sequence_order) if game else 0,
+    )
+    # For memory-show and image-driven pages, the actual visual objects can be
+    # the only items on screen. Backgrounds are scene context, not countable
+    # teaching items, so do not let one full-bleed background turn a title slide
+    # into a one-item content grid.
+    visual_item_count = sum(
+        asset.expected_count
+        for asset in slide.assets
+        if asset.required and asset.role != "background"
+    )
+    return min(
+        12,
+        max(
+            len(slide.screen_content.points),
+            game_item_count,
+            visual_item_count,
+        ),
+    )
 
 
 def _media_role_for_assets(assets: List[LessonAssetSpec]):
