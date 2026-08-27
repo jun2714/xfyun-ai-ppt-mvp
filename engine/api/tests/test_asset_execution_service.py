@@ -207,6 +207,51 @@ def test_later_semantic_failure_does_not_regenerate_prior_success(tmp_path, monk
     assert "image_url" in slides[1].content["main"]["subject"]
 
 
+def test_oss_source_is_materialized_then_final_cutout_is_persisted(tmp_path, monkeypatch):
+    source_url = "https://example-oss.aliyuncs.com/images/source.png"
+    persisted_urls = []
+
+    async def record(_trace):
+        return None
+
+    async def materialize(_url, dest):
+        assert _url == source_url
+        _valid_cutout_source(dest)
+        return dest
+
+    async def persist(path):
+        assert path.endswith(".png")
+        persisted = "https://example-oss.aliyuncs.com/images/final-cutout.png"
+        persisted_urls.append(persisted)
+        return persisted
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    monkeypatch.setattr(asset_execution_service, "materialize_url_to_file", materialize)
+    monkeypatch.setattr(asset_execution_service, "persist_generated_image", persist)
+
+    service = FakeImageService(tmp_path, [source_url])
+    quality = FakeSemanticQualityService([True])
+    slide = _cutout_slide(with_semantic_contract=True)
+
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service,
+            [slide],
+            semantic_quality_service=quality,
+        )
+    )
+
+    assert service.calls == 1
+    assert len(quality.calls) == 1
+    assert quality.calls[0]["image"].endswith(".png")
+    assert persisted_urls == [
+        "https://example-oss.aliyuncs.com/images/final-cutout.png"
+    ]
+    assert generated[0].path == source_url
+    assert generated[-1].path == persisted_urls[0]
+    assert slide.content["main"]["subject"]["image_url"] == persisted_urls[0]
+
+
 def test_completed_asset_is_exposed_to_checkpoint_before_return(tmp_path, monkeypatch):
     source = tmp_path / "source.png"
     _valid_cutout_source(source)
