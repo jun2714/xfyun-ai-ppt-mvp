@@ -16,8 +16,10 @@ class FakeImageService:
         self.output_directory = str(output_directory)
         self.outputs = list(outputs)
         self.calls = 0
+        self.prompts = []
 
-    async def generate_image(self, _prompt):
+    async def generate_image(self, prompt):
+        self.prompts.append(prompt.prompt)
         output = self.outputs[self.calls]
         self.calls += 1
         return ImageAsset(path=str(output), is_uploaded=False)
@@ -47,7 +49,7 @@ class FakeSemanticQualityService:
                 detected_count=expectation.expected_count if passed else 0,
                 features_match=passed,
                 confidence=0.99,
-                reason="符合资产契约" if passed else "检测到的主体不是红色玩具",
+                reason="符合资产契约" if passed else "检测到的主体与资产契约不符",
             )
             for expectation in expectations
         ]
@@ -60,16 +62,23 @@ class FakeSemanticQualityService:
         )
 
 
-def _cutout_slide(*, with_semantic_contract: bool = False) -> SlideModel:
-    content = {"main": {"subject": {"image_prompt": "A red toy"}}}
+def _cutout_slide(
+    *,
+    index: int = 0,
+    prompt: str = "A red toy",
+    semantic_label: str = "red toy",
+    with_semantic_contract: bool = False,
+    description: str | None = "One complete subject, clearly recognizable",
+) -> SlideModel:
+    content = {"main": {"subject": {"image_prompt": prompt}}}
     if with_semantic_contract:
         content["__content_contract__"] = {
-            "required_asset_semantics": ["red toy"],
+            "required_asset_semantics": [semantic_label],
             "asset_contracts": [
                 {
                     "planning_slot": "subject",
-                    "semantic_label": "red toy",
-                    "description": "One complete red toy, clearly recognizable",
+                    "semantic_label": semantic_label,
+                    "description": description,
                     "expected_count": 1,
                     "role": "cutout",
                     "qa_required": True,
@@ -80,7 +89,7 @@ def _cutout_slide(*, with_semantic_contract: bool = False) -> SlideModel:
         presentation="00000000-0000-0000-0000-000000000001",
         layout_group="test",
         layout="test",
-        index=0,
+        index=index,
         content=content,
         ui={
             "components": [
@@ -107,7 +116,9 @@ def _valid_cutout_source(path):
     image.save(path)
 
 
-def test_semantic_qa_retries_only_failed_asset(tmp_path, monkeypatch):
+def test_semantic_qa_retries_only_failed_asset_and_accepts_null_description(
+    tmp_path, monkeypatch
+):
     first = tmp_path / "first.png"
     second = tmp_path / "second.png"
     _valid_cutout_source(first)
@@ -121,7 +132,10 @@ def test_semantic_qa_retries_only_failed_asset(tmp_path, monkeypatch):
     monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
     service = FakeImageService(tmp_path, [first, second])
     quality = FakeSemanticQualityService([False, True])
-    slide = _cutout_slide(with_semantic_contract=True)
+    slide = _cutout_slide(
+        with_semantic_contract=True,
+        description=None,
+    )
 
     generated, plan = asyncio.run(
         asset_execution_service.process_presentation_assets(
@@ -134,12 +148,63 @@ def test_semantic_qa_retries_only_failed_asset(tmp_path, monkeypatch):
     assert service.calls == 2
     assert len(quality.calls) == 2
     assert quality.calls[0]["expectations"][0].semantic_label == "red toy"
+    assert quality.calls[0]["expectations"][0].description is None
     assert [trace.status for trace in traces] == ["failed", "succeeded"]
     assert traces[0].error["type"] == "AssetSemanticQualityError"
     assert traces[0].error["semantic_quality"]["passed"] is False
     assert traces[1].retry_of == plan[0].request_id
     assert len(generated) == 2  # accepted source plus derived transparent cutout
     assert "image_url" in slide.content["main"]["subject"]
+
+
+def test_later_semantic_failure_does_not_regenerate_prior_success(tmp_path, monkeypatch):
+    first_ok = tmp_path / "apple-ok.png"
+    second_bad = tmp_path / "rabbit-bad.png"
+    second_ok = tmp_path / "rabbit-ok.png"
+    for path in (first_ok, second_bad, second_ok):
+        _valid_cutout_source(path)
+
+    traces = []
+
+    async def record(trace):
+        traces.append(trace)
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    service = FakeImageService(tmp_path, [first_ok, second_bad, second_ok])
+    # First asset passes; the second asset fails once then passes its retry.
+    quality = FakeSemanticQualityService([True, False, True])
+    slides = [
+        _cutout_slide(
+            index=0,
+            prompt="A red apple",
+            semantic_label="red apple",
+            with_semantic_contract=True,
+        ),
+        _cutout_slide(
+            index=1,
+            prompt="A white rabbit",
+            semantic_label="white rabbit",
+            with_semantic_contract=True,
+        ),
+    ]
+
+    _generated, plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service,
+            slides,
+            semantic_quality_service=quality,
+        )
+    )
+
+    assert len(plan) == 2
+    assert service.calls == 3
+    assert service.prompts[0].count("A red apple") == 1
+    assert sum("A red apple" in prompt for prompt in service.prompts) == 1
+    assert sum("A white rabbit" in prompt for prompt in service.prompts) == 2
+    assert [trace.status for trace in traces] == ["succeeded", "failed", "succeeded"]
+    assert traces[2].retry_of == plan[1].request_id
+    assert "image_url" in slides[0].content["main"]["subject"]
+    assert "image_url" in slides[1].content["main"]["subject"]
 
 
 def test_completed_asset_is_exposed_to_checkpoint_before_return(tmp_path, monkeypatch):
