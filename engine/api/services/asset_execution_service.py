@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+import os
 
 from models.image_prompt import ImagePrompt
 from models.sql.image_asset import ImageAsset
@@ -32,6 +33,7 @@ from utils.asset_directory_utils import (
     normalize_slide_asset_url,
 )
 from utils.dict_utils import get_dict_at_path, set_dict_at_path
+from utils.oss_storage import materialize_url_to_file, persist_generated_image
 from utils.process_slides import _set_asset_url, _uses_template_asset_fields
 
 
@@ -162,6 +164,41 @@ def _trace_error_payload(exc: Exception) -> dict:
     return payload
 
 
+async def _materialize_transform_source(
+    asset: ImageAsset,
+    output_directory: str,
+    request_id: str,
+) -> tuple[str, bool]:
+    """Give PIL a local path even when generation already persisted to OSS."""
+    if os.path.isfile(asset.path):
+        return asset.path, False
+
+    os.makedirs(output_directory, exist_ok=True)
+    local_path = os.path.join(output_directory, f"{request_id}-source.png")
+    await materialize_url_to_file(asset.path, local_path)
+    return local_path, True
+
+
+def _remove_materialized_source(path: str | None) -> None:
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        # Scratch cleanup must not turn a successfully accepted PPT image into a
+        # generation failure. The server's normal temp cleanup can collect it.
+        pass
+
+
+async def _persist_derived_outputs(outputs: list[str]) -> list[str]:
+    persisted: list[str] = []
+    for output in outputs:
+        persisted.append(await persist_generated_image(output))
+    return persisted
+
+
 async def process_presentation_assets(
     image_generation_service: ImageGenerationService,
     slides: list[SlideModel],
@@ -186,6 +223,7 @@ async def process_presentation_assets(
         # and slide content are never regenerated.
         for attempt in range(2):
             trace_id = item.request_id if attempt == 0 else f"{item.request_id}_retry1"
+            materialized_source_to_cleanup: str | None = None
             try:
                 result = await image_generation_service.generate_image(
                     ImagePrompt(prompt=_request_prompt(item))
@@ -194,10 +232,17 @@ async def process_presentation_assets(
                 if item.generation_mode == "sprite-sheet":
                     if not isinstance(result, ImageAsset):
                         raise ValueError(
-                            "Sprite sheet processing requires a local generated image"
+                            "Sprite sheet processing requires a generated image asset"
                         )
+                    local_source, materialized = await _materialize_transform_source(
+                        result,
+                        image_generation_service.output_directory,
+                        trace_id,
+                    )
+                    if materialized:
+                        materialized_source_to_cleanup = local_source
                     derived_outputs = crop_sprite_sheet(
-                        result.path,
+                        local_source,
                         image_generation_service.output_directory,
                         item.grid_columns or 0,
                         item.grid_rows or 0,
@@ -206,20 +251,34 @@ async def process_presentation_assets(
                 elif item.generation_mode == "single-cutout":
                     if not isinstance(result, ImageAsset):
                         raise ValueError(
-                            "Cutout processing requires a local generated image"
+                            "Cutout processing requires a generated image asset"
                         )
+                    local_source, materialized = await _materialize_transform_source(
+                        result,
+                        image_generation_service.output_directory,
+                        trace_id,
+                    )
+                    if materialized:
+                        materialized_source_to_cleanup = local_source
                     derived_outputs = [
                         create_transparent_cutout(
-                            result.path, image_generation_service.output_directory
+                            local_source, image_generation_service.output_directory
                         )
                     ]
                 elif isinstance(result, ImageAsset) and item.slots:
+                    local_source, materialized = await _materialize_transform_source(
+                        result,
+                        image_generation_service.output_directory,
+                        trace_id,
+                    )
+                    if materialized:
+                        materialized_source_to_cleanup = local_source
                     normalized_path = crop_to_aspect_ratio(
-                        result.path,
+                        local_source,
                         image_generation_service.output_directory,
                         item.slots[0].aspect_ratio,
                     )
-                    if normalized_path != result.path:
+                    if normalized_path != local_source:
                         result = ImageAsset(
                             path=normalized_path,
                             is_uploaded=False,
@@ -239,6 +298,23 @@ async def process_presentation_assets(
                     result,
                     derived_outputs,
                 )
+
+                # The provider source may already live in OSS. Persist any local
+                # crop/cutout only after semantic QA passes, so rejected attempts
+                # never become the URL written into slide content.
+                if item.generation_mode in {"sprite-sheet", "single-cutout"}:
+                    derived_outputs = await _persist_derived_outputs(derived_outputs)
+                elif (
+                    isinstance(result, ImageAsset)
+                    and source_asset is not None
+                    and result.path != source_asset.path
+                ):
+                    persisted_path = await persist_generated_image(result.path)
+                    result = ImageAsset(
+                        path=persisted_path,
+                        is_uploaded=False,
+                        extras=result.extras,
+                    )
 
                 await record_asset_generation_trace(
                     AssetGenerationTrace(
@@ -281,6 +357,8 @@ async def process_presentation_assets(
                         error=_trace_error_payload(exc),
                     )
                 )
+            finally:
+                _remove_materialized_source(materialized_source_to_cleanup)
         if result is None:
             assert last_error is not None
             raise last_error
