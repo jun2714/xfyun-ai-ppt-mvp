@@ -100,7 +100,7 @@ def _quality_expectations(
             key = (
                 expectation.planning_slot.strip().casefold(),
                 expectation.semantic_label.strip().casefold(),
-                expectation.description.strip().casefold(),
+                (expectation.description or "").strip().casefold(),
                 expectation.expected_count,
                 expectation.role,
             )
