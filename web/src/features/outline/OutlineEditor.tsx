@@ -9,11 +9,13 @@ import {
 } from "./outlineFormat";
 
 const DEFAULT_TEMPLATE_ID = "general";
+const AI_VISUAL_TEMPLATE_ID = "ai-visual";
 const EDITOR_BASE =
   import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
 
 const DISPLAY_NAMES: Record<string, string> = {
   general: "自动匹配",
+  "ai-visual": "AI 自由视觉",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",
@@ -53,8 +55,12 @@ function assetUrl(value?: string | null) {
   return normalized.startsWith("/") ? normalized : `/${normalized}`;
 }
 
+function isVisibleTemplate(item: TemplateItem) {
+  return item.id !== "general" && item.id !== AI_VISUAL_TEMPLATE_ID;
+}
+
 function splitTemplates(templates: TemplateItem[]) {
-  const selectable = templates.filter((item) => item.id !== "general");
+  const selectable = templates.filter(isVisibleTemplate);
   return {
     custom: selectable.filter((item) => item.is_default === false),
     builtin: selectable.filter((item) => item.is_default !== false),
@@ -123,7 +129,7 @@ export function OutlineEditor({
     [slides, presentation.title],
   );
   const selectableTemplates = useMemo(
-    () => templates.filter((item) => item.id !== "general"),
+    () => templates.filter(isVisibleTemplate),
     [templates],
   );
   const { custom, builtin } = useMemo(
@@ -137,7 +143,9 @@ export function OutlineEditor({
     if (streaming || showTemplateStage) return;
     setOutline((value) => ({
       slides: value.slides.map((slide, index) =>
-        index === selectedSafe ? { content: toStoredOutlineContent(content) } : slide,
+        index === selectedSafe
+          ? { ...slide, content: toStoredOutlineContent(content) }
+          : slide,
       ),
     }));
   };
@@ -165,7 +173,12 @@ export function OutlineEditor({
     setError("");
     try {
       const stored: PresentationOutline = {
+        // content_contract is hidden machine metadata created by the kindergarten
+        // planner. Preserve it while the teacher edits visible copy; otherwise
+        // question/reveal locks, image semantics and teacher notes disappear just
+        // before layout/asset generation.
         slides: outline.slides.map((slide) => ({
+          ...slide,
           content: toStoredOutlineContent(toEditableOutlineContent(slide.content)),
         })),
       };
@@ -318,18 +331,24 @@ export function OutlineEditor({
               {resolvedCreateMode === "topic" ? (
                 <>
                   <label>
-                    模板
+                    视觉方案
                     <select
                       value={template}
-                      disabled={streaming || saving}
+                      disabled={streaming || saving || template === AI_VISUAL_TEMPLATE_ID}
                       onChange={(event) => setTemplate(event.target.value)}
                     >
-                      <option value="general">自动匹配</option>
-                      {selectableTemplates.map((item) => (
-                        <option value={item.id} key={item.id}>
-                          {templateName(item)} · {item.layout_count} 种布局
-                        </option>
-                      ))}
+                      {template === AI_VISUAL_TEMPLATE_ID ? (
+                        <option value={AI_VISUAL_TEMPLATE_ID}>AI 自由视觉</option>
+                      ) : (
+                        <>
+                          <option value="general">自动匹配</option>
+                          {selectableTemplates.map((item) => (
+                            <option value={item.id} key={item.id}>
+                              {templateName(item)} · {item.layout_count} 种布局
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </select>
                   </label>
                   <a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">
