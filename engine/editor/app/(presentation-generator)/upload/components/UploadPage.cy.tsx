@@ -6,8 +6,6 @@ import { Provider } from "react-redux";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { Toaster } from "@/components/ui/sonner";
 
-import "@/app/globals.css";
-
 const createRouter = (push = cy.stub().as("router.push")) => ({
   push,
   back: cy.stub(),
