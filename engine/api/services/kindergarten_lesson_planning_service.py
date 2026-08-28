@@ -10,9 +10,8 @@ from models.kindergarten_lesson_plan import (
     KindergartenLessonPlan,
     KindergartenSlidePlan,
 )
+from services.kindergarten_planner_runtime import get_kindergarten_planner_runtime
 from utils.llm_client_error_handler import handle_llm_client_exceptions
-from utils.llm_config import get_llm_config
-from utils.llm_provider import get_model
 from utils.llm_utils import DisconnectChecker, generate_structured_with_schema_retries
 from utils.schema_utils import prepare_schema_for_validation
 
@@ -119,8 +118,9 @@ async def generate_kindergarten_lesson_plan(
     source_context: Optional[str] = None,
     disconnect_checker: Optional[DisconnectChecker] = None,
 ) -> KindergartenLessonPlan:
-    client = get_client(config=get_llm_config())
-    model = get_model()
+    runtime = get_kindergarten_planner_runtime()
+    client = get_client(config=runtime.config)
+    model = runtime.model
     response_model = _lesson_plan_response_model(n_slides)
     schema = prepare_schema_for_validation(
         response_model.model_json_schema(),
