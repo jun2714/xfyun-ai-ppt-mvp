@@ -135,16 +135,9 @@ class SlideContentContract(BaseModel):
         }
         return normalized if normalized in allowed else "unknown"
 
-    @field_validator(
-        "required_asset_semantics",
-        "preferred_layout_capabilities",
-        mode="before",
-    )
-    @classmethod
-    def normalize_unique_string_list(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
+    @staticmethod
+    def _normalize_unique_strings(value, limit: int) -> list[str]:
+        if value is None or not isinstance(value, list):
             return []
         seen: set[str] = set()
         normalized: list[str] = []
@@ -157,7 +150,19 @@ class SlideContentContract(BaseModel):
                 continue
             seen.add(key)
             normalized.append(label)
-        return normalized[:16]
+            if len(normalized) >= limit:
+                break
+        return normalized
+
+    @field_validator("required_asset_semantics", mode="before")
+    @classmethod
+    def normalize_required_asset_semantics(cls, value):
+        return cls._normalize_unique_strings(value, 16)
+
+    @field_validator("preferred_layout_capabilities", mode="before")
+    @classmethod
+    def normalize_preferred_layout_capabilities(cls, value):
+        return cls._normalize_unique_strings(value, 8)
 
 
 class SlideOutlineModel(BaseModel):
