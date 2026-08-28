@@ -1,3 +1,5 @@
+import os
+
 from enums.image_provider import ImageProvider
 from utils.get_env import (
     get_disable_image_generation_env,
@@ -47,12 +49,21 @@ def is_open_webui_selected() -> bool:
 
 
 def get_selected_image_provider() -> ImageProvider | None:
-    """
-    Get the selected image provider from environment variables.
-    Returns:
-        ImageProvider: The selected image provider.
+    """Resolve the configured image provider.
+
+    Existing ``IMAGE_PROVIDER`` always wins.  For the TeachNova production setup we
+    also support the simpler DMX-only configuration: when ``DMX_IMAGE_API_STYLE`` is
+    ``gemini`` and a DMX image model is configured, select Gemini automatically.  It
+    keeps the deployment to one DMX key instead of asking operators to duplicate the
+    same credential into provider-specific fields.
     """
     image_provider_env = get_image_provider_env()
     if image_provider_env:
         return ImageProvider(image_provider_env)
+
+    dmx_style = (os.getenv("DMX_IMAGE_API_STYLE") or "").strip().casefold()
+    dmx_model = (os.getenv("DMX_IMAGE_MODEL") or "").strip()
+    if dmx_style == "gemini" and dmx_model:
+        return ImageProvider.GEMINI_FLASH
+
     return None
