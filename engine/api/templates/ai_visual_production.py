@@ -149,6 +149,7 @@ def build_production_ai_visual_template() -> TemplateV2:
     layout_values = [*_layouts(), _comparison_layout(), _sequence_layout()]
     layouts = SlideLayouts.model_validate({"layouts": layout_values}).model_dump(
         mode="json",
+        by_alias=True,
         exclude_none=True,
     )
     return TemplateV2(
