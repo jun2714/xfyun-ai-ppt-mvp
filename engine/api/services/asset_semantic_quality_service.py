@@ -18,6 +18,9 @@ from models.sql.image_asset import ImageAsset
 from services.asset_planning_service import AssetSemanticExpectation
 
 
+VisionProvider = Literal["openai", "google", "dmx"]
+
+
 class AssetSemanticCheck(BaseModel):
     planning_slot: str
     semantic_label: str
@@ -66,7 +69,7 @@ class VisionAssetSemanticQualityService:
 
     def __init__(
         self,
-        provider: Literal["openai", "google"],
+        provider: VisionProvider,
         model: str,
         *,
         confidence_threshold: float = 0.70,
@@ -80,7 +83,9 @@ class VisionAssetSemanticQualityService:
         image: str | ImageAsset,
         expectations: tuple[AssetSemanticExpectation, ...],
     ) -> AssetSemanticQualityResult:
-        required = tuple(expectation for expectation in expectations if expectation.qa_required)
+        required = tuple(
+            expectation for expectation in expectations if expectation.qa_required
+        )
         if not required:
             return AssetSemanticQualityResult(
                 passed=True,
@@ -90,7 +95,7 @@ class VisionAssetSemanticQualityService:
             )
 
         prompt = _build_quality_prompt(required)
-        if self.provider == "openai":
+        if self.provider in {"openai", "dmx"}:
             result = await self._validate_openai(image, prompt)
         else:
             result = await self._validate_google(image, prompt)
@@ -104,7 +109,15 @@ class VisionAssetSemanticQualityService:
         prompt: str,
     ) -> AssetSemanticQualityResult:
         image_url = await _openai_image_url(image)
-        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        if self.provider == "dmx":
+            client = AsyncOpenAI(
+                api_key=os.getenv("DMX_API_KEY"),
+                base_url=(
+                    os.getenv("DMX_API_BASE_URL") or "https://www.dmxapi.cn/v1"
+                ).rstrip("/"),
+            )
+        else:
+            client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = await client.chat.completions.create(
             model=self.model,
             messages=[
@@ -150,24 +163,25 @@ def build_default_asset_semantic_quality_service(
 ) -> AssetSemanticQualityService | None:
     """Create visual QA only when a supported vision provider is configured.
 
-    `ASSET_SEMANTIC_QA_PROVIDER` accepts auto/openai/google/off. Auto prefers the
-    currently selected LLM provider when it is OpenAI/Google, then falls back to any
-    configured supported key. Generic decks continue to work when no vision key is
-    configured; prompt-level semantic preflight remains active independently.
+    `ASSET_SEMANTIC_QA_PROVIDER` accepts auto/openai/google/dmx/off. In ``auto``
+    mode, direct OpenAI/Google credentials remain supported, and a configured
+    ``DMX_API_KEY`` is used as the shared-key fallback. This lets Kimi K3 perform
+    semantic image checks through the same DMXAPI account used by generation.
     """
     requested = (os.getenv("ASSET_SEMANTIC_QA_PROVIDER") or "auto").strip().casefold()
     if requested in {"off", "disabled", "none", "0", "false"}:
         return None
-    if requested not in {"auto", "openai", "google"}:
+    if requested not in {"auto", "openai", "google", "dmx"}:
         raise ValueError(
-            "ASSET_SEMANTIC_QA_PROVIDER must be auto, openai, google, or off"
+            "ASSET_SEMANTIC_QA_PROVIDER must be auto, openai, google, dmx, or off"
         )
 
     selected_llm = (os.getenv("LLM") or "").strip().casefold()
     openai_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     google_key = (os.getenv("GOOGLE_API_KEY") or "").strip()
+    dmx_key = (os.getenv("DMX_API_KEY") or "").strip()
 
-    provider: Literal["openai", "google"] | None = None
+    provider: VisionProvider | None = None
     if requested == "openai":
         if not openai_key:
             raise ValueError("ASSET_SEMANTIC_QA_PROVIDER=openai requires OPENAI_API_KEY")
@@ -176,10 +190,16 @@ def build_default_asset_semantic_quality_service(
         if not google_key:
             raise ValueError("ASSET_SEMANTIC_QA_PROVIDER=google requires GOOGLE_API_KEY")
         provider = "google"
+    elif requested == "dmx":
+        if not dmx_key:
+            raise ValueError("ASSET_SEMANTIC_QA_PROVIDER=dmx requires DMX_API_KEY")
+        provider = "dmx"
     elif selected_llm == "openai" and openai_key:
         provider = "openai"
     elif selected_llm == "google" and google_key:
         provider = "google"
+    elif dmx_key:
+        provider = "dmx"
     elif openai_key:
         provider = "openai"
     elif google_key:
@@ -194,11 +214,17 @@ def build_default_asset_semantic_quality_service(
             or os.getenv("OPENAI_MODEL")
             or DEFAULT_OPENAI_MODEL
         )
-    else:
+    elif provider == "google":
         model = (
             os.getenv("ASSET_SEMANTIC_QA_MODEL")
             or os.getenv("GOOGLE_MODEL")
             or DEFAULT_GOOGLE_MODEL
+        )
+    else:
+        model = (
+            os.getenv("ASSET_SEMANTIC_QA_MODEL")
+            or os.getenv("KINDERGARTEN_PLANNER_MODEL")
+            or "kimi-k3"
         )
 
     try:
