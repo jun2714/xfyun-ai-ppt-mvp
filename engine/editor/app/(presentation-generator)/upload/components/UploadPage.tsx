@@ -1,11 +1,11 @@
 /**
  * UploadPage Component
- * 
+ *
  * This component handles the presentation generation upload process, allowing users to:
  * - Configure presentation settings (slides, language)
  * - Input prompts
  * - Upload supporting documents
- * 
+ *
  * @component
  */
 
@@ -18,7 +18,10 @@ import { PromptInput } from "./PromptInput";
 import { LanguageType, PresentationConfig } from "../type";
 import SupportingDoc from "./SupportingDoc";
 import { notify } from "@/components/ui/sonner";
-import { PresentationGenerationApi } from "../../services/api/presentation-generation";
+import {
+  PresentationGenerationApi,
+  type KindergartenDomain,
+} from "../../services/api/presentation-generation";
 import { OverlayLoader } from "@/components/ui/overlay-loader";
 import Wrapper from "@/components/Wrapper";
 import { setPptGenUploadState } from "@/store/slices/presentationGenUpload";
@@ -55,12 +58,12 @@ const CREATE_FLOW_TABS: Array<{ id: CreateFlowMode; label: string; hint: string 
   {
     id: "topic",
     label: "主题生成",
-    hint: "输入主题后生成大纲，再用通用或自选模板排版",
+    hint: "输入主题后先生成幼教课堂大纲，再自动推荐或手动选择模板排版",
   },
   {
     id: "template",
     label: "模板生成",
-    hint: "先输入信息生成大纲，再在大纲页选择模板进行排版",
+    hint: "先生成并确认幼教课堂大纲，再选择模板进行排版",
   },
 ];
 
@@ -73,7 +76,6 @@ const FILE_MIME_IMAGE = new Set(["image/jpeg", "image/png", "image/gif", "image/
 const FILE_TYPE_PDF = new Set([".pdf"]);
 const FILE_TYPE_TEXT = new Set([".txt"]);
 
-// Types for loading state
 interface LoadingState {
   isLoading: boolean;
   message: string;
@@ -81,6 +83,61 @@ interface LoadingState {
   showProgress?: boolean;
   extra_info?: string;
 }
+
+const AGE_GROUP_MAP: Record<string, string> = {
+  "托班 2—3 岁": "2-3岁",
+  "小班 3—4 岁": "3-4岁",
+  "中班 4—5 岁": "4-5岁",
+  "大班 5—6 岁": "5-6岁",
+  "混龄班": "3-6岁混龄",
+};
+
+const DOMAIN_TERMS: Array<[KindergartenDomain, string[]]> = [
+  ["math", ["数学", "数字", "数量", "数数", "加减", "图形", "形状", "排序", "规律", "空间"]],
+  ["science", ["科学", "自然", "动物", "植物", "昆虫", "天气", "四季", "实验", "观察", "种子", "叶子"]],
+  ["language", ["语言", "绘本", "故事", "童话", "儿歌", "阅读", "表达", "讲述", "诗歌"]],
+  ["health", ["健康", "卫生", "洗手", "刷牙", "营养", "饮食", "运动", "安全", "睡眠", "生活习惯"]],
+  ["art", ["艺术", "美术", "绘画", "颜色", "色彩", "手工", "音乐", "律动", "节奏", "舞蹈"]],
+  ["social", ["社会", "礼仪", "规则", "情绪", "朋友", "合作", "分享", "交往", "家园", "节日"]],
+];
+
+const normalizeAgeGroup = (age?: string): string => {
+  const value = age?.trim() || "";
+  if (!value) return "4-5岁";
+  if (AGE_GROUP_MAP[value]) return AGE_GROUP_MAP[value];
+  const range = value.match(/(\d)\s*[—–-]\s*(\d)\s*岁/);
+  return range ? `${range[1]}-${range[2]}岁` : value;
+};
+
+const inferKindergartenDomain = (text: string): KindergartenDomain => {
+  const normalized = text.trim();
+  if (!normalized) return "comprehensive";
+  let best: { domain: KindergartenDomain; score: number } = {
+    domain: "comprehensive",
+    score: 0,
+  };
+  for (const [domain, terms] of DOMAIN_TERMS) {
+    const score = terms.reduce(
+      (total, term) => total + (normalized.includes(term) ? 1 : 0),
+      0,
+    );
+    if (score > best.score) best = { domain, score };
+  }
+  return best.domain;
+};
+
+const buildPlannerInstructions = (
+  baseInstructions: string | null | undefined,
+  context: TeachingContextState,
+): string | null => {
+  const lines = [
+    baseInstructions?.trim() || "",
+    context.audience?.trim() ? `目标观众：${context.audience.trim()}` : "",
+    context.scene?.trim() ? `课堂场景：${context.scene.trim()}` : "",
+    context.style?.trim() ? `视觉偏好：${context.style.trim()}` : "",
+  ].filter(Boolean);
+  return lines.length ? lines.join("\n") : null;
+};
 
 const getFileExtension = (fileName: string): string => {
   const index = fileName.lastIndexOf(".");
@@ -147,16 +204,13 @@ const getSelectedImageQuality = (config?: LLMConfig): string => {
 };
 
 const getDocumentPaths = (files: unknown): string[] => {
-  if (!Array.isArray(files)) {
-    return [];
-  }
-
+  if (!Array.isArray(files)) return [];
   return files
     .flat()
     .map((file) =>
       file && typeof file === "object" && "file_path" in file
         ? (file as { file_path?: unknown }).file_path
-        : null
+        : null,
     )
     .filter((filePath): filePath is string => typeof filePath === "string");
 };
@@ -167,30 +221,28 @@ const UploadPage = () => {
   const llmConfig = useSelector((state: RootState) => state.userConfig.llm_config);
 
   const [files, setFiles] = useState<File[]>([]);
-  // 创建后跳转产品前端（web）大纲页流式生成
   const generationMode = "standard" as const;
   const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
     audience: "幼儿",
+    age: "中班 4—5 岁",
     scene: "集体教学",
     style: "明亮童趣",
   });
   const [config, setConfig] = useState<PresentationConfig>(
-    createTeachnovaDefaultConfig
+    createTeachnovaDefaultConfig,
   );
 
-  const continueToOutline = (presentationId: string) => {
+  const continueToOutline = (presentationId: string, templateId?: string | null) => {
     const outlineUrl = new URL(
       getTeachnovaWebOutlineUrl(presentationId, {
         createMode: createFlowMode,
+        templateId: templateId || undefined,
       }),
     );
-    if (isTeachnovaEmbed()) {
-      outlineUrl.searchParams.set("embed", "teachnova");
-    }
+    if (isTeachnovaEmbed()) outlineUrl.searchParams.set("embed", "teachnova");
     const destination = withBridgeSessionQuery(outlineUrl.toString());
     trackEvent(MixpanelEvent.Navigation, { from: pathname, to: destination });
-    // 产品大纲在 web 源，必须整页跳转（iframe 内也会换到 5173）
     window.location.assign(destination);
   };
 
@@ -201,7 +253,6 @@ const UploadPage = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedPrompt = params.get("prompt")?.trim();
-
     if (requestedPrompt) {
       setConfig((current) => ({ ...current, prompt: requestedPrompt }));
     }
@@ -277,14 +328,10 @@ const UploadPage = () => {
   };
 
   const ensureStockImageProviderReady = async (): Promise<boolean> => {
-    if (llmConfig?.DISABLE_IMAGE_GENERATION) {
-      return true;
-    }
+    if (llmConfig?.DISABLE_IMAGE_GENERATION) return true;
 
     const selectedProvider = (llmConfig?.IMAGE_PROVIDER || "").toLowerCase();
-    if (!STOCK_IMAGE_PROVIDERS.has(selectedProvider)) {
-      return true;
-    }
+    if (!STOCK_IMAGE_PROVIDERS.has(selectedProvider)) return true;
 
     try {
       const providerApiKey =
@@ -301,47 +348,36 @@ const UploadPage = () => {
       notify.error(
         "Image provider unavailable",
         error?.message ||
-        `Unable to reach ${selectedProvider} right now. Please check your API key/settings and try again.`
+          `Unable to reach ${selectedProvider} right now. Please check your API key/settings and try again.`,
       );
       return false;
     }
   };
 
-  /**
-   * Validates the current configuration and files
-   * @returns boolean indicating if the configuration is valid
-   */
   const validateConfiguration = (): boolean => {
     if (!config.language) {
       trackUploadValidationFailure("language_missing");
-      notify.warning("请选择语言", "请选择演示文稿语言。" );
+      notify.warning("请选择语言", "请选择演示文稿语言。");
       return false;
     }
 
     if (files.length > 0 && config.language === LanguageType.Auto) {
       trackUploadValidationFailure("language_auto_with_documents");
-      notify.warning("请选择语言", "处理上传文档前，请先选择演示文稿语言。" );
+      notify.warning("请选择语言", "处理上传文档前，请先选择演示文稿语言。");
       return false;
     }
 
     if (!config.prompt.trim() && files.length === 0) {
       trackUploadValidationFailure("prompt_or_document_missing");
-      notify.warning(
-          "请输入内容",
-          "请输入主题或上传文档后再生成。"
-      );
+      notify.warning("请输入内容", "请输入主题或上传文档后再生成。");
       return false;
     }
     return true;
   };
 
-  /**
-   * Handles the presentation generation process
-   */
   const handleGeneratePresentation = async () => {
     if (!validateConfiguration()) return;
     trackEvent(MixpanelEvent.Upload_Generation_Started, getUploadSnapshotProps());
-
 
     const isStockProviderReady = await ensureStockImageProviderReady();
     if (!isStockProviderReady) {
@@ -350,51 +386,80 @@ const UploadPage = () => {
     }
 
     try {
-      const hasUploadedAssets = files.length > 0;
-
-      if (hasUploadedAssets) {
-        await handleDocumentProcessing();
-      } else {
-        await handleDirectPresentationGeneration();
-      }
+      if (files.length > 0) await handleDocumentProcessing();
+      else await handleDirectPresentationGeneration();
     } catch (error) {
       handleGenerationError(error);
     }
   };
 
-  /**
-   * Handles document processing
-   */
+  const createKindergartenOutline = async (documentPaths: string[]) => {
+    const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
+    const requestContext = teachingContext;
+    const requestContent = buildTeachnovaPrompt(topic, requestContext);
+    const plannerInstructions = buildPlannerInstructions(
+      config.instructions,
+      requestContext,
+    );
+    const createResponse = await PresentationGenerationApi.createKindergartenPresentation({
+      topic,
+      age_group: normalizeAgeGroup(requestContext.age),
+      domain: inferKindergartenDomain(`${topic}\n${plannerInstructions || ""}`),
+      duration_minutes: 20,
+      n_slides: parseLimitedSlideCount(config?.slides),
+      instructions: plannerInstructions,
+      template: "auto",
+      language: TEACHNOVA_API_LANGUAGE,
+      image_policy: llmConfig?.DISABLE_IMAGE_GENERATION ? "disabled" : "standard",
+      file_paths: documentPaths,
+      tone: config?.tone,
+      verbosity: config?.verbosity,
+    });
+
+    dispatch(
+      setPptGenUploadState({
+        config,
+        files: documentPaths,
+        generationMode,
+        requestContent,
+        requestContext,
+      }),
+    );
+    dispatch(clearOutlines());
+    dispatch(setPresentationId(createResponse.presentation_id));
+
+    return {
+      createResponse,
+      requestContent,
+      requestContext,
+      destination: getTeachnovaWebOutlineUrl(createResponse.presentation_id, {
+        createMode: createFlowMode,
+        templateId: createResponse.selected_template,
+      }),
+    };
+  };
+
   const handleDocumentProcessing = async () => {
     setLoadingState({
       isLoading: true,
-        message: "正在处理文档…",
+      message: "正在处理文档…",
       showProgress: true,
       duration: 90,
-        extra_info: files.length > 0 ? "较大的文档可能需要几分钟。" : "",
+      extra_info: files.length > 0 ? "较大的文档可能需要几分钟。" : "",
     });
 
     let documents = [];
-
     if (files.length > 0) {
-      const uploadResponse = await PresentationGenerationApi.uploadDoc(files);
-      documents = uploadResponse;
+      documents = await PresentationGenerationApi.uploadDoc(files);
     }
 
-    const requestContext = teachingContext;
-    const requestContent = buildTeachnovaPrompt(
-      config.prompt ?? "",
-      requestContext
-    );
-
     const promises: Promise<any>[] = [];
-
     if (documents.length > 0) {
       promises.push(
         PresentationGenerationApi.decomposeDocuments(
           documents,
-          TEACHNOVA_API_LANGUAGE
-        )
+          TEACHNOVA_API_LANGUAGE,
+        ),
       );
     }
     const responses = await Promise.all(promises);
@@ -402,117 +467,59 @@ const UploadPage = () => {
 
     setLoadingState({
       isLoading: true,
-      message: "正在生成演示大纲…",
+      message: "AI 正在规划幼教课堂大纲…",
       showProgress: true,
-      duration: 40,
-      extra_info: "",
+      duration: 50,
+      extra_info: "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
-    const createResponse = await PresentationGenerationApi.createPresentation({
-      content: requestContent,
-      version: "v2-standard",
-      n_slides: parseLimitedSlideCount(config?.slides),
-      file_paths: documentPaths,
-      language: TEACHNOVA_API_LANGUAGE,
-      tone: config?.tone,
-      verbosity: config?.verbosity,
-      instructions: config?.instructions || null,
-      include_table_of_contents: !!config?.includeTableOfContents,
-      include_title_slide: !!config?.includeTitleSlide,
-      web_search: !!config?.webSearch,
-      generation_mode: generationMode,
-      community_design_ids: undefined,
-    });
-
-    dispatch(
-      setPptGenUploadState({
-        config,
-        files: responses,
-        generationMode,
-        requestContent,
-        requestContext,
-      })
-    );
-    dispatch(clearOutlines());
-    dispatch(setPresentationId(createResponse.id));
-    const destination = getTeachnovaWebOutlineUrl(createResponse.id, {
-      createMode: createFlowMode,
-    });
+    const { createResponse, destination } = await createKindergartenOutline(documentPaths);
     trackEvent(MixpanelEvent.Upload_Documents_Processed, {
       ...getUploadSnapshotProps(),
       uploaded_documents_count: documents.length,
       decompose_job_count: responses.length,
       extracted_document_count: documentPaths.length,
+      selected_template: createResponse.selected_template,
+      planning_attempts: createResponse.planning_attempts,
       destination,
     });
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
-      presentation_id: createResponse.id,
+      presentation_id: createResponse.presentation_id,
+      selected_template: createResponse.selected_template,
       uploaded_documents_count: documents.length,
       extracted_document_count: documentPaths.length,
       destination,
     });
-    continueToOutline(createResponse.id);
+    continueToOutline(
+      createResponse.presentation_id,
+      createResponse.selected_template,
+    );
   };
 
-  /**
-   * Handles direct presentation generation without documents
-   */
   const handleDirectPresentationGeneration = async () => {
     setLoadingState({
       isLoading: true,
-      message: "正在准备生成大纲…",
+      message: "AI 正在规划幼教课堂大纲…",
       showProgress: true,
-      duration: 30,
+      duration: 45,
+      extra_info: "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
-    const requestContext = teachingContext;
-    const requestContent = buildTeachnovaPrompt(
-      config.prompt ?? "",
-      requestContext
-    );
-
-    const createResponse = await PresentationGenerationApi.createPresentation({
-      content: requestContent,
-      version: "v2-standard",
-      n_slides: parseLimitedSlideCount(config?.slides),
-      file_paths: [],
-      language: TEACHNOVA_API_LANGUAGE,
-      tone: config?.tone,
-      verbosity: config?.verbosity,
-      instructions: config?.instructions || null,
-      include_table_of_contents: !!config?.includeTableOfContents,
-      include_title_slide: !!config?.includeTitleSlide,
-      web_search: !!config?.webSearch,
-      generation_mode: generationMode,
-      community_design_ids: undefined,
-    });
-
-    dispatch(
-      setPptGenUploadState({
-        config,
-        files: [],
-        generationMode,
-        requestContent,
-        requestContext,
-      })
-    );
-    dispatch(clearOutlines());
-    dispatch(setPresentationId(createResponse.id));
-    const destination = getTeachnovaWebOutlineUrl(createResponse.id, {
-      createMode: createFlowMode,
-    });
+    const { createResponse, destination } = await createKindergartenOutline([]);
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
-      presentation_id: createResponse.id,
+      presentation_id: createResponse.presentation_id,
+      selected_template: createResponse.selected_template,
+      planning_attempts: createResponse.planning_attempts,
       destination,
     });
-    continueToOutline(createResponse.id);
+    continueToOutline(
+      createResponse.presentation_id,
+      createResponse.selected_template,
+    );
   };
 
-  /**
-   * Handles errors during presentation generation
-   */
   const handleGenerationError = (error: any) => {
     console.error("Error in upload page", error);
     setLoadingState({
@@ -522,8 +529,8 @@ const UploadPage = () => {
       showProgress: false,
     });
     notify.error(
-        "生成失败",
-        error.message || "启动演示文稿生成时发生错误。"
+      "生成失败",
+      error.message || "启动演示文稿生成时发生错误。",
     );
   };
 
@@ -552,99 +559,91 @@ const UploadPage = () => {
           </svg>
         </h1>
         <p className="mt-2 max-w-2xl font-syne text-base text-[#101323CC] sm:text-lg lg:text-xl min-[1920px]:text-2xl">
-          主题生成或模板生成，都先确认大纲再排版
+          先规划一节能上课的幼教活动，再确认大纲与模板
         </p>
       </div>
 
       <Wrapper className="w-full pb-10">
-      <OverlayLoader
-        show={loadingState.isLoading}
-        text={loadingState.message}
-        showProgress={loadingState.showProgress}
-        duration={loadingState.duration}
-        extra_info={loadingState.extra_info}
-      />
-      <div className="mx-auto mb-6 flex max-w-[760px] justify-center px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
-        <div
-          role="tablist"
-          aria-label="生成方式"
-          className="inline-flex rounded-lg bg-[#F6F6F9] p-1"
-        >
-          {CREATE_FLOW_TABS.map((tab) => {
-            const active = createFlowMode === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={`rounded-md px-4 py-2 font-syne text-sm font-semibold transition-colors ${
-                  active
-                    ? "bg-white text-[#6847F4] shadow-[0_1px_3px_rgba(16,19,35,0.08)]"
-                    : "text-[#667085] hover:text-[#344054]"
-                }`}
-                onClick={() => handleCreateFlowModeChange(tab.id)}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mx-auto mb-[40px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
-        <div className="flex min-h-[34px] w-full flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-md bg-[#F4F1FF] px-3 py-1.5 font-syne text-xs font-semibold text-[#6847F4]">
-            {createFlowMode === "template" ? "模板生成" : "主题生成"}
-          </span>
-          <CurrentConfig webSearchEnabled={config.webSearch} />
-        </div>
-        <p className="text-xs text-[#667085]">
-          {CREATE_FLOW_TABS.find((tab) => tab.id === createFlowMode)?.hint}
-        </p>
-
-        <PromptInput
-          value={config.prompt}
-          variant={generationMode}
-          onChange={(value) => handleConfigChange("prompt", value)}
-          onSubmit={handleGeneratePresentation}
-          hasAttachments={files.length > 0}
-          teachingContext={teachingContext}
-          onTeachingContextChange={setTeachingContext}
-          teachingContextDisabled={loadingState.isLoading}
-          toolbarRight={
-            <ConfigurationSelects
-              compact
-              hideLanguage
-              config={config}
-              onConfigChange={handleConfigChange}
-            />
-          }
-          footer={
-            <SupportingDoc
-              files={files}
-              onFilesChange={setFiles}
-              onSubmit={handleGeneratePresentation}
-              disabled={loadingState.isLoading}
-            />
-          }
+        <OverlayLoader
+          show={loadingState.isLoading}
+          text={loadingState.message}
+          showProgress={loadingState.showProgress}
+          duration={loadingState.duration}
+          extra_info={loadingState.extra_info}
         />
-      </div>
-
-      {createFlowMode === "template" ? (
-        <div className="px-0 pb-8">
-          <UploadTemplateGallery />
+        <div className="mx-auto mb-6 flex max-w-[760px] justify-center px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+          <div
+            role="tablist"
+            aria-label="生成方式"
+            className="inline-flex rounded-lg bg-[#F6F6F9] p-1"
+          >
+            {CREATE_FLOW_TABS.map((tab) => {
+              const active = createFlowMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`rounded-md px-4 py-2 font-syne text-sm font-semibold transition-colors ${
+                    active
+                      ? "bg-white text-[#6847F4] shadow-[0_1px_3px_rgba(16,19,35,0.08)]"
+                      : "text-[#667085] hover:text-[#344054]"
+                  }`}
+                  onClick={() => handleCreateFlowModeChange(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      ) : null}
 
-      {/* 社区参考暂不对外开放
-      {generationMode === "smart" && (
-        <div className="px-4 sm:px-6">
-          <CommunityReferencePicker ... />
+        <div className="mx-auto mb-[40px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+          <div className="flex min-h-[34px] w-full flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-md bg-[#F4F1FF] px-3 py-1.5 font-syne text-xs font-semibold text-[#6847F4]">
+              {createFlowMode === "template" ? "模板生成" : "主题生成"}
+            </span>
+            <CurrentConfig webSearchEnabled={config.webSearch} />
+          </div>
+          <p className="text-xs text-[#667085]">
+            {CREATE_FLOW_TABS.find((tab) => tab.id === createFlowMode)?.hint}
+          </p>
+
+          <PromptInput
+            value={config.prompt}
+            variant={generationMode}
+            onChange={(value) => handleConfigChange("prompt", value)}
+            onSubmit={handleGeneratePresentation}
+            hasAttachments={files.length > 0}
+            teachingContext={teachingContext}
+            onTeachingContextChange={setTeachingContext}
+            teachingContextDisabled={loadingState.isLoading}
+            toolbarRight={
+              <ConfigurationSelects
+                compact
+                hideLanguage
+                config={config}
+                onConfigChange={handleConfigChange}
+              />
+            }
+            footer={
+              <SupportingDoc
+                files={files}
+                onFilesChange={setFiles}
+                onSubmit={handleGeneratePresentation}
+                disabled={loadingState.isLoading}
+              />
+            }
+          />
         </div>
-      )}
-      */}
-    </Wrapper>
+
+        {createFlowMode === "template" ? (
+          <div className="px-0 pb-8">
+            <UploadTemplateGallery />
+          </div>
+        ) : null}
+      </Wrapper>
     </div>
   );
 };
