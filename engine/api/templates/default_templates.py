@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from models.sql.template_v2 import TemplateV2
 from services.database import async_session_maker
+from templates.ai_visual_production import build_production_ai_visual_template
 from templates.v2.models.layouts import MergedComponents, SlideLayouts
 from utils.get_env import get_app_data_directory_env
 from utils.icon_weights import extract_icon_type_from_settings
@@ -24,15 +25,15 @@ async def import_default_templates_on_startup(
     root = templates_root or _default_templates_root()
     if not root.is_dir():
         LOGGER.info("Default templates directory not found: %s", root)
-        return
-
-    template_dirs = [
-        path
-        for path in sorted(root.iterdir())
-        if path.is_dir() and (path / "template.json").is_file()
-    ]
+        template_dirs: list[Path] = []
+    else:
+        template_dirs = [
+            path
+            for path in sorted(root.iterdir())
+            if path.is_dir() and (path / "template.json").is_file()
+        ]
     if not template_dirs:
-        LOGGER.info("No default templates found in: %s", root)
+        LOGGER.info("No file-backed default templates found in: %s", root)
 
     async with async_session_maker() as session:
         imported_template_ids: set[str] = set()
@@ -55,6 +56,22 @@ async def import_default_templates_on_startup(
             else:
                 session.add(template)
                 LOGGER.info("Imported default template: %s", template.id)
+            await session.commit()
+
+        # AI 自由视觉不是一个面向设计师维护的 PPTX 模板目录，而是内部中性
+        # layout skeleton。它仍然必须落库，否则 outline 页选择 ai-background 后，
+        # prepare/generate 阶段会因为找不到 `ai-visual` TemplateV2 而失败。
+        ai_visual_template = build_production_ai_visual_template()
+        if ai_visual_template.id not in disabled_ids:
+            imported_template_ids.add(ai_visual_template.id)
+            existing = await session.get(TemplateV2, ai_visual_template.id)
+            if existing:
+                _update_template_from_default(existing, ai_visual_template)
+                session.add(existing)
+                LOGGER.info("Updated internal AI visual template: %s", ai_visual_template.id)
+            else:
+                session.add(ai_visual_template)
+                LOGGER.info("Imported internal AI visual template: %s", ai_visual_template.id)
             await session.commit()
 
         await _remove_stale_default_templates(
