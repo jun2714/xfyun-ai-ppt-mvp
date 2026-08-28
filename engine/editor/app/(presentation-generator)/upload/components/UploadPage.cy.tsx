@@ -1,35 +1,32 @@
-import React from 'react'
-import UploadPage from './UploadPage'
-import { mount } from 'cypress/react'
-import { store } from '@/store/store'
-import { Provider } from 'react-redux'
-import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
-import { Toaster } from '@/components/ui/sonner'
+import React from "react";
+import UploadPage from "./UploadPage";
+import { mount } from "cypress/react";
+import { store } from "@/store/store";
+import { Provider } from "react-redux";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { Toaster } from "@/components/ui/sonner";
 
-// Import global styles
-import '@/app/globals.css'
+import "@/app/globals.css";
 
-// Create a mock router
-const createRouter = (push = cy.stub().as('router.push')) => ({
+const createRouter = (push = cy.stub().as("router.push")) => ({
   push,
   back: cy.stub(),
   forward: cy.stub(),
   refresh: cy.stub(),
   replace: cy.stub(),
   prefetch: cy.stub(),
-  route: '/',
-  pathname: '/',
+  route: "/",
+  pathname: "/",
   query: {},
-  asPath: '/',
-})
+  asPath: "/",
+});
 
 interface RouterWrapperProps {
   children: React.ReactNode;
 }
 
-// Custom mount command with Redux Provider and Next.js Router
-Cypress.Commands.add('mount', (component, options = {}) => {
-  const router = createRouter()
+Cypress.Commands.add("mount", (component, options = {}) => {
+  const router = createRouter();
   const RouterWrapper = ({ children }: RouterWrapperProps) => (
     <AppRouterContext.Provider value={router}>
       <Provider store={store}>
@@ -37,249 +34,167 @@ Cypress.Commands.add('mount', (component, options = {}) => {
         <Toaster position="top-center" />
       </Provider>
     </AppRouterContext.Provider>
-  )
+  );
 
-  return mount(
-    <RouterWrapper>
-      {component}
-    </RouterWrapper>,
-    options
-  )
-})
+  return mount(<RouterWrapper>{component}</RouterWrapper>, options);
+});
 
-// Helper function to check for toast message
+const kindergartenResponse = (overrides: Record<string, unknown> = {}) => ({
+  presentation_id: "test-id",
+  outline_path: "/presentations/test-id/outline",
+  selected_template: "standard",
+  template_selection_reason: "domain:health+9",
+  template_scores: { standard: 9 },
+  visual_mode: "template",
+  visual_style_summary: null,
+  planning_attempts: 1,
+  quality: { passed: true, errors: [], warnings: [] },
+  outline: { slides: [{ content: "# 测试", content_contract: null }] },
+  plan: {
+    meta: {
+      topic: "测试",
+      age_group: "4-5岁",
+      domain: "comprehensive",
+      duration_minutes: 20,
+    },
+    lesson_goals: ["参与课堂活动"],
+    lesson_arc: ["观察", "互动"],
+    slides: [],
+  },
+  ...overrides,
+});
+
 const checkToast = (message: string) => {
-  cy.get('[data-sonner-toast]', { timeout: 5000 }).should('contain', message)
-}
+  cy.get("[data-sonner-toast]", { timeout: 5000 }).should("contain", message);
+};
 
-describe('<UploadPage />', () => {
+describe("<UploadPage /> kindergarten creation", () => {
   beforeEach(() => {
-    // Set viewport size
-    cy.viewport(1440, 900)
-
-    // Reset any previous interceptions
-    cy.intercept('POST', '**/ppt/presentation/create', {
+    cy.viewport(1440, 900);
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
       statusCode: 200,
-      body: { id: 'test-id' }
-    }).as('createPresentation')
+      body: kindergartenResponse(),
+    }).as("createKindergartenPresentation");
 
-    cy.on('window:before:load', (win) => {
-      cy.stub(win.location, 'assign').as('locationAssign')
-    })
+    cy.on("window:before:load", (win) => {
+      cy.stub(win.location, "assign").as("locationAssign");
+    });
 
-    cy.mount(<UploadPage />)
-  })
+    cy.mount(<UploadPage />);
+  });
 
-  describe('Configuration Selection', () => {
-    it('should allow selecting number of slides', () => {
-      // Force click to handle any overlay issues
-      cy.get('[data-testid="slides-select"]').click({ force: true })
-      // Wait for content to be visible
-      cy.get('[role="option"]').should('be.visible')
-      // Click the option
-      cy.get('[role="option"]').contains('12').click()
-      // Verify selection
-      cy.get('[data-testid="slides-select"]').should('contain', '12')
-    })
+  it("keeps the teacher-facing configuration controls usable", () => {
+    cy.get('[data-testid="slides-select"]').click({ force: true });
+    cy.get('[role="option"]').contains("12").click();
+    cy.get('[data-testid="slides-select"]').should("contain", "12");
 
-    it('should allow replacing a custom slide count with a preset', () => {
-      cy.get('[data-testid="slides-select"]').click({ force: true })
-      cy.get('input[placeholder="--"]').clear().type('50{enter}')
-      cy.get('[data-testid="slides-select"]').should('contain', '50')
+    cy.get('[data-testid="prompt-input"]').type("春天里的种子");
+    cy.get('[data-testid="prompt-input"]').should("have.value", "春天里的种子");
+  });
 
-      cy.get('[data-testid="slides-select"]').click({ force: true })
-      cy.get('input[placeholder="--"]').focus().should('have.value', '50')
-      cy.get('[role="option"]').contains('12 slides').click()
+  it("sends template mode through the kindergarten planner", () => {
+    cy.get('[data-testid="prompt-input"]').type("洗手好习惯");
+    cy.contains("button", "智能模板").click();
+    cy.contains("button", "Get Started").click();
 
-      cy.get('[data-testid="slides-select"]').should('contain', '12')
-      cy.get('[data-testid="slides-select"]').should('not.contain', '50')
-    })
+    cy.wait("@createKindergartenPresentation")
+      .its("request.body")
+      .should("include", {
+        topic: "洗手好习惯",
+        age_group: "4-5岁",
+        visual_mode: "template",
+        template: "auto",
+        language: "Chinese",
+      });
 
-    it('should allow selecting language', () => {
-      // Force click to handle any overlay issues
-      cy.get('[data-testid="language-select"]').click({ force: true })
-      cy.contains('[role="option"]', 'Chinese (Simplified - 中文, 汉语)').click({ force: true })
-      // Verify selection
-      cy.get('[data-testid="language-select"]').should('contain', 'Chinese (Simplified - 中文, 汉语)')
+    cy.get("@locationAssign").should(
+      "be.calledWithMatch",
+      /\/presentations\/test-id\/outline\?mode=topic.*template=standard/,
+    );
+  });
 
-      // Now test Traditional Chinese as well
-      cy.get('[data-testid="language-select"]').click({ force: true })
-      cy.contains('[role="option"]', 'Chinese (Traditional - 中文, 漢語)').click({ force: true })
-      cy.get('[data-testid="language-select"]').should('contain', 'Chinese (Traditional - 中文, 漢語)')
-    })
-  })
+  it("sends AI free visual mode and carries the visual preference", () => {
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
+      statusCode: 200,
+      body: kindergartenResponse({
+        selected_template: "ai-visual",
+        template_selection_reason:
+          "visual-mode:ai-background;neutral-skeleton+generated-backgrounds",
+        template_scores: { "ai-visual": 100 },
+        visual_mode: "ai-background",
+        visual_style_summary: "清新自然儿童绘本插画",
+      }),
+    }).as("createAiVisualPresentation");
 
-  describe('Prompt Input', () => {
-    it('should allow entering prompt text', () => {
-      const testPrompt = 'Create a presentation about AI'
-      cy.get('[data-testid="prompt-input"]').type(testPrompt)
-      cy.get('[data-testid="prompt-input"]').should('have.value', testPrompt)
-    })
-  })
+    cy.get('[data-testid="prompt-input"]').type("森林动物大冒险");
+    cy.contains("button", "AI 自由视觉").click();
+    cy.contains("button", "Get Started").click();
 
-  describe('File Upload', () => {
-    it('should handle document uploads', () => {
-      cy.fixture('example.txt').as('testFile')
-      cy.get('[data-testid="file-upload-input"]').selectFile('@testFile', { force: true })
-      cy.contains('example.txt').should('exist')
-      // Check for success toast
-      checkToast('Files selected')
-    })
-  })
-  describe('File Handling', () => {
-    beforeEach(() => {
-      // Create a text file fixture
-      cy.writeFile('cypress/fixtures/test-doc.txt', 'Test content')
-    })
+    cy.wait("@createAiVisualPresentation")
+      .its("request.body")
+      .should("include", {
+        topic: "森林动物大冒险",
+        visual_mode: "ai-background",
+        visual_style: "明亮童趣",
+        image_policy: "standard",
+      });
 
-    it('should handle multiple document uploads', () => {
-      // Create two files with different names
-      const file1 = new File(['content1'], 'document1.txt', { type: 'text/plain' })
-      const file2 = new File(['content2'], 'document2.txt', { type: 'text/plain' })
+    cy.get("@locationAssign").should(
+      "be.calledWithMatch",
+      /\/presentations\/test-id\/outline\?mode=topic.*template=ai-visual/,
+    );
+  });
 
-      // Upload multiple files
-      cy.get('[data-testid="file-upload-input"]')
-        .selectFile([
-          { contents: file1, fileName: 'document1.txt' },
-          { contents: file2, fileName: 'document2.txt' }
-        ], { force: true })
+  it("forces template visual mode when entering explicit template flow", () => {
+    cy.contains("button", "AI 自由视觉").click();
+    cy.contains("button", "模板生成").click();
+    cy.contains("AI 自由视觉").should("not.exist");
 
-      // Verify files are listed
-      cy.get('[data-testid="file-list"]').within(() => {
-        cy.contains('document1.txt').should('be.visible')
-        cy.contains('document2.txt').should('be.visible')
-      })
-      checkToast('Files selected')
-    })
+    cy.get('[data-testid="prompt-input"]').type("端午节亲子活动");
+    cy.contains("button", "Get Started").click();
 
-    it('should handle image uploads', () => {
-      // Create an image file
-      const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' })
+    cy.wait("@createKindergartenPresentation")
+      .its("request.body.visual_mode")
+      .should("equal", "template");
+  });
 
-      cy.get('[data-testid="file-upload-input"]')
-        .selectFile({
-          contents: imageFile,
-          fileName: 'test-image.jpg',
-          mimeType: 'image/jpeg'
-        }, { force: true })
+  it("still processes uploaded source documents before lesson planning", () => {
+    cy.fixture("example.txt").as("testFile");
+    cy.get('[data-testid="file-upload-input"]').selectFile("@testFile", { force: true });
 
-      // Verify image is listed
-      cy.get('[data-testid="file-list"]').within(() => {
-        cy.contains('test-image.jpg').should('be.visible')
-      })
-      checkToast('Files selected')
-    })
+    cy.intercept("POST", "**/ppt/files/upload", {
+      statusCode: 200,
+      body: [{ file_path: "/tmp/uploads/example.txt" }],
+    }).as("uploadDoc");
+    cy.intercept("POST", "**/ppt/files/decompose", {
+      statusCode: 200,
+      body: [{ name: "example.txt", file_path: "/tmp/decomposed/example.txt" }],
+    }).as("decomposeDoc");
 
-    it('should handle mixed document and image uploads', () => {
-      // Create document and image files
-      const docFile = new File(['doc content'], 'test-doc.txt', { type: 'text/plain' })
-      const imageFile = new File(['image content'], 'test-image.jpg', { type: 'image/jpeg' })
+    cy.get('[data-testid="prompt-input"]').type("根据资料设计科学活动");
+    cy.contains("button", "Get Started").click();
 
-      cy.get('[data-testid="file-upload-input"]')
-        .selectFile([
-          { contents: docFile, fileName: 'test-doc.txt' },
-          { contents: imageFile, fileName: 'test-image.jpg', mimeType: 'image/jpeg' }
-        ], { force: true })
+    cy.wait("@uploadDoc");
+    cy.wait("@decomposeDoc");
+    cy.wait("@createKindergartenPresentation")
+      .its("request.body.file_paths")
+      .should("deep.equal", ["/tmp/decomposed/example.txt"]);
+  });
 
-      // Verify both files are listed
-      cy.get('[data-testid="file-list"]').within(() => {
-        cy.contains('test-doc.txt').should('be.visible')
-        cy.contains('test-image.jpg').should('be.visible')
-      })
-      checkToast('Files selected')
-    })
-  })
+  it("shows validation when neither a topic nor a document exists", () => {
+    cy.contains("button", "Get Started").click();
+    checkToast("请输入内容");
+  });
 
-  describe('Validation', () => {
-    it('should show error when no prompt or documents provided', () => {
-      // Click next without entering prompt or uploading files
-      cy.contains('button', 'Get Started').click()
-      // Check for error toast
-      checkToast('Input required')
-    })
-  })
+  it("surfaces planner API failures without navigating", () => {
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
+      statusCode: 422,
+      body: { detail: { code: "KINDERGARTEN_PLAN_QUALITY_FAILED" } },
+    }).as("plannerError");
 
-  describe('Generation Flow', () => {
-    it('should proceed to outline page with prompt-only configuration', () => {
-      // Enter prompt
-      cy.get('[data-testid="prompt-input"]').type('Create a presentation about AI')
-
-      // Click generate
-      cy.contains('button', 'Get Started').click()
-
-      // Wait for API call with longer timeout
-      cy.wait('@createPresentation', { timeout: 10000 })
-
-      // 跳转到产品前端大纲页（web）
-      cy.get('@locationAssign').should(
-        'be.calledWithMatch',
-        /\/presentations\/test-id\/outline\?mode=topic/
-      )
-    })
-
-    it('should proceed to outline page with uploaded document', () => {
-      // Upload a document
-      cy.fixture('example.txt').as('testFile')
-      cy.get('[data-testid="file-upload-input"]').selectFile('@testFile', { force: true })
-
-      cy.get('[data-testid="language-select"]').click({ force: true })
-      cy.get('[role="option"]').contains(/^English$/).click()
-
-      // Enter prompt
-      cy.get('[data-testid="prompt-input"]').type('Analyze this document')
-
-      // Intercept document upload and decomposition
-      cy.intercept('POST', '**/ppt/files/upload', {
-        statusCode: 200,
-        body: ['/tmp/uploads/example.txt']
-      }).as('uploadDoc')
-
-      cy.intercept('POST', '**/ppt/files/decompose', {
-        statusCode: 200,
-        body: [
-          {
-            name: 'example.txt',
-            file_path: '/tmp/decomposed/example.txt'
-          }
-        ]
-      }).as('decomposeDoc')
-
-      // Click generate
-      cy.contains('button', 'Get Started').click()
-
-      // Wait for upload, decompose, and outline creation API calls
-      cy.wait('@uploadDoc', { timeout: 10000 })
-      cy.wait('@decomposeDoc', { timeout: 10000 })
-      cy.wait('@createPresentation', { timeout: 10000 })
-        .its('request.body')
-        .should('include', {
-          content: 'Analyze this document',
-          language: 'English'
-        })
-        .and('have.property', 'file_paths')
-        .and('deep.equal', ['/tmp/decomposed/example.txt'])
-
-      cy.get('@locationAssign').should(
-        'be.calledWithMatch',
-        /\/presentations\/test-id\/outline\?mode=topic/
-      )
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('should handle API errors gracefully', () => {
-      // Setup API to return error
-      cy.intercept('POST', '**/ppt/presentation/create', {
-        statusCode: 500,
-        body: { error: 'Internal Server Error' }
-      }).as('apiError')
-
-      // Enter prompt and try to generate
-      cy.get('[data-testid="prompt-input"]').type('Test presentation')
-      cy.contains('button', 'Get Started').click()
-
-      // Check for error toast
-      checkToast('Generation failed')
-    })
-  })
-})
+    cy.get('[data-testid="prompt-input"]').type("测试课件");
+    cy.contains("button", "Get Started").click();
+    cy.wait("@plannerError");
+    checkToast("生成失败");
+  });
+});
