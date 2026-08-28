@@ -79,7 +79,7 @@ jobs:
       - name: Typecheck editor
         run: npx tsc --noEmit -p tsconfig.json
       - name: Run kindergarten upload component test
-        run: npx cypress run --component --browser electron --spec 'app/(presentation-generator)/upload/components/UploadPage.cy.tsx'
+        run: npx cypress run --component --browser electron --spec 'app/**/upload/components/UploadPage.cy.tsx'
       - name: Build editor
         env:
           NEXT_PUBLIC_FAST_API: http://127.0.0.1:8000
