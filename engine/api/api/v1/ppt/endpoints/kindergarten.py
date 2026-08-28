@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -45,7 +45,7 @@ from services.kindergarten_visual_planning_service import (
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
-from templates.ai_visual_default import build_ai_visual_template
+from templates.ai_visual_production import build_production_ai_visual_template
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
@@ -164,7 +164,7 @@ async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
     existing = await sql_session.get(TemplateV2, AI_BACKGROUND_TEMPLATE_NAME)
     if existing is not None:
         return
-    sql_session.add(build_ai_visual_template())
+    sql_session.add(build_production_ai_visual_template())
     await sql_session.commit()
 
 
