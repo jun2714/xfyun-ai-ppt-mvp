@@ -19,6 +19,36 @@ export type BlankPresentationResponse = {
   slides: Array<Record<string, unknown>>;
 };
 
+export type KindergartenDomain =
+  | "science"
+  | "language"
+  | "math"
+  | "health"
+  | "social"
+  | "art"
+  | "comprehensive";
+
+export type KindergartenVisualMode = "template" | "ai-background";
+
+export type KindergartenPresentationCreateResponse = {
+  presentation_id: string;
+  outline_path: string;
+  selected_template: string;
+  template_selection_reason: string;
+  template_scores: Record<string, number>;
+  visual_mode: KindergartenVisualMode;
+  visual_style_summary?: string | null;
+  planning_attempts: number;
+  quality: {
+    passed: boolean;
+    errors: unknown[];
+    warnings: unknown[];
+  };
+  outline: {
+    slides: Array<{ content: string; content_contract?: unknown }>;
+  };
+};
+
 export class PresentationGenerationApi {
   static async uploadDoc(documents: File[]) {
     const formData = new FormData();
@@ -135,6 +165,80 @@ export class PresentationGenerationApi {
       return await ApiResponseHandler.handleResponse(response, "Failed to create presentation");
     } catch (error) {
       console.error("error in presentation creation", error);
+      throw error;
+    }
+  }
+
+  static async createKindergartenPresentation({
+    topic,
+    age_group = "4-5岁",
+    domain = "comprehensive",
+    duration_minutes = 20,
+    n_slides,
+    instructions,
+    source_context,
+    template = "auto",
+    visual_mode = "template",
+    visual_style,
+    language = "Chinese",
+    image_policy = "standard",
+    file_paths = [],
+    tone = "educational",
+    verbosity = "standard",
+  }: {
+    topic: string;
+    age_group?: string;
+    domain?: KindergartenDomain;
+    duration_minutes?: number;
+    n_slides: number | null;
+    instructions?: string | null;
+    source_context?: string | null;
+    template?: string;
+    visual_mode?: KindergartenVisualMode;
+    visual_style?: string | null;
+    language?: string;
+    image_policy?: "disabled" | "minimal" | "standard";
+    file_paths?: string[];
+    tone?: string | null;
+    verbosity?: string | null;
+  }): Promise<KindergartenPresentationCreateResponse> {
+    try {
+      const limitedSlideCount =
+        typeof n_slides === "number"
+          ? Math.min(Math.max(n_slides, 3), MAX_NUMBER_OF_SLIDES)
+          : null;
+      const response = await fetch(
+        getApiUrl(`/api/v1/ppt/kindergarten/presentation/create`),
+        {
+          method: "POST",
+          headers: getHeader(),
+          body: JSON.stringify({
+            topic,
+            age_group,
+            domain,
+            duration_minutes,
+            n_slides: limitedSlideCount,
+            instructions,
+            source_context,
+            template,
+            visual_mode,
+            visual_style,
+            language,
+            image_policy,
+            file_paths,
+            tone,
+            verbosity,
+          }),
+          cache: "no-cache",
+        }
+      );
+
+      return (await ApiResponseHandler.handleResponse(
+        response,
+        "Failed to create kindergarten presentation"
+      )) as KindergartenPresentationCreateResponse;
+    } catch (error) {
+      console.error("error in kindergarten presentation creation", error);
       throw error;
     }
   }

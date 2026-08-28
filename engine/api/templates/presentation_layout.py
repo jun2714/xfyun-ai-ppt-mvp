@@ -9,6 +9,19 @@ from models.layout_metadata import LayoutMetadata
 from utils.icon_weights import DEFAULT_ICON_TYPE, extract_icon_type_from_settings
 
 
+# These bundled families are currently used as child-facing kindergarten themes.
+# They still contain a few legacy business/chart layouts inherited from the source
+# project. Until a template explicitly opts back in, charts are excluded so a
+# preschool lesson can never be forced to fabricate percentages or dashboard data.
+KINDERGARTEN_NO_CHART_TEMPLATE_NAMES = {
+    "dynamic",
+    "modern",
+    "momentum",
+    "standard",
+    "swift",
+}
+
+
 class SlideLayoutModel(BaseModel):
     id: str
     name: Optional[str] = None
@@ -22,16 +35,26 @@ class PresentationLayoutModel(BaseModel):
     ordered: bool = Field(default=False)
     icon_type: str = Field(default=DEFAULT_ICON_TYPE)
     icon_weight: str = Field(default=DEFAULT_ICON_TYPE)
+    allow_charts: bool = Field(default=True)
     slides: List[SlideLayoutModel]
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_icon_type(cls, data):
+    def normalize_runtime_settings(cls, data):
         if isinstance(data, dict):
             normalized = dict(data)
             icon_type = extract_icon_type_from_settings(normalized)
             normalized["icon_type"] = icon_type
             normalized["icon_weight"] = icon_type
+
+            # Explicit template metadata/JSON always wins. The name-based default
+            # protects the bundled kindergarten families even before routing.json
+            # metadata is imported into older deployments.
+            if "allow_charts" not in normalized:
+                name = str(normalized.get("name") or "").strip().casefold()
+                normalized["allow_charts"] = (
+                    name not in KINDERGARTEN_NO_CHART_TEMPLATE_NAMES
+                )
             return normalized
         return data
 

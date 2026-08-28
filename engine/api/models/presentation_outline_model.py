@@ -5,6 +5,29 @@ from constants.presentation import MAX_NUMBER_OF_SLIDES, MAX_OUTLINE_CONTENT_WOR
 from utils.outline_limits import normalize_outline_content
 
 
+class SlideAssetContract(BaseModel):
+    """Hidden requirements for one planned visual asset.
+
+    `planning_slot` is a semantic planning handle, not a template element id. The
+    content generation stage is free to map it to any compatible image field; later
+    stages correlate the contract by the semantic phrase present in image prompts.
+    """
+
+    planning_slot: str = Field(min_length=1, max_length=80)
+    semantic_label: str = Field(min_length=1, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=800)
+    expected_count: int = Field(default=1, ge=1, le=12)
+    role: Literal["background", "framed-image", "cutout"] = "framed-image"
+    qa_required: bool = True
+
+    @field_validator("planning_slot", "semantic_label", mode="before")
+    @classmethod
+    def normalize_required_text(cls, value):
+        if not isinstance(value, str):
+            return value
+        return " ".join(value.strip().split())
+
+
 class SlideContentContract(BaseModel):
     relationship: Literal[
         "single",
@@ -25,6 +48,42 @@ class SlideContentContract(BaseModel):
         "none", "background", "framed-image", "cutout", "mixed"
     ] = "none"
     visible_characters: int = Field(default=0, ge=0)
+
+    # Optional teaching metadata. These fields never become audience-facing text;
+    # they travel with the outline so later layout, asset and quality stages can
+    # preserve the lesson intent without re-inferring it from rendered copy.
+    teaching_goal: Optional[str] = Field(default=None, max_length=300)
+    teacher_note: Optional[str] = Field(default=None, max_length=1200)
+    interaction_type: Literal[
+        "none",
+        "observe",
+        "imitate",
+        "choose",
+        "guess",
+        "match",
+        "classify",
+        "sequence",
+        "discuss",
+        "move",
+        "recall",
+        "unknown",
+    ] = "none"
+    activity_id: Optional[str] = Field(default=None, max_length=120)
+    answer_key: Optional[str] = Field(default=None, max_length=300)
+    # Lesson planning normally needs far fewer than twelve assets. The extra four
+    # slots are deliberately reserved for presentation-stage visual contracts such
+    # as an AI-generated background, without discarding teaching-object semantics.
+    required_asset_semantics: List[str] = Field(default_factory=list, max_length=16)
+    asset_contracts: List[SlideAssetContract] = Field(default_factory=list, max_length=16)
+    preferred_layout_capabilities: List[str] = Field(
+        default_factory=list,
+        max_length=8,
+        description=(
+            "Hidden semantic layout preferences such as question, reveal, scene, "
+            "matching, classification, sequence, image-text, or recap. These are "
+            "capability hints, never template ids."
+        ),
+    )
 
     @field_validator("relationship", mode="before")
     @classmethod
@@ -54,6 +113,57 @@ class SlideContentContract(BaseModel):
         }
         return normalized if normalized in allowed else "unknown"
 
+    @field_validator("interaction_type", mode="before")
+    @classmethod
+    def normalize_unrecognized_interaction(cls, value):
+        if not isinstance(value, str):
+            return "unknown"
+        normalized = value.strip().casefold().replace("_", "-")
+        allowed = {
+            "none",
+            "observe",
+            "imitate",
+            "choose",
+            "guess",
+            "match",
+            "classify",
+            "sequence",
+            "discuss",
+            "move",
+            "recall",
+            "unknown",
+        }
+        return normalized if normalized in allowed else "unknown"
+
+    @staticmethod
+    def _normalize_unique_strings(value, limit: int) -> list[str]:
+        if value is None or not isinstance(value, list):
+            return []
+        seen: set[str] = set()
+        normalized: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            label = " ".join(item.strip().split())
+            key = label.casefold()
+            if not label or key in seen:
+                continue
+            seen.add(key)
+            normalized.append(label)
+            if len(normalized) >= limit:
+                break
+        return normalized
+
+    @field_validator("required_asset_semantics", mode="before")
+    @classmethod
+    def normalize_required_asset_semantics(cls, value):
+        return cls._normalize_unique_strings(value, 16)
+
+    @field_validator("preferred_layout_capabilities", mode="before")
+    @classmethod
+    def normalize_preferred_layout_capabilities(cls, value):
+        return cls._normalize_unique_strings(value, 8)
+
 
 class SlideOutlineModel(BaseModel):
     content: str = Field(
@@ -67,8 +177,8 @@ class SlideOutlineModel(BaseModel):
     content_contract: Optional[SlideContentContract] = Field(
         default=None,
         description=(
-            "Machine-readable structure of this slide's audience-facing content. "
-            "It is selection metadata, not visible slide text."
+            "Machine-readable structure and optional teaching intent for this slide. "
+            "It is selection/quality metadata, not visible slide text."
         ),
     )
 

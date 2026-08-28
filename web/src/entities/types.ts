@@ -1,4 +1,7 @@
-export type SlideOutline = { content: string };
+export type SlideOutline = {
+  content: string;
+  content_contract?: Record<string, unknown> | null;
+};
 
 export type PresentationOutline = { slides: SlideOutline[] };
 

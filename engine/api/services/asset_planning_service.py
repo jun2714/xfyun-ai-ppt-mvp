@@ -7,7 +7,6 @@ import uuid
 
 from models.json_path_guide import DictGuide, JsonPathGuide
 from models.sql.slide import SlideModel
-from utils.dict_utils import get_dict_at_path
 from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
 
 
@@ -19,6 +18,20 @@ GenerationMode = Literal[
     "single-cutout",
     "reuse-or-search",
 ]
+
+
+class AssetSemanticCoverageError(ValueError):
+    """Raised before paid generation when image prompts violate a slide contract."""
+
+
+@dataclass(frozen=True)
+class AssetSemanticExpectation:
+    planning_slot: str
+    semantic_label: str
+    description: str | None
+    expected_count: int
+    role: AssetRole
+    qa_required: bool
 
 
 @dataclass(frozen=True)
@@ -36,10 +49,15 @@ class AssetSlotRequest:
     text_safe_area: str
     width: float
     height: float
+    semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
 
     @property
     def consumer_id(self) -> str:
         return f"slide-{self.slide_index + 1}.{self.slot_name}"
+
+    @property
+    def requires_semantic_qa(self) -> bool:
+        return any(expectation.qa_required for expectation in self.semantic_expectations)
 
 
 @dataclass(frozen=True)
@@ -53,6 +71,10 @@ class AssetPlanItem:
     @property
     def consumer_slot_count(self) -> int:
         return len(self.slots)
+
+    @property
+    def requires_semantic_qa(self) -> bool:
+        return any(slot.requires_semantic_qa for slot in self.slots)
 
 
 def _walk_image_elements(value: Any) -> list[dict[str, Any]]:
@@ -77,6 +99,146 @@ def _slot_name(path: JsonPathGuide) -> str:
 
 def _normalized_prompt(prompt: str) -> str:
     return re.sub(r"\s+", " ", prompt.strip().casefold())
+
+
+def _normalized_semantic_text(value: str) -> str:
+    # Semantic labels are authored by the planner and are intentionally short.
+    # Removing punctuation/spacing makes the gate insensitive to harmless prompt
+    # formatting while still requiring the same noun/feature phrase verbatim.
+    return re.sub(r"[\W_]+", "", value.casefold(), flags=re.UNICODE)
+
+
+def _hidden_slide_contract(slide: SlideModel) -> dict[str, Any]:
+    if not isinstance(slide.content, dict):
+        return {}
+    contract = slide.content.get("__content_contract__")
+    return contract if isinstance(contract, dict) else {}
+
+
+def _asset_semantic_expectations(slide: SlideModel) -> list[AssetSemanticExpectation]:
+    raw = _hidden_slide_contract(slide).get("asset_contracts")
+    if not isinstance(raw, list):
+        return []
+
+    expectations: list[AssetSemanticExpectation] = []
+    for value in raw:
+        if not isinstance(value, dict):
+            continue
+        label = value.get("semantic_label")
+        planning_slot = value.get("planning_slot")
+        role = value.get("role")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        if not isinstance(planning_slot, str) or not planning_slot.strip():
+            planning_slot = "asset"
+        if role not in {"background", "framed-image", "cutout"}:
+            role = "framed-image"
+        try:
+            expected_count = int(value.get("expected_count", 1))
+        except (TypeError, ValueError):
+            expected_count = 1
+        expected_count = max(1, min(expected_count, 12))
+        description = value.get("description")
+        expectations.append(
+            AssetSemanticExpectation(
+                planning_slot=" ".join(planning_slot.strip().split()),
+                semantic_label=" ".join(label.strip().split()),
+                description=(
+                    " ".join(description.strip().split())
+                    if isinstance(description, str) and description.strip()
+                    else None
+                ),
+                expected_count=expected_count,
+                role=role,
+                qa_required=bool(value.get("qa_required", True)),
+            )
+        )
+    return expectations
+
+
+def _required_asset_semantics(slide: SlideModel) -> list[str]:
+    raw = _hidden_slide_contract(slide).get("required_asset_semantics")
+    if not isinstance(raw, list):
+        return []
+
+    semantics: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        label = " ".join(item.strip().split())
+        normalized = _normalized_semantic_text(label)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        semantics.append(label)
+    return semantics
+
+
+def _expectations_for_prompt(
+    prompt: str,
+    expectations: list[AssetSemanticExpectation],
+) -> tuple[AssetSemanticExpectation, ...]:
+    normalized_prompt = _normalized_semantic_text(prompt)
+    return tuple(
+        expectation
+        for expectation in expectations
+        if _normalized_semantic_text(expectation.semantic_label) in normalized_prompt
+    )
+
+
+def validate_asset_semantic_coverage(
+    slides: list[SlideModel],
+    slots: list[AssetSlotRequest] | None = None,
+) -> None:
+    """Require planned visual semantics to survive slide-content generation.
+
+    This is deliberately a pre-generation gate: if a lesson contract says a slide
+    must show an apple, carrot, flower and leaf, but the generated image prompts
+    describe a lamp, flashlight, television and cloud, the request fails here and
+    no image provider call is made. Slides without a hidden contract keep the
+    existing generic behavior.
+
+    Only slides with unresolved image slots are checked. A completed deck may still
+    carry its original prompts and contract, but reopening it must never be treated
+    as a new paid generation request.
+    """
+    slots = slots if slots is not None else extract_asset_slots(slides)
+    pending_slide_indices = {slot.slide_index for slot in slots}
+    if not pending_slide_indices:
+        return
+
+    for slide in slides:
+        if slide.index not in pending_slide_indices:
+            continue
+        required = _required_asset_semantics(slide)
+        if not required:
+            continue
+
+        all_prompts = [
+            prompt
+            for _path, _parent, prompt in _asset_dicts_with_prompt(
+                slide.content, IMAGE_PROMPT_KEYS
+            )
+        ]
+        prompt_text = " ".join(all_prompts)
+        normalized_prompt = _normalized_semantic_text(prompt_text)
+        missing = [
+            semantic
+            for semantic in required
+            if _normalized_semantic_text(semantic) not in normalized_prompt
+        ]
+        if not missing:
+            continue
+
+        if not prompt_text.strip():
+            detail = "没有生成任何 image_prompt"
+        else:
+            detail = f"image_prompt 未覆盖：{', '.join(missing)}"
+        raise AssetSemanticCoverageError(
+            f"第 {slide.index + 1} 页图片语义预检失败：{detail}。"
+            "已在调用图片模型前阻断，请重新生成该页内容。"
+        )
 
 
 def _ratio(width: float, height: float) -> str:
@@ -115,6 +277,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
             for element in _walk_image_elements(slide.ui)
             if isinstance(element.get("name"), str)
         }
+        semantic_expectations = _asset_semantic_expectations(slide)
         for path, parent, prompt in _asset_dicts_with_prompt(
             slide.content, IMAGE_PROMPT_KEYS
         ):
@@ -151,6 +314,9 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     text_safe_area=str(element.get("text_safe_area") or "none"),
                     width=width,
                     height=height,
+                    semantic_expectations=_expectations_for_prompt(
+                        prompt, semantic_expectations
+                    ),
                 )
             )
     return slots
@@ -166,6 +332,7 @@ def _grid_for(count: int) -> tuple[int, int]:
 
 def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
     slots = extract_asset_slots(slides)
+    validate_asset_semantic_coverage(slides, slots)
     plan: list[AssetPlanItem] = []
     consumed: set[str] = set()
 

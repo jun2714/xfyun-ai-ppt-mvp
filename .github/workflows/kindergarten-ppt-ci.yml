@@ -1,0 +1,91 @@
+name: Kindergarten PPT CI
+
+on:
+  push:
+    branches:
+      - feat/kindergarten-planner-v1
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: kindergarten-ppt-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-tests:
+    name: API tests (Python 3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: engine/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install API dependencies
+        run: uv sync --frozen --all-groups
+      - name: Run API test suite
+        env:
+          DISABLE_AUTH: 'true'
+          APP_DATA_DIRECTORY: ${{ runner.temp }}/sparkdeck-data
+          TEMP_DIRECTORY: ${{ runner.temp }}/sparkdeck-temp
+        run: uv run pytest -q
+
+  web-checks:
+    name: Outline web typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+      - name: Install web workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck outline web app
+        run: pnpm --filter @sparkdeck/web typecheck
+      - name: Build outline web app
+        run: pnpm --filter @sparkdeck/web build
+
+  editor-checks:
+    name: Editor tests, typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: engine/editor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: engine/editor/package-lock.json
+      - name: Install editor dependencies
+        run: npm ci
+      - name: Run editor unit tests
+        run: npm test
+      - name: Typecheck editor
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build editor
+        env:
+          NEXT_PUBLIC_FAST_API: http://127.0.0.1:8000
+          FAST_API_INTERNAL_URL: http://127.0.0.1:8000
+          NEXT_PUBLIC_WEB_APP_URL: http://127.0.0.1:5173
+          DISABLE_AUTH: 'true'
+        run: npm run build
+      - name: Run kindergarten upload component test (diagnostic)
+        continue-on-error: true
+        timeout-minutes: 5
+        run: npx cypress run --component --browser electron --spec 'app/**/upload/components/UploadPage.cy.tsx'

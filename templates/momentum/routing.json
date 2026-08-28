@@ -1,0 +1,11 @@
+{
+  "audiences": ["child", "adult"],
+  "domains": ["艺术", "社会", "家园共育", "节日"],
+  "scenes": ["教学", "公开课", "亲子活动"],
+  "styles": ["明亮童趣", "活力节奏"],
+  "routing_terms": ["亲子", "家园", "手工", "艺术", "美术", "音乐", "节日", "春节", "元宵", "端午", "中秋", "国庆", "六一", "毕业", "运动会"],
+  "auto_match": true,
+  "auto_priority": 50,
+  "allow_charts": false,
+  "quality_status": "candidate"
+}

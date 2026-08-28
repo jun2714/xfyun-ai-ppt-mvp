@@ -49,10 +49,29 @@ You need to generate structured content json based on the schema.
   populate the requested labels, series, and values rather than text such as "create a
   bar chart" or "show this data as a graph".
 - The text between SLIDE CONTENT markers is the complete and exclusive factual source
-  for this slide. Do not import facts, labels, choices, or examples from another slide.
+  for audience-facing text on this slide. Do not import facts, labels, choices, or examples
+  from another slide.
 - Do not invent extra audience-facing items merely to fill a layout. If the schema
   cannot represent the supplied content faithfully, fail validation instead of padding
   it with duplicated or newly authored content.
+
+# Machine Content Contract Rules
+- A MACHINE CONTENT CONTRACT may be supplied after the visible slide content. It is hidden
+  production metadata. Never copy field names, activity ids, answer keys, semantic labels,
+  teacher notes, or other contract metadata into visible slide text unless the visible
+  SLIDE CONTENT already contains that audience-facing information.
+- teaching_goal and teacher_note preserve classroom intent; teacher_note is for the speaker
+  note, not the slide body.
+- required_asset_semantics is authoritative for image meaning. When the response schema has
+  image_prompt fields, prompts must depict those exact required objects/features and must not
+  substitute unrelated objects just because they are visually attractive. Include the exact
+  required semantic phrase verbatim in at least one relevant image_prompt so the downstream
+  semantic preflight can verify coverage before any paid image request is made.
+- activity_id and answer_key are consistency locks. For relationship=question, do not reveal
+  answer_key in visible content or image prompts unless SLIDE CONTENT explicitly reveals it.
+  For relationship=reveal, keep the generated content and imagery consistent with answer_key.
+- interaction_type describes how the teacher and children use the page; preserve it in the
+  speaker note when useful, but do not expose the metadata label itself.
 
 {markdown_emphasis_rules}
 
@@ -92,6 +111,10 @@ Chinese
 # SLIDE CONTENT: START
 {content}
 # SLIDE CONTENT: END
+
+# MACHINE CONTENT CONTRACT: START
+{content_contract}
+# MACHINE CONTENT CONTRACT: END
 """
 
 ASSET_ONLY_FIELDS = ["__image_url__", "__icon_url__"]
@@ -166,14 +189,27 @@ def _get_slide_number_section(slide_number: Optional[int]) -> str:
     return f"# Slide Number:\n{slide_number}\n"
 
 
+def _serialize_content_contract(content_contract: Optional[dict]) -> str:
+    if not content_contract:
+        return "None"
+    try:
+        return json.dumps(content_contract, ensure_ascii=False, separators=(",", ":"))
+    except Exception:
+        return "None"
+
+
 def get_user_prompt(
-    outline: str, language: Optional[str], slide_number: Optional[int] = None
+    outline: str,
+    language: Optional[str],
+    slide_number: Optional[int] = None,
+    content_contract: Optional[dict] = None,
 ):
     return SLIDE_CONTENT_USER_PROMPT.format(
         current_date_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         language=_resolve_prompt_language(language),
         slide_number_section=_get_slide_number_section(slide_number),
         content=outline,
+        content_contract=_serialize_content_contract(content_contract),
     )
 
 
@@ -186,6 +222,7 @@ def get_messages(
     response_schema: Optional[dict] = None,
     *,
     slide_number: Optional[int] = None,
+    content_contract: Optional[dict] = None,
 ) -> list[Message]:
 
     return [
@@ -198,7 +235,12 @@ def get_messages(
             ),
         ),
         UserMessage(
-            content=get_user_prompt(outline, language, slide_number),
+            content=get_user_prompt(
+                outline,
+                language,
+                slide_number,
+                content_contract,
+            ),
         ),
     ]
 
@@ -261,7 +303,7 @@ def _prepare_response_schema(
         {
             "__speaker_note__": {
                 "type": "string",
-                "minLength": 100,
+                "minLength": 20,
                 "maxLength": 500,
                 "description": "Speaker note for the slide",
             }
@@ -288,6 +330,11 @@ async def get_slide_content_from_type_and_outline(
 
     client = get_client(config=get_llm_config())
     model = get_model()
+    contract_data = (
+        outline.content_contract.model_dump(mode="json")
+        if outline.content_contract is not None
+        else None
+    )
 
     try:
         response_format = JSONSchemaResponse(
@@ -303,9 +350,10 @@ async def get_slide_content_from_type_and_outline(
             instructions,
             response_schema,
             slide_number=slide_number,
+            content_contract=contract_data,
         )
 
-        return await generate_structured_with_schema_retries(
+        generated = await generate_structured_with_schema_retries(
             client,
             model,
             messages=messages,
@@ -315,6 +363,18 @@ async def get_slide_content_from_type_and_outline(
             validate_schema=True,
             disconnect_checker=disconnect_checker,
         )
+        if contract_data:
+            # Keep hidden planning semantics attached to the materialized slide.
+            # Asset planning receives SlideModel objects, not PresentationOutlineModel,
+            # so this is the bridge that lets later quality gates enforce the same
+            # lesson intent without re-inferring it from visible copy.
+            generated["__content_contract__"] = contract_data
+        if (
+            outline.content_contract is not None
+            and outline.content_contract.teacher_note
+        ):
+            generated["__speaker_note__"] = outline.content_contract.teacher_note
+        return generated
 
     except Exception as e:
         raise handle_llm_client_exceptions(e)
