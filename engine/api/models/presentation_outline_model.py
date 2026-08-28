@@ -70,8 +70,11 @@ class SlideContentContract(BaseModel):
     ] = "none"
     activity_id: Optional[str] = Field(default=None, max_length=120)
     answer_key: Optional[str] = Field(default=None, max_length=300)
-    required_asset_semantics: List[str] = Field(default_factory=list, max_length=12)
-    asset_contracts: List[SlideAssetContract] = Field(default_factory=list, max_length=12)
+    # Lesson planning normally needs far fewer than twelve assets. The extra four
+    # slots are deliberately reserved for presentation-stage visual contracts such
+    # as an AI-generated background, without discarding teaching-object semantics.
+    required_asset_semantics: List[str] = Field(default_factory=list, max_length=16)
+    asset_contracts: List[SlideAssetContract] = Field(default_factory=list, max_length=16)
     preferred_layout_capabilities: List[str] = Field(
         default_factory=list,
         max_length=8,
@@ -154,7 +157,7 @@ class SlideContentContract(BaseModel):
                 continue
             seen.add(key)
             normalized.append(label)
-        return normalized[:12]
+        return normalized[:16]
 
 
 class SlideOutlineModel(BaseModel):
