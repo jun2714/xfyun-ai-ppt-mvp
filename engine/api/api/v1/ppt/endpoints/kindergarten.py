@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -19,6 +19,7 @@ from models.kindergarten_lesson_plan import (
     KindergartenLessonPlan,
 )
 from models.presentation_outline_model import PresentationOutlineModel
+from models.sql.template_v2 import TemplateV2
 from services.database import get_async_session
 from services.documents_loader import DocumentsLoader
 from services.kindergarten_presentation_planning_service import (
@@ -32,11 +33,19 @@ from services.kindergarten_plan_quality_service import (
 )
 from services.kindergarten_template_routing_service import (
     AUTO_TEMPLATE_NAME,
+    KindergartenTemplateRoutingDecision,
     resolve_kindergarten_template,
+)
+from services.kindergarten_visual_planning_service import (
+    AI_BACKGROUND_TEMPLATE_NAME,
+    KindergartenVisualMode,
+    apply_ai_background_visual_plan,
+    get_kindergarten_visual_style_summary,
 )
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
+from templates.ai_visual_default import build_ai_visual_template
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
@@ -68,6 +77,8 @@ class KindergartenPresentationCreateRequest(KindergartenLessonPlanRequest):
     # use domain + actual slide semantics rather than guessing from the raw title.
     # Sending a concrete template id/name still preserves manual selection exactly.
     template: str = Field(default=AUTO_TEMPLATE_NAME, min_length=1, max_length=200)
+    visual_mode: KindergartenVisualMode = "template"
+    visual_style: Optional[str] = Field(default=None, max_length=160)
     language: str = Field(default="Chinese", min_length=1, max_length=80)
     image_policy: ImagePolicy = ImagePolicy.STANDARD
     file_paths: list[str] = Field(default_factory=list, max_length=20)
@@ -85,6 +96,8 @@ class KindergartenPresentationCreateResponse(KindergartenLessonPlanResponse):
     selected_template: str
     template_selection_reason: str
     template_scores: dict[str, int] = Field(default_factory=dict)
+    visual_mode: KindergartenVisualMode = "template"
+    visual_style_summary: Optional[str] = None
 
 
 class KindergartenPresentationPrepareResponse(KindergartenPresentationCreateResponse):
@@ -145,6 +158,63 @@ async def _generate_validated_plan(
                 "quality": exc.report.model_dump(mode="json"),
             },
         ) from exc
+
+
+async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
+    existing = await sql_session.get(TemplateV2, AI_BACKGROUND_TEMPLATE_NAME)
+    if existing is not None:
+        return
+    sql_session.add(build_ai_visual_template())
+    await sql_session.commit()
+
+
+def _apply_visual_mode(
+    payload: KindergartenPresentationCreateRequest,
+    result: ValidatedKindergartenPlanningResult,
+) -> tuple[
+    ValidatedKindergartenPlanningResult,
+    KindergartenTemplateRoutingDecision,
+    Optional[str],
+]:
+    if payload.visual_mode == "template":
+        routing = resolve_kindergarten_template(
+            result.plan,
+            payload.template,
+            instructions=payload.instructions,
+        )
+        return result, routing, None
+
+    if payload.image_policy != ImagePolicy.STANDARD:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "AI 自由视觉需要 image_policy=standard，"
+                "因为每页都必须生成一张可校验的 16:9 背景图。"
+            ),
+        )
+
+    visual_outline = apply_ai_background_visual_plan(
+        result.outline,
+        topic=payload.topic,
+        domain=payload.domain,
+        visual_style_hint=payload.visual_style,
+    )
+    visual_result = ValidatedKindergartenPlanningResult(
+        plan=result.plan,
+        outline=visual_outline,
+        quality=result.quality,
+        attempts=result.attempts,
+    )
+    routing = KindergartenTemplateRoutingDecision(
+        template=AI_BACKGROUND_TEMPLATE_NAME,
+        reason="visual-mode:ai-background;neutral-skeleton+generated-backgrounds",
+        scores={AI_BACKGROUND_TEMPLATE_NAME: 100},
+    )
+    style_summary = get_kindergarten_visual_style_summary(
+        domain=payload.domain,
+        visual_style_hint=payload.visual_style,
+    )
+    return visual_result, routing, style_summary
 
 
 async def _create_reviewable_presentation(
@@ -218,18 +288,16 @@ async def create_kindergarten_presentation(
 ):
     """Create a reviewed-outline checkpoint without starting slide generation.
 
-    This is the product-facing kindergarten entry point. It runs the dedicated
-    lesson planner + repair/quality loop, stores the machine-contract outline, and
-    returns the recommended template. The browser can now open the existing outline
-    editor, let the teacher review/edit it, and only then call `/presentation/prepare`.
-    No paid image generation or slide materialization happens in this endpoint.
+    The normal mode routes to a stable kindergarten template. AI-background mode
+    keeps only a neutral layout skeleton, injects a shared art direction plus one
+    page-specific full-canvas background contract per slide, and defers paid image
+    generation until after the teacher reviews the outline.
     """
     result = await _generate_validated_plan(payload, request)
-    routing = resolve_kindergarten_template(
-        result.plan,
-        payload.template,
-        instructions=payload.instructions,
-    )
+    result, routing, style_summary = _apply_visual_mode(payload, result)
+    if payload.visual_mode == "ai-background":
+        await _ensure_ai_visual_template(sql_session)
+
     presentation = await _create_reviewable_presentation(
         payload,
         result,
@@ -243,6 +311,8 @@ async def create_kindergarten_presentation(
         outline=result.outline,
         quality=result.quality,
         planning_attempts=result.attempts,
+        visual_mode=payload.visual_mode,
+        visual_style_summary=style_summary,
         **_routing_response_fields(routing),
     )
 
@@ -256,18 +326,11 @@ async def prepare_kindergarten_presentation(
     request: Request,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    """One-shot plan + route + prepare endpoint for API clients without review UI.
-
-    Interactive Teachnova creation should prefer `/presentation/create`, which keeps
-    the human outline-review checkpoint. This endpoint remains useful to service/API
-    callers that deliberately want to skip that checkpoint.
-    """
+    """One-shot plan + route + prepare endpoint for API clients without review UI."""
     result = await _generate_validated_plan(payload, request)
-    routing = resolve_kindergarten_template(
-        result.plan,
-        payload.template,
-        instructions=payload.instructions,
-    )
+    result, routing, style_summary = _apply_visual_mode(payload, result)
+    if payload.visual_mode == "ai-background":
+        await _ensure_ai_visual_template(sql_session)
 
     presentation = await _create_reviewable_presentation(
         payload,
@@ -298,6 +361,8 @@ async def prepare_kindergarten_presentation(
         outline=result.outline,
         quality=result.quality,
         planning_attempts=result.attempts,
+        visual_mode=payload.visual_mode,
+        visual_style_summary=style_summary,
         **_routing_response_fields(routing),
     )
 
