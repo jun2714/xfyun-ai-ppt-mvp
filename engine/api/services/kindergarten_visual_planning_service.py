@@ -102,10 +102,14 @@ def _safe_area_for_slide(index: int, relationship: str) -> str:
     return "left" if index % 2 else "right"
 
 
-def _append_unique(values: list[str], value: str) -> None:
+def _append_unique(values: list[str], value: str, *, max_items: int) -> bool:
     key = value.casefold()
-    if not any(existing.casefold() == key for existing in values):
-        values.append(value)
+    if any(existing.casefold() == key for existing in values):
+        return True
+    if len(values) >= max_items:
+        return False
+    values.append(value)
+    return True
 
 
 def apply_ai_background_visual_plan(
@@ -158,11 +162,22 @@ def apply_ai_background_visual_plan(
         contract.media_role = (
             "background" if contract.media_role in {"none", "background"} else "mixed"
         )
-        _append_unique(contract.required_asset_semantics, semantic_label)
+        if not _append_unique(
+            contract.required_asset_semantics,
+            semantic_label,
+            max_items=16,
+        ):
+            raise ValueError(
+                f"第 {index + 1} 页图片语义契约已达到上限，无法追加 AI 背景契约。"
+            )
         if not any(
             item.role == "background" and item.semantic_label == semantic_label
             for item in contract.asset_contracts
         ):
+            if len(contract.asset_contracts) >= 16:
+                raise ValueError(
+                    f"第 {index + 1} 页图片资产契约已达到上限，无法追加 AI 背景契约。"
+                )
             contract.asset_contracts.insert(
                 0,
                 SlideAssetContract(
@@ -174,7 +189,15 @@ def apply_ai_background_visual_plan(
                     qa_required=True,
                 ),
             )
-        _append_unique(contract.preferred_layout_capabilities, "scene")
-        slide.content_contract = contract
+        _append_unique(
+            contract.preferred_layout_capabilities,
+            "scene",
+            max_items=8,
+        )
+        # Re-validate the mutated contract before persistence. This catches future
+        # field-limit changes here rather than after the teacher has reviewed it.
+        slide.content_contract = SlideContentContract.model_validate(
+            contract.model_dump(mode="json")
+        )
 
     return planned
