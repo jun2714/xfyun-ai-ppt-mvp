@@ -14,6 +14,7 @@ from api.v1.admin.router import API_V1_ADMIN_ROUTER
 from api.v1.mock.router import API_V1_MOCK_ROUTER
 from api.v1.ppt.router import API_V1_PPT_ROUTER
 from api.v1.webhook.router import API_V1_WEBHOOK_ROUTER
+from utils.dmx_compat import apply_dmx_compat_env
 from utils.get_env import (
     get_app_data_directory_env,
     get_sentry_dsn_env,
@@ -25,6 +26,7 @@ from utils.mime_types import init_sandbox_safe_mimetypes
 from utils.path_helpers import get_resource_path
 
 
+apply_dmx_compat_env()
 init_sandbox_safe_mimetypes()
 
 
