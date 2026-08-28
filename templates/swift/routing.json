@@ -1,0 +1,11 @@
+{
+  "audiences": ["child"],
+  "domains": ["互动", "游戏"],
+  "scenes": ["教学", "公开课"],
+  "styles": ["明亮童趣", "游戏互动"],
+  "routing_terms": ["游戏", "互动", "猜一猜", "找一找", "配对", "闯关", "问答", "律动", "抢答", "挑战", "找不同"],
+  "auto_match": true,
+  "auto_priority": 40,
+  "allow_charts": false,
+  "quality_status": "candidate"
+}
