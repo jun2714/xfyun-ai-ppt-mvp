@@ -37,6 +37,27 @@ jobs:
           TEMP_DIRECTORY: ${{ runner.temp }}/sparkdeck-temp
         run: uv run pytest -q
 
+  web-checks:
+    name: Outline web typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+      - name: Install web workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck outline web app
+        run: pnpm --filter @sparkdeck/web typecheck
+      - name: Build outline web app
+        run: pnpm --filter @sparkdeck/web build
+
   editor-checks:
     name: Editor tests, typecheck and build
     runs-on: ubuntu-latest
