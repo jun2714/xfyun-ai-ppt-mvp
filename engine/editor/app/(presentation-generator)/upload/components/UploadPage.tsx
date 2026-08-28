@@ -1,12 +1,8 @@
 /**
- * UploadPage Component
+ * Kindergarten PPT creation entry.
  *
- * This component handles the presentation generation upload process, allowing users to:
- * - Configure presentation settings (slides, language)
- * - Input prompts
- * - Upload supporting documents
- *
- * @component
+ * The page always creates a reviewable lesson outline first. Paid slide/image
+ * generation happens only after the teacher confirms that outline.
  */
 
 "use client";
@@ -21,6 +17,7 @@ import { notify } from "@/components/ui/sonner";
 import {
   PresentationGenerationApi,
   type KindergartenDomain,
+  type KindergartenVisualMode,
 } from "../../services/api/presentation-generation";
 import { OverlayLoader } from "@/components/ui/overlay-loader";
 import Wrapper from "@/components/Wrapper";
@@ -46,24 +43,36 @@ import {
 import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
 import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import UploadTemplateGallery from "./UploadTemplateGallery";
-// 社区参考暂不对外开放
-// import CommunityReferencePicker from "./CommunityReferencePicker";
-// import {
-//   CommunityPresentationApi,
-//   type CommunityPresentation,
-// } from "../../services/api/community";
 
 type CreateFlowMode = "topic" | "template";
+
 const CREATE_FLOW_TABS: Array<{ id: CreateFlowMode; label: string; hint: string }> = [
   {
     id: "topic",
     label: "主题生成",
-    hint: "输入主题后先生成幼教课堂大纲，再自动推荐或手动选择模板排版",
+    hint: "输入主题后先生成幼教课堂大纲，再选择智能模板或 AI 自由视觉完成课件。",
   },
   {
     id: "template",
     label: "模板生成",
-    hint: "先生成并确认幼教课堂大纲，再选择模板进行排版",
+    hint: "先生成并确认幼教课堂大纲，再选择指定模板进行稳定排版。",
+  },
+];
+
+const VISUAL_MODE_OPTIONS: Array<{
+  id: KindergartenVisualMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "template",
+    label: "智能模板",
+    description: "背景与装饰沿用模板，AI 只补充教学所需图片，成本更低、稳定性更高。",
+  },
+  {
+    id: "ai-background",
+    label: "AI 自由视觉",
+    description: "使用中性版式骨架，每页生成不同但同一世界观的 16:9 背景，画面更丰富。",
   },
 ];
 
@@ -223,15 +232,14 @@ const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([]);
   const generationMode = "standard" as const;
   const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
+  const [visualMode, setVisualMode] = useState<KindergartenVisualMode>("template");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
     audience: "幼儿",
     age: "中班 4—5 岁",
     scene: "集体教学",
     style: "明亮童趣",
   });
-  const [config, setConfig] = useState<PresentationConfig>(
-    createTeachnovaDefaultConfig,
-  );
+  const [config, setConfig] = useState<PresentationConfig>(createTeachnovaDefaultConfig);
 
   const continueToOutline = (presentationId: string, templateId?: string | null) => {
     const outlineUrl = new URL(
@@ -248,6 +256,17 @@ const UploadPage = () => {
 
   const handleCreateFlowModeChange = (mode: CreateFlowMode) => {
     setCreateFlowMode(mode);
+    if (mode === "template") {
+      setVisualMode("template");
+    }
+  };
+
+  const handleVisualModeChange = (mode: KindergartenVisualMode) => {
+    if (mode === "ai-background" && llmConfig?.DISABLE_IMAGE_GENERATION) {
+      notify.warning("请先开启 AI 生图", "AI 自由视觉需要为每一页生成背景图。" );
+      return;
+    }
+    setVisualMode(mode);
   };
 
   useEffect(() => {
@@ -266,6 +285,12 @@ const UploadPage = () => {
       }));
     }
   }, [llmConfig?.WEB_GROUNDING]);
+
+  useEffect(() => {
+    if (llmConfig?.DISABLE_IMAGE_GENERATION && visualMode === "ai-background") {
+      setVisualMode("template");
+    }
+  }, [llmConfig?.DISABLE_IMAGE_GENERATION, visualMode]);
 
   const [loadingState, setLoadingState] = useState<LoadingState>({
     isLoading: false,
@@ -295,6 +320,7 @@ const UploadPage = () => {
       web_search: !!config.webSearch,
       generation_mode: generationMode,
       create_flow_mode: createFlowMode,
+      visual_mode: visualMode,
       community_reference_id: null,
       has_prompt: Boolean(trimmedPrompt),
       prompt_char_count: trimmedPrompt.length,
@@ -372,6 +398,12 @@ const UploadPage = () => {
       notify.warning("请输入内容", "请输入主题或上传文档后再生成。");
       return false;
     }
+
+    if (visualMode === "ai-background" && llmConfig?.DISABLE_IMAGE_GENERATION) {
+      trackUploadValidationFailure("ai_background_without_image_generation");
+      notify.warning("请先开启 AI 生图", "AI 自由视觉需要为每一页生成 16:9 背景图。" );
+      return false;
+    }
     return true;
   };
 
@@ -397,10 +429,7 @@ const UploadPage = () => {
     const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
     const requestContext = teachingContext;
     const requestContent = buildTeachnovaPrompt(topic, requestContext);
-    const plannerInstructions = buildPlannerInstructions(
-      config.instructions,
-      requestContext,
-    );
+    const plannerInstructions = buildPlannerInstructions(config.instructions, requestContext);
     const createResponse = await PresentationGenerationApi.createKindergartenPresentation({
       topic,
       age_group: normalizeAgeGroup(requestContext.age),
@@ -409,6 +438,8 @@ const UploadPage = () => {
       n_slides: parseLimitedSlideCount(config?.slides),
       instructions: plannerInstructions,
       template: "auto",
+      visual_mode: visualMode,
+      visual_style: requestContext.style || null,
       language: TEACHNOVA_API_LANGUAGE,
       image_policy: llmConfig?.DISABLE_IMAGE_GENERATION ? "disabled" : "standard",
       file_paths: documentPaths,
@@ -456,10 +487,7 @@ const UploadPage = () => {
     const promises: Promise<any>[] = [];
     if (documents.length > 0) {
       promises.push(
-        PresentationGenerationApi.decomposeDocuments(
-          documents,
-          TEACHNOVA_API_LANGUAGE,
-        ),
+        PresentationGenerationApi.decomposeDocuments(documents, TEACHNOVA_API_LANGUAGE),
       );
     }
     const responses = await Promise.all(promises);
@@ -470,7 +498,10 @@ const UploadPage = () => {
       message: "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 50,
-      extra_info: "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
+      extra_info:
+        visualMode === "ai-background"
+          ? "先检查教学逻辑，再规划统一视觉世界与逐页背景；确认大纲前不会开始付费生图。"
+          : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
     const { createResponse, destination } = await createKindergartenOutline(documentPaths);
@@ -480,6 +511,7 @@ const UploadPage = () => {
       decompose_job_count: responses.length,
       extracted_document_count: documentPaths.length,
       selected_template: createResponse.selected_template,
+      visual_mode: createResponse.visual_mode,
       planning_attempts: createResponse.planning_attempts,
       destination,
     });
@@ -487,14 +519,12 @@ const UploadPage = () => {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.presentation_id,
       selected_template: createResponse.selected_template,
+      visual_mode: createResponse.visual_mode,
       uploaded_documents_count: documents.length,
       extracted_document_count: documentPaths.length,
       destination,
     });
-    continueToOutline(
-      createResponse.presentation_id,
-      createResponse.selected_template,
-    );
+    continueToOutline(createResponse.presentation_id, createResponse.selected_template);
   };
 
   const handleDirectPresentationGeneration = async () => {
@@ -503,7 +533,10 @@ const UploadPage = () => {
       message: "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 45,
-      extra_info: "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
+      extra_info:
+        visualMode === "ai-background"
+          ? "先规划课堂与整套视觉规范；每页背景会在大纲确认后再生成。"
+          : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
     const { createResponse, destination } = await createKindergartenOutline([]);
@@ -511,13 +544,11 @@ const UploadPage = () => {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.presentation_id,
       selected_template: createResponse.selected_template,
+      visual_mode: createResponse.visual_mode,
       planning_attempts: createResponse.planning_attempts,
       destination,
     });
-    continueToOutline(
-      createResponse.presentation_id,
-      createResponse.selected_template,
-    );
+    continueToOutline(createResponse.presentation_id, createResponse.selected_template);
   };
 
   const handleGenerationError = (error: any) => {
@@ -528,11 +559,10 @@ const UploadPage = () => {
       duration: 0,
       showProgress: false,
     });
-    notify.error(
-      "生成失败",
-      error.message || "启动演示文稿生成时发生错误。",
-    );
+    notify.error("生成失败", error.message || "启动演示文稿生成时发生错误。");
   };
+
+  const imageGenerationDisabled = !!llmConfig?.DISABLE_IMAGE_GENERATION;
 
   return (
     <div className="relative min-h-dvh">
@@ -559,7 +589,7 @@ const UploadPage = () => {
           </svg>
         </h1>
         <p className="mt-2 max-w-2xl font-syne text-base text-[#101323CC] sm:text-lg lg:text-xl min-[1920px]:text-2xl">
-          先规划一节能上课的幼教活动，再确认大纲与模板
+          先规划一节能上课的幼教活动，再确认大纲与视觉方式
         </p>
       </div>
 
@@ -571,12 +601,9 @@ const UploadPage = () => {
           duration={loadingState.duration}
           extra_info={loadingState.extra_info}
         />
-        <div className="mx-auto mb-6 flex max-w-[760px] justify-center px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
-          <div
-            role="tablist"
-            aria-label="生成方式"
-            className="inline-flex rounded-lg bg-[#F6F6F9] p-1"
-          >
+
+        <div className="mx-auto mb-5 flex max-w-[760px] justify-center px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+          <div role="tablist" aria-label="生成方式" className="inline-flex rounded-lg bg-[#F6F6F9] p-1">
             {CREATE_FLOW_TABS.map((tab) => {
               const active = createFlowMode === tab.id;
               return (
@@ -587,7 +614,7 @@ const UploadPage = () => {
                   aria-selected={active}
                   className={`rounded-md px-4 py-2 font-syne text-sm font-semibold transition-colors ${
                     active
-                      ? "bg-white text-[#6847F4] shadow-[0_1px_3px_rgba(16,19,35,0.08)]"
+                      ? "bg-white text-[#155E52] shadow-[0_1px_3px_rgba(16,19,35,0.08)]"
                       : "text-[#667085] hover:text-[#344054]"
                   }`}
                   onClick={() => handleCreateFlowModeChange(tab.id)}
@@ -599,10 +626,45 @@ const UploadPage = () => {
           </div>
         </div>
 
+        {createFlowMode === "topic" ? (
+          <div className="mx-auto mb-5 grid max-w-[760px] gap-2 px-4 sm:grid-cols-2 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+            {VISUAL_MODE_OPTIONS.map((option) => {
+              const active = visualMode === option.id;
+              const disabled = option.id === "ai-background" && imageGenerationDisabled;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={disabled}
+                  onClick={() => handleVisualModeChange(option.id)}
+                  className={`border px-4 py-3 text-left transition-colors ${
+                    active
+                      ? "border-[#2A6F62] bg-[#F3FAF7]"
+                      : "border-[#E4E7EC] bg-white hover:border-[#9BBDB5]"
+                  } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[#1F2937]">{option.label}</span>
+                    {active ? <span className="text-xs font-semibold text-[#2A6F62]">已选择</span> : null}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-[#667085]">
+                    {disabled ? "当前已关闭 AI 生图，开启后可用。" : option.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div className="mx-auto mb-[40px] max-w-[760px] space-y-[18px] px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
           <div className="flex min-h-[34px] w-full flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-md bg-[#F4F1FF] px-3 py-1.5 font-syne text-xs font-semibold text-[#6847F4]">
-              {createFlowMode === "template" ? "模板生成" : "主题生成"}
+            <span className="inline-flex items-center rounded-md bg-[#EDF7F3] px-3 py-1.5 font-syne text-xs font-semibold text-[#155E52]">
+              {createFlowMode === "template"
+                ? "模板生成"
+                : visualMode === "ai-background"
+                  ? "主题生成 · AI自由视觉"
+                  : "主题生成 · 智能模板"}
             </span>
             <CurrentConfig webSearchEnabled={config.webSearch} />
           </div>
