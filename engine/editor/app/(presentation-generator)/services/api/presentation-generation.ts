@@ -28,12 +28,16 @@ export type KindergartenDomain =
   | "art"
   | "comprehensive";
 
+export type KindergartenVisualMode = "template" | "ai-background";
+
 export type KindergartenPresentationCreateResponse = {
   presentation_id: string;
   outline_path: string;
   selected_template: string;
   template_selection_reason: string;
   template_scores: Record<string, number>;
+  visual_mode: KindergartenVisualMode;
+  visual_style_summary?: string | null;
   planning_attempts: number;
   quality: {
     passed: boolean;
@@ -174,6 +178,8 @@ export class PresentationGenerationApi {
     instructions,
     source_context,
     template = "auto",
+    visual_mode = "template",
+    visual_style,
     language = "Chinese",
     image_policy = "standard",
     file_paths = [],
@@ -188,6 +194,8 @@ export class PresentationGenerationApi {
     instructions?: string | null;
     source_context?: string | null;
     template?: string;
+    visual_mode?: KindergartenVisualMode;
+    visual_style?: string | null;
     language?: string;
     image_policy?: "disabled" | "minimal" | "standard";
     file_paths?: string[];
@@ -213,6 +221,8 @@ export class PresentationGenerationApi {
             instructions,
             source_context,
             template,
+            visual_mode,
+            visual_style,
             language,
             image_policy,
             file_paths,
