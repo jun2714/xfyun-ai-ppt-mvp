@@ -160,11 +160,37 @@ async def _generate_validated_plan(
         ) from exc
 
 
+def _layout_count(template: TemplateV2) -> int:
+    if not isinstance(template.layouts, dict):
+        return 0
+    layouts = template.layouts.get("layouts")
+    return len(layouts) if isinstance(layouts, list) else 0
+
+
 async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
+    """Install or upgrade the internal neutral skeleton used by AI free visual."""
+    production = build_production_ai_visual_template()
     existing = await sql_session.get(TemplateV2, AI_BACKGROUND_TEMPLATE_NAME)
-    if existing is not None:
+    if existing is None:
+        sql_session.add(production)
+        await sql_session.commit()
         return
-    sql_session.add(build_production_ai_visual_template())
+
+    if _layout_count(existing) >= _layout_count(production):
+        return
+
+    # This template is an internal product contract, not user-authored content.
+    # Upgrade stale copies so deployments that tried an earlier six-layout build
+    # automatically receive the production eight-layout skeleton.
+    existing.name = production.name
+    existing.description = production.description
+    existing.raw_layouts = production.raw_layouts
+    existing.components = production.components
+    existing.merged_components = production.merged_components
+    existing.layouts = production.layouts
+    existing.assets = production.assets
+    existing.is_default = True
+    sql_session.add(existing)
     await sql_session.commit()
 
 
@@ -252,6 +278,33 @@ async def _create_reviewable_presentation(
     return presentation
 
 
+async def _persist_kindergarten_generation_metadata(
+    presentation,
+    *,
+    payload: KindergartenPresentationCreateRequest,
+    routing: KindergartenTemplateRoutingDecision,
+    visual_style_summary: Optional[str],
+    sql_session: AsyncSession,
+) -> None:
+    """Persist routing so a saved outline can be resumed without URL-only state."""
+    theme = dict(presentation.theme or {})
+    theme["kindergarten_generation"] = {
+        "version": 1,
+        "age_group": payload.age_group,
+        "domain": payload.domain,
+        "duration_minutes": payload.duration_minutes,
+        "visual_mode": payload.visual_mode,
+        "visual_style": payload.visual_style,
+        "visual_style_summary": visual_style_summary,
+        "selected_template": routing.template,
+        "template_selection_reason": routing.reason,
+        "template_scores": routing.scores,
+    }
+    presentation.theme = theme
+    sql_session.add(presentation)
+    await sql_session.commit()
+
+
 def _routing_response_fields(routing) -> dict:
     return {
         "selected_template": routing.template,
@@ -298,10 +351,13 @@ async def create_kindergarten_presentation(
     if payload.visual_mode == "ai-background":
         await _ensure_ai_visual_template(sql_session)
 
-    presentation = await _create_reviewable_presentation(
-        payload,
-        result,
-        sql_session,
+    presentation = await _create_reviewable_presentation(payload, result, sql_session)
+    await _persist_kindergarten_generation_metadata(
+        presentation,
+        payload=payload,
+        routing=routing,
+        visual_style_summary=style_summary,
+        sql_session=sql_session,
     )
 
     return KindergartenPresentationCreateResponse(
@@ -332,10 +388,13 @@ async def prepare_kindergarten_presentation(
     if payload.visual_mode == "ai-background":
         await _ensure_ai_visual_template(sql_session)
 
-    presentation = await _create_reviewable_presentation(
-        payload,
-        result,
-        sql_session,
+    presentation = await _create_reviewable_presentation(payload, result, sql_session)
+    await _persist_kindergarten_generation_metadata(
+        presentation,
+        payload=payload,
+        routing=routing,
+        visual_style_summary=style_summary,
+        sql_session=sql_session,
     )
     try:
         prepared = await prepare_presentation(
