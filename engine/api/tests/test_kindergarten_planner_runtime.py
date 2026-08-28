@@ -46,6 +46,32 @@ def test_planner_runtime_reuses_shared_dmx_key(monkeypatch):
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
 
+def test_planner_runtime_defaults_to_kimi_k3_with_only_dmx_key(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.model == "kimi-k3"
+    assert runtime.source == "shared-dmx-openai-compatible"
+    assert runtime.config.api_key == "shared-dmx-key"
+    assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
+
+
+def test_stale_moonshot_url_is_ignored_when_using_shared_dmx_key(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_BASE_URL", "https://www.dmxapi.cn/v1")
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_BASE_URL", "https://api.moonshot.cn/v1")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.source == "shared-dmx-openai-compatible"
+    assert runtime.config.api_key == "shared-dmx-key"
+    assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
+
+
 def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
@@ -62,6 +88,17 @@ def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
     assert str(runtime.config.base_url).rstrip("/") == "https://example.test/v1"
 
 
+def test_dedicated_key_requires_dedicated_base_url(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_API_KEY", "dedicated-key")
+
+    with pytest.raises(HTTPException) as exc_info:
+        runtime_module.get_kindergarten_planner_runtime()
+
+    assert exc_info.value.status_code == 400
+    assert "KINDERGARTEN_PLANNER_BASE_URL" in str(exc_info.value.detail)
+
+
 def test_planner_runtime_rejects_model_without_any_key(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
@@ -70,6 +107,4 @@ def test_planner_runtime_rejects_model_without_any_key(monkeypatch):
         runtime_module.get_kindergarten_planner_runtime()
 
     assert exc_info.value.status_code == 400
-    assert "DMX_API_KEY or KINDERGARTEN_PLANNER_API_KEY" in str(
-        exc_info.value.detail
-    )
+    assert "DMX_API_KEY" in str(exc_info.value.detail)
