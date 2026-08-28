@@ -13,6 +13,9 @@ CHINESE_PEOPLE_INSTRUCTION = (
     "不要出现欧美面孔。"
 )
 
+ImageAspectRatio = Literal["16:9", "4:3", "3:2", "1:1", "3:4", "2:3", "9:16"]
+ImageOutputSize = Literal["0.5K", "1K", "2K", "4K"]
+
 
 class ImagePrompt(BaseModel):
     prompt: str
@@ -23,6 +26,10 @@ class ImagePrompt(BaseModel):
     ocr_policy: Literal["reject-on-detection", "disabled"] = Field(
         default="reject-on-detection"
     )
+    # Provider hints. Gemini-native image models can honor these exactly; providers
+    # without explicit support simply continue using their existing defaults.
+    aspect_ratio: Optional[ImageAspectRatio] = None
+    image_size: Optional[ImageOutputSize] = None
 
     def get_image_prompt(self, with_theme: bool = False) -> str:
         parts = [self.prompt.strip()]
