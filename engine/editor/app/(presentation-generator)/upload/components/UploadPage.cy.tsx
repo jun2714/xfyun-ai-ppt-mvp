@@ -66,6 +66,10 @@ const checkToast = (message: string) => {
   cy.get("[data-sonner-toast]", { timeout: 5000 }).should("contain", message);
 };
 
+const clickGenerate = () => {
+  cy.get('button[aria-label="生成演示文稿"]').click({ force: true });
+};
+
 describe("<UploadPage /> kindergarten creation", () => {
   beforeEach(() => {
     cy.viewport(1440, 900);
@@ -83,7 +87,7 @@ describe("<UploadPage /> kindergarten creation", () => {
 
   it("keeps the teacher-facing configuration controls usable", () => {
     cy.get('[data-testid="slides-select"]').click({ force: true });
-    cy.get('[role="option"]').contains("12").click();
+    cy.get('[role="option"]').contains("12").click({ force: true });
     cy.get('[data-testid="slides-select"]').should("contain", "12");
 
     cy.get('[data-testid="prompt-input"]').type("春天里的种子");
@@ -93,7 +97,7 @@ describe("<UploadPage /> kindergarten creation", () => {
   it("sends template mode through the kindergarten planner", () => {
     cy.get('[data-testid="prompt-input"]').type("洗手好习惯");
     cy.contains("button", "智能模板").click();
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
 
     cy.wait("@createKindergartenPresentation")
       .its("request.body")
@@ -126,7 +130,7 @@ describe("<UploadPage /> kindergarten creation", () => {
 
     cy.get('[data-testid="prompt-input"]').type("森林动物大冒险");
     cy.contains("button", "AI 自由视觉").click();
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
 
     cy.wait("@createAiVisualPresentation")
       .its("request.body")
@@ -149,7 +153,7 @@ describe("<UploadPage /> kindergarten creation", () => {
     cy.contains("AI 自由视觉").should("not.exist");
 
     cy.get('[data-testid="prompt-input"]').type("端午节亲子活动");
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
 
     cy.wait("@createKindergartenPresentation")
       .its("request.body.visual_mode")
@@ -157,8 +161,14 @@ describe("<UploadPage /> kindergarten creation", () => {
   });
 
   it("still processes uploaded source documents before lesson planning", () => {
-    cy.fixture("example.txt").as("testFile");
-    cy.get('[data-testid="file-upload-input"]').selectFile("@testFile", { force: true });
+    cy.get('[data-testid="file-upload-input"]').selectFile(
+      {
+        contents: Cypress.Buffer.from("kindergarten source material"),
+        fileName: "example.txt",
+        mimeType: "text/plain",
+      },
+      { force: true },
+    );
 
     cy.intercept("POST", "**/ppt/files/upload", {
       statusCode: 200,
@@ -170,7 +180,7 @@ describe("<UploadPage /> kindergarten creation", () => {
     }).as("decomposeDoc");
 
     cy.get('[data-testid="prompt-input"]').type("根据资料设计科学活动");
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
 
     cy.wait("@uploadDoc");
     cy.wait("@decomposeDoc");
@@ -180,7 +190,7 @@ describe("<UploadPage /> kindergarten creation", () => {
   });
 
   it("shows validation when neither a topic nor a document exists", () => {
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
     checkToast("请输入内容");
   });
 
@@ -191,7 +201,7 @@ describe("<UploadPage /> kindergarten creation", () => {
     }).as("plannerError");
 
     cy.get('[data-testid="prompt-input"]').type("测试课件");
-    cy.contains("button", "Get Started").click();
+    clickGenerate();
     cy.wait("@plannerError");
     checkToast("生成失败");
   });
