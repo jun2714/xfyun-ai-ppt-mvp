@@ -76,8 +76,15 @@ async def _generate_structured_content(
     *,
     disconnect_checker: Optional[DisconnectChecker],
     text_chunk_callback: Optional[TextChunkCallback] = None,
+    call_timeout_seconds: Optional[float] = None,
     **kwargs: Any,
 ) -> Optional[dict]:
+    timeout_seconds = max(
+        1.0,
+        call_timeout_seconds
+        if call_timeout_seconds is not None
+        else LLM_CALL_TIMEOUT_SECONDS,
+    )
     if FORCE_NON_STREAM_STRUCTURED or (
         disconnect_checker is None and text_chunk_callback is None
     ):
@@ -87,33 +94,43 @@ async def _generate_structured_content(
         try:
             response = await asyncio.wait_for(
                 asyncio.to_thread(client.generate, **kwargs),
-                timeout=LLM_CALL_TIMEOUT_SECONDS,
+                timeout=timeout_seconds,
             )
         except asyncio.TimeoutError as exc:
             raise HTTPException(
                 status_code=504,
                 detail=(
                     "Text model call timed out after "
-                    f"{LLM_CALL_TIMEOUT_SECONDS:g} seconds"
+                    f"{timeout_seconds:g} seconds"
                 ),
             ) from exc
         return extract_structured_content(response.content)
 
     completion_content: Any = None
     streamed_text: list[str] = []
-    async for event in stream_generate_events(
-        client,
-        disconnect_checker=disconnect_checker,
-        **{**kwargs, "stream": True},
-    ):
-        if isinstance(event, ResponseStreamCompletionChunk):
-            completion_content = event.content
-        elif getattr(event, "type", None) == "content":
-            chunk = getattr(event, "chunk", None)
-            if isinstance(chunk, str):
-                streamed_text.append(chunk)
-                if text_chunk_callback is not None:
-                    await text_chunk_callback(chunk)
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            async for event in stream_generate_events(
+                client,
+                disconnect_checker=disconnect_checker,
+                **{**kwargs, "stream": True},
+            ):
+                if isinstance(event, ResponseStreamCompletionChunk):
+                    completion_content = event.content
+                elif getattr(event, "type", None) == "content":
+                    chunk = getattr(event, "chunk", None)
+                    if isinstance(chunk, str):
+                        streamed_text.append(chunk)
+                        if text_chunk_callback is not None:
+                            await text_chunk_callback(chunk)
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                "Text model call timed out after "
+                f"{timeout_seconds:g} seconds"
+            ),
+        ) from exc
 
     content = extract_structured_content(completion_content)
     if content is not None:
@@ -133,6 +150,8 @@ def get_generate_kwargs(
     response_format: Optional[ResponseFormat] = None,
     reasoning: Optional[ReasoningConfig] = None,
     stream: bool = False,
+    extra_body: Optional[dict[str, Any]] = None,
+    use_provider_extra_body: bool = True,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         "model": model,
@@ -148,9 +167,17 @@ def get_generate_kwargs(
     if reasoning is not None:
         kwargs["reasoning"] = reasoning
 
-    extra_body = get_extra_body(uses_tool_choice=bool(tools or response_format))
+    resolved_extra_body: dict[str, Any] = {}
+    if use_provider_extra_body:
+        provider_extra_body = get_extra_body(
+            uses_tool_choice=bool(tools or response_format)
+        )
+        if provider_extra_body:
+            resolved_extra_body.update(provider_extra_body)
     if extra_body:
-        kwargs["extra_body"] = extra_body
+        resolved_extra_body.update(extra_body)
+    if resolved_extra_body:
+        kwargs["extra_body"] = resolved_extra_body
 
     return kwargs
 
@@ -328,6 +355,10 @@ async def generate_structured_with_schema_retries(
     validate_schema_max_loop_count: int = int(os.getenv("ENGINE_MAX_SCHEMA_RETRIES", "1")) + 1,
     disconnect_checker: Optional[DisconnectChecker] = None,
     text_chunk_callback: Optional[TextChunkCallback] = None,
+    max_tokens: Optional[int] = None,
+    extra_body: Optional[dict[str, Any]] = None,
+    use_provider_extra_body: bool = True,
+    call_timeout_seconds: Optional[float] = None,
 ) -> dict:
     """
     Parse retries (inner loop) plus optional JSON Schema validation feedback loops (outer loop),
@@ -343,6 +374,7 @@ async def generate_structured_with_schema_retries(
             content = await _generate_structured_content(
                 client,
                 disconnect_checker=disconnect_checker,
+                call_timeout_seconds=call_timeout_seconds,
                 text_chunk_callback=(
                     text_chunk_callback
                     if validation_attempt == 0 and attempt == 0
@@ -352,6 +384,9 @@ async def generate_structured_with_schema_retries(
                     model=model,
                     messages=working_messages,
                     response_format=response_format,
+                    max_tokens=max_tokens,
+                    extra_body=extra_body,
+                    use_provider_extra_body=use_provider_extra_body,
                 ),
             )
             if content is not None:
