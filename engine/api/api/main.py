@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,35 +84,60 @@ static_dir = get_resource_path("static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Electron serves Next.js and FastAPI from separate loopback ports. When its
-# runtime Next.js origin is available, use that exact origin so credentialed
-# requests remain standards-compliant. Docker stays same-origin behind nginx;
-# the wildcard fallback preserves standalone FastAPI development behavior.
-# Local web may open the editor as either 127.0.0.1 or localhost; allow both.
+
+def _is_loopback_url(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        return urlparse(value).hostname in {"127.0.0.1", "localhost"}
+    except Exception:
+        return False
+
+
+def _append_origin(origins: list[str], value: str | None) -> None:
+    origin = (value or "").strip().rstrip("/")
+    if origin and origin not in origins:
+        origins.append(origin)
+
+
+# Electron/local development serves Next.js (5001), the outline web app (5173),
+# the TeachNova shell (3030) and FastAPI (8000) from separate loopback origins.
+# Production is same-origin/reverse-proxied, but developers often keep
+# NEXT_PUBLIC_URL set to the production editor URL while NEXT_PUBLIC_FAST_API is
+# loopback. In that mixed setup the old CORS list excluded 127.0.0.1:5001 and
+# EventSource failed before slide streaming could start.
 def _cors_origins() -> list[str]:
     next_public_origin = (os.getenv("NEXT_PUBLIC_URL") or "").strip().rstrip("/")
     origins: list[str] = []
     if not next_public_origin:
         origins = ["*"]
     else:
-        origins = [next_public_origin]
-        try:
-            from urllib.parse import urlparse
-
+        _append_origin(origins, next_public_origin)
+        if _is_loopback_url(next_public_origin):
             parsed = urlparse(next_public_origin)
-            if parsed.hostname in ("127.0.0.1", "localhost"):
-                alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
-                alt = f"{parsed.scheme}://{alt_host}"
-                if parsed.port:
-                    alt = f"{alt}:{parsed.port}"
-                if alt not in origins:
-                    origins.append(alt)
-        except Exception:
-            pass
+            alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
+            alt = f"{parsed.scheme}://{alt_host}"
+            if parsed.port:
+                alt = f"{alt}:{parsed.port}"
+            _append_origin(origins, alt)
 
-    for origin in get_teachnova_cors_origins():
-        if origin and origin not in origins and origins != ["*"]:
-            origins.append(origin)
+    if origins != ["*"]:
+        for origin in get_teachnova_cors_origins():
+            _append_origin(origins, origin)
+
+        # Only expose development loopback origins when the configured public
+        # FastAPI endpoint is itself loopback. This keeps production CORS tight.
+        if _is_loopback_url(os.getenv("NEXT_PUBLIC_FAST_API")):
+            for origin in (
+                "http://127.0.0.1:5001",
+                "http://localhost:5001",
+                "http://127.0.0.1:5173",
+                "http://localhost:5173",
+                "http://127.0.0.1:3030",
+                "http://localhost:3030",
+            ):
+                _append_origin(origins, origin)
+
     return origins
 
 
