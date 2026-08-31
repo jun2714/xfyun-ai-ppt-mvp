@@ -84,6 +84,11 @@ if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
+# Starlette wraps the most recently added middleware around earlier ones. Keep
+# CORS outermost so even auth/session failures carry the browser-visible CORS
+# headers instead of being misreported as an opaque EventSource CORS failure.
+app.add_middleware(UserConfigEnvUpdateMiddleware)
+app.add_middleware(SessionAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=build_cors_origins(),
@@ -92,9 +97,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition", "Content-Length", "Content-Type"],
 )
-
-app.add_middleware(UserConfigEnvUpdateMiddleware)
-app.add_middleware(SessionAuthMiddleware)
 
 
 @app.middleware("http")
