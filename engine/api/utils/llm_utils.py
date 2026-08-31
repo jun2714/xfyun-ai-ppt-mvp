@@ -77,6 +77,7 @@ async def _generate_structured_content(
     disconnect_checker: Optional[DisconnectChecker],
     text_chunk_callback: Optional[TextChunkCallback] = None,
     call_timeout_seconds: Optional[float] = None,
+    force_stream: bool = False,
     **kwargs: Any,
 ) -> Optional[dict]:
     timeout_seconds = max(
@@ -85,8 +86,10 @@ async def _generate_structured_content(
         if call_timeout_seconds is not None
         else LLM_CALL_TIMEOUT_SECONDS,
     )
-    if FORCE_NON_STREAM_STRUCTURED or (
-        disconnect_checker is None and text_chunk_callback is None
+    model_name = str(kwargs.get("model") or "unknown")
+    if not force_stream and (
+        FORCE_NON_STREAM_STRUCTURED
+        or (disconnect_checker is None and text_chunk_callback is None)
     ):
         # OpenAI-compatible gateways can finish billing a response while their
         # local client adapter still waits for the request to close. Without a
@@ -100,7 +103,7 @@ async def _generate_structured_content(
             raise HTTPException(
                 status_code=504,
                 detail=(
-                    "Text model call timed out after "
+                    f"Text model {model_name} call timed out after "
                     f"{timeout_seconds:g} seconds"
                 ),
             ) from exc
@@ -127,7 +130,7 @@ async def _generate_structured_content(
         raise HTTPException(
             status_code=504,
             detail=(
-                "Text model call timed out after "
+                f"Text model {model_name} call timed out after "
                 f"{timeout_seconds:g} seconds"
             ),
         ) from exc
@@ -359,6 +362,7 @@ async def generate_structured_with_schema_retries(
     extra_body: Optional[dict[str, Any]] = None,
     use_provider_extra_body: bool = True,
     call_timeout_seconds: Optional[float] = None,
+    force_stream: bool = False,
 ) -> dict:
     """
     Parse retries (inner loop) plus optional JSON Schema validation feedback loops (outer loop),
@@ -375,6 +379,7 @@ async def generate_structured_with_schema_retries(
                 client,
                 disconnect_checker=disconnect_checker,
                 call_timeout_seconds=call_timeout_seconds,
+                force_stream=force_stream,
                 text_chunk_callback=(
                     text_chunk_callback
                     if validation_attempt == 0 and attempt == 0

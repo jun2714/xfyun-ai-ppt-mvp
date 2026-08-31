@@ -15,9 +15,20 @@ class KindergartenPlannerRuntime:
     config: ClientConfig
     model: str
     source: str
+    profile: str
     request_extra_body: dict | None
     max_tokens: int
     timeout_seconds: float
+    total_timeout_seconds: float
+    stream: bool
+
+
+FAST_PROFILE = "fast"
+PREMIUM_PROFILE = "premium"
+FAST_MODEL = "kimi-k2.7-code-highspeed"
+FAST_MAX_TOKENS = 16_000
+FAST_CALL_TIMEOUT_SECONDS = 55.0
+FAST_TOTAL_TIMEOUT_SECONDS = 60.0
 
 
 def _positive_number_env(name: str, default: str, cast):
@@ -62,38 +73,87 @@ def _build_runtime(
     config: ClientConfig,
     model: str,
     source: str,
+    profile: str,
 ) -> KindergartenPlannerRuntime:
+    if profile == FAST_PROFILE:
+        if "kimi-k3" in model.strip().lower():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "KINDERGARTEN_PLANNER_FAST_MODEL cannot use kimi-k3. "
+                    "Use kimi-k2.7-code-highspeed or switch the planner profile "
+                    "to premium explicitly."
+                ),
+            )
+        return KindergartenPlannerRuntime(
+            config=config,
+            model=model,
+            source=source,
+            profile=profile,
+            request_extra_body=_planner_request_extra_body(model),
+            max_tokens=FAST_MAX_TOKENS,
+            timeout_seconds=FAST_CALL_TIMEOUT_SECONDS,
+            total_timeout_seconds=FAST_TOTAL_TIMEOUT_SECONDS,
+            stream=True,
+        )
+
+    timeout_seconds = _positive_number_env(
+        "KINDERGARTEN_PLANNER_TIMEOUT_SECONDS",
+        "240",
+        float,
+    )
     return KindergartenPlannerRuntime(
         config=config,
         model=model,
         source=source,
+        profile=profile,
         request_extra_body=_planner_request_extra_body(model),
         max_tokens=_positive_number_env(
             "KINDERGARTEN_PLANNER_MAX_TOKENS",
-            "8192",
+            "32768",
             int,
         ),
-        timeout_seconds=_positive_number_env(
-            "KINDERGARTEN_PLANNER_TIMEOUT_SECONDS",
-            "55",
-            float,
-        ),
+        timeout_seconds=timeout_seconds,
+        total_timeout_seconds=timeout_seconds * 2,
+        stream=True,
     )
+
+
+def _planner_profile() -> str:
+    profile = (
+        os.getenv("KINDERGARTEN_PLANNER_PROFILE") or FAST_PROFILE
+    ).strip().lower()
+    if profile not in {FAST_PROFILE, PREMIUM_PROFILE}:
+        raise HTTPException(
+            status_code=400,
+            detail="KINDERGARTEN_PLANNER_PROFILE must be fast or premium.",
+        )
+    return profile
+
+
+def _planner_model(profile: str, legacy_model: str) -> str:
+    if profile == FAST_PROFILE:
+        return (
+            os.getenv("KINDERGARTEN_PLANNER_FAST_MODEL") or FAST_MODEL
+        ).strip()
+    return legacy_model or "kimi-k3"
 
 
 def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
     """Resolve the model runtime used by kindergarten lesson planning.
 
-    TeachNova routes the fast Kimi K2.6 planner through DMXAPI by default, reusing
-    ``DMX_API_KEY``. A direct OpenAI-compatible planner endpoint is only selected
-    when a dedicated ``KINDERGARTEN_PLANNER_API_KEY`` is supplied. This prevents a
-    stale Moonshot URL from being accidentally combined with the shared DMX key.
+    Standard generation always uses a bounded fast profile. The legacy
+    ``KINDERGARTEN_PLANNER_MODEL`` value is read only when premium is selected
+    explicitly, so a stale production ``kimi-k3`` setting cannot silently turn a
+    normal outline request into a multi-minute reasoning call.
     """
     planner_base_url = (
         os.getenv("KINDERGARTEN_PLANNER_BASE_URL") or ""
     ).strip().rstrip("/")
     planner_api_key = (os.getenv("KINDERGARTEN_PLANNER_API_KEY") or "").strip()
-    planner_model = (os.getenv("KINDERGARTEN_PLANNER_MODEL") or "").strip()
+    legacy_model = (os.getenv("KINDERGARTEN_PLANNER_MODEL") or "").strip()
+    profile = _planner_profile()
+    planner_model = _planner_model(profile, legacy_model)
 
     dmx_base_url = (
         os.getenv("DMX_API_BASE_URL") or "https://www.dmxapi.cn/v1"
@@ -114,8 +174,9 @@ def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
                 base_url=planner_base_url,
                 api_key=planner_api_key,
             ),
-            model=planner_model or "kimi-k2.6",
+            model=planner_model,
             source="dedicated-openai-compatible",
+            profile=profile,
         )
 
     if dmx_api_key:
@@ -124,15 +185,17 @@ def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
                 base_url=dmx_base_url,
                 api_key=dmx_api_key,
             ),
-            model=planner_model or "kimi-k2.6",
+            model=planner_model,
             source="shared-dmx-openai-compatible",
+            profile=profile,
         )
 
-    if not planner_model and not planner_base_url:
+    if not legacy_model and not planner_base_url:
         return _build_runtime(
             config=get_llm_config(),
             model=get_model(),
             source="global",
+            profile=PREMIUM_PROFILE,
         )
 
     raise HTTPException(
