@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional
+import asyncio
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -30,6 +31,9 @@ from services.kindergarten_presentation_planning_service import (
 from services.kindergarten_plan_quality_service import (
     KindergartenPlanQualityReport,
     validate_kindergarten_lesson_plan,
+)
+from services.kindergarten_planner_runtime import (
+    get_kindergarten_planner_runtime,
 )
 from services.kindergarten_template_routing_service import (
     AUTO_TEMPLATE_NAME,
@@ -104,6 +108,16 @@ class KindergartenPresentationPrepareResponse(KindergartenPresentationCreateResp
     stream_path: str
 
 
+class KindergartenPlannerRuntimeResponse(BaseModel):
+    profile: str
+    model: str
+    source: str
+    max_tokens: int
+    call_timeout_seconds: float
+    total_timeout_seconds: float
+    stream: bool
+
+
 async def _planning_source_context(
     payload: KindergartenLessonPlanRequest,
 ) -> Optional[str]:
@@ -137,17 +151,27 @@ async def _generate_validated_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
 ) -> ValidatedKindergartenPlanningResult:
+    runtime = get_kindergarten_planner_runtime()
     try:
-        return await generate_validated_kindergarten_presentation_outline(
-            topic=payload.topic,
-            age_group=payload.age_group,
-            domain=payload.domain,
-            duration_minutes=payload.duration_minutes,
-            n_slides=payload.n_slides,
-            instructions=payload.instructions,
-            source_context=await _planning_source_context(payload),
-            disconnect_checker=request.is_disconnected,
-        )
+        async with asyncio.timeout(runtime.total_timeout_seconds):
+            return await generate_validated_kindergarten_presentation_outline(
+                topic=payload.topic,
+                age_group=payload.age_group,
+                domain=payload.domain,
+                duration_minutes=payload.duration_minutes,
+                n_slides=payload.n_slides,
+                instructions=payload.instructions,
+                source_context=await _planning_source_context(payload),
+                disconnect_checker=request.is_disconnected,
+            )
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Kindergarten planner {runtime.model} exceeded the complete "
+                f"{runtime.total_timeout_seconds:g}-second outline deadline"
+            ),
+        ) from exc
     except KindergartenPlanningQualityError as exc:
         raise HTTPException(
             status_code=422,
@@ -311,6 +335,24 @@ def _routing_response_fields(routing) -> dict:
         "template_selection_reason": routing.reason,
         "template_scores": routing.scores,
     }
+
+
+@KINDERGARTEN_ROUTER.get(
+    "/planner/runtime",
+    response_model=KindergartenPlannerRuntimeResponse,
+)
+async def kindergarten_planner_runtime():
+    """Expose non-secret planner routing so deployments can verify it cheaply."""
+    runtime = get_kindergarten_planner_runtime()
+    return KindergartenPlannerRuntimeResponse(
+        profile=runtime.profile,
+        model=runtime.model,
+        source=runtime.source,
+        max_tokens=runtime.max_tokens,
+        call_timeout_seconds=runtime.timeout_seconds,
+        total_timeout_seconds=runtime.total_timeout_seconds,
+        stream=runtime.stream,
+    )
 
 
 @KINDERGARTEN_ROUTER.post(

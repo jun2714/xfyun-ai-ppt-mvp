@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional, Type
 
 from llmai import get_client
@@ -14,6 +15,9 @@ from services.kindergarten_planner_runtime import get_kindergarten_planner_runti
 from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_utils import DisconnectChecker, generate_structured_with_schema_retries
 from utils.schema_utils import prepare_schema_for_validation
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 KINDERGARTEN_LESSON_SYSTEM_PROMPT = """
@@ -119,6 +123,17 @@ async def generate_kindergarten_lesson_plan(
     disconnect_checker: Optional[DisconnectChecker] = None,
 ) -> KindergartenLessonPlan:
     runtime = get_kindergarten_planner_runtime()
+    LOGGER.info(
+        "Kindergarten planner selected profile=%s model=%s source=%s "
+        "max_tokens=%s call_timeout=%ss total_timeout=%ss stream=%s",
+        runtime.profile,
+        runtime.model,
+        runtime.source,
+        runtime.max_tokens,
+        runtime.timeout_seconds,
+        runtime.total_timeout_seconds,
+        runtime.stream,
+    )
     client = get_client(config=runtime.config)
     model = runtime.model
     response_model = _lesson_plan_response_model(n_slides)
@@ -157,6 +172,7 @@ async def generate_kindergarten_lesson_plan(
             # unrelated global text provider.
             use_provider_extra_body=False,
             call_timeout_seconds=runtime.timeout_seconds,
+            force_stream=runtime.stream,
         )
         return KindergartenLessonPlan(**content)
     except Exception as exc:
