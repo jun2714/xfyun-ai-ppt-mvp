@@ -150,6 +150,13 @@ async def generate_kindergarten_lesson_plan(
             strict=False,
             validate_schema=True,
             disconnect_checker=disconnect_checker,
+            max_tokens=runtime.max_tokens,
+            extra_body=runtime.request_extra_body,
+            # The kindergarten planner can use a dedicated OpenAI-compatible
+            # client. Its model parameters must not be inherited from the
+            # unrelated global text provider.
+            use_provider_extra_body=False,
+            call_timeout_seconds=runtime.timeout_seconds,
         )
         return KindergartenLessonPlan(**content)
     except Exception as exc:
