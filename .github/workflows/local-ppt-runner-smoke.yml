@@ -15,7 +15,7 @@ permissions:
 jobs:
   smoke:
     name: Verify local PPT services
-    runs-on: [self-hosted, Windows, X64, ppt-local]
+    runs-on: self-hosted
     timeout-minutes: 10
 
     steps:
