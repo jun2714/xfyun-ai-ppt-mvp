@@ -3,6 +3,7 @@ name: Kindergarten PPT CI
 on:
   push:
     branches:
+      - main
       - feat/kindergarten-planner-v1
   pull_request:
     branches:
