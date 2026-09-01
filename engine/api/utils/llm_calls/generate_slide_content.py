@@ -62,11 +62,27 @@ You need to generate structured content json based on the schema.
   SLIDE CONTENT already contains that audience-facing information.
 - teaching_goal and teacher_note preserve classroom intent; teacher_note is for the speaker
   note, not the slide body.
+- When a MACHINE CONTENT CONTRACT is present, this is a preschool classroom slide. Preserve
+  the child-facing sense of wonder already written in SLIDE CONTENT. A question, invitation,
+  mystery, role-play line, sound cue, or action prompt must not be flattened into a generic
+  adult label such as “种子”, “学做”, “认识…”, “游戏时间”, or “总结”. Prefer the supplied
+  title wording verbatim when it fits the schema; if it must be shortened, keep its question,
+  action, surprise, or story hook.
+- For preschool slides, turn supporting copy into something a 3-6 year-old can immediately
+  observe, say, choose, imitate, or do. Avoid adjective-only lists, textbook definitions,
+  adult report language, empty slogans, and repeated sentence patterns across the deck.
+- Do not make every text field verbose just because the template has space. Large preschool
+  type and one strong idea are better than filling every placeholder.
 - required_asset_semantics is authoritative for image meaning. When the response schema has
   image_prompt fields, prompts must depict those exact required objects/features and must not
   substitute unrelated objects just because they are visually attractive. Include the exact
   required semantic phrase verbatim in at least one relevant image_prompt so the downstream
   semantic preflight can verify coverage before any paid image request is made.
+- Preschool image_prompt fields should describe a specific delightful story moment, not a
+  generic object catalogue: warm bright premium picture-book illustration, clear large subject,
+  friendly emotion, simple readable composition, and one visually surprising action or clue.
+  Keep real scientific features accurate. Never ask for black abstract textures, corporate
+  stock-photo styling, horror, text, letters, numbers, labels, logos, watermarks or pseudo-text.
 - activity_id and answer_key are consistency locks. For relationship=question, do not reveal
   answer_key in visible content or image prompts unless SLIDE CONTENT explicitly reveals it.
   For relationship=reveal, keep the generated content and imagery consistent with answer_key.
@@ -102,7 +118,10 @@ Chinese
 - If people appear in the image, they must all be Chinese people with East Asian /
   Chinese facial features, clothing, and classroom/life context suitable for Chinese
   kindergarten teaching. Do not depict Western / Caucasian people.
-- Prefer warm, child-friendly Chinese illustration style for teaching slides.
+- Prefer warm, bright, premium child-friendly Chinese picture-book illustration for teaching
+  slides. Show a concrete story moment or action whenever the lesson content allows it, with
+  a large clear subject and uncluttered composition. Avoid generic stock images and abstract
+  black decorative textures.
 
 # Slide Language:
 {language}
