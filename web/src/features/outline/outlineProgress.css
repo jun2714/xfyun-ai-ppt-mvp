@@ -1,0 +1,145 @@
+.outline-work-panel,
+.outline-complete-banner {
+  margin: 0 36px 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: 4px;
+}
+
+.outline-work-panel {
+  border: 1px solid #e2dcfb;
+  background: #faf9ff;
+}
+
+.outline-work-spinner {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  border: 2px solid #d9d0ff;
+  border-top-color: #6847f4;
+  border-radius: 50%;
+  animation: outline-progress-spin .8s linear infinite;
+}
+
+.outline-work-copy,
+.outline-complete-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.outline-work-copy strong,
+.outline-complete-copy strong {
+  display: block;
+  color: #26232d;
+  font-size: 13px;
+}
+
+.outline-work-copy > p,
+.outline-complete-copy > p {
+  margin: 5px 0 0;
+  color: #777282;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.outline-work-feed {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: #66616f;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.outline-work-feed span::before {
+  content: "•";
+  margin-right: 7px;
+  color: #6847f4;
+}
+
+.outline-work-meta {
+  flex: none;
+  padding-top: 1px;
+  color: #6847f4;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.outline-complete-banner {
+  align-items: center;
+  border: 1px solid #cfe6d5;
+  background: #f7fff9;
+}
+
+.outline-complete-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid #9fd0ab;
+  border-radius: 50%;
+  color: #24763a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.outline-complete-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+.outline-complete-actions .primary {
+  padding: 10px 15px;
+  font-size: 12px;
+}
+
+.outline-secondary-action {
+  padding: 9px 12px;
+  border: 1px solid #d8d5df;
+  border-radius: 4px;
+  background: #fff;
+  color: #4f4b57;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.outline-secondary-action:hover {
+  border-color: #bfb7e6;
+  color: #5d45d2;
+}
+
+.outline-template-notice {
+  margin-top: 8px !important;
+  padding: 7px 9px;
+  border-left: 3px solid #e8a531;
+  background: #fffaf0;
+  color: #8a5b10 !important;
+}
+
+@keyframes outline-progress-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .outline-work-panel,
+  .outline-complete-banner {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .outline-complete-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .outline-complete-actions {
+    width: 100%;
+    padding-left: 36px;
+  }
+}
