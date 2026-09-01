@@ -27,8 +27,14 @@ FAST_PROFILE = "fast"
 PREMIUM_PROFILE = "premium"
 FAST_MODEL = "kimi-k2.7-code-highspeed"
 FAST_MAX_TOKENS = 16_000
-FAST_CALL_TIMEOUT_SECONDS = 55.0
-FAST_TOTAL_TIMEOUT_SECONDS = 60.0
+# A normal 20-minute kindergarten activity resolves to ten schema-rich slides.
+# In production the high-speed model can legitimately take more than 55 seconds
+# before the structured response is complete, so the old 55/60 second limits
+# deterministically killed otherwise healthy outline requests. Keep the fast
+# profile bounded, but give one call enough time to finish and leave room for the
+# single quality-repair attempt performed by the planner service.
+FAST_CALL_TIMEOUT_SECONDS = 120.0
+FAST_TOTAL_TIMEOUT_SECONDS = 240.0
 
 
 def _positive_number_env(name: str, default: str, cast):
@@ -85,15 +91,37 @@ def _build_runtime(
                     "to premium explicitly."
                 ),
             )
+        call_timeout_seconds = _positive_number_env(
+            "KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS",
+            str(FAST_CALL_TIMEOUT_SECONDS),
+            float,
+        )
+        total_timeout_seconds = _positive_number_env(
+            "KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS",
+            str(FAST_TOTAL_TIMEOUT_SECONDS),
+            float,
+        )
+        if total_timeout_seconds < call_timeout_seconds:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS must be "
+                    "greater than or equal to KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS."
+                ),
+            )
         return KindergartenPlannerRuntime(
             config=config,
             model=model,
             source=source,
             profile=profile,
             request_extra_body=_planner_request_extra_body(model),
-            max_tokens=FAST_MAX_TOKENS,
-            timeout_seconds=FAST_CALL_TIMEOUT_SECONDS,
-            total_timeout_seconds=FAST_TOTAL_TIMEOUT_SECONDS,
+            max_tokens=_positive_number_env(
+                "KINDERGARTEN_PLANNER_FAST_MAX_TOKENS",
+                str(FAST_MAX_TOKENS),
+                int,
+            ),
+            timeout_seconds=call_timeout_seconds,
+            total_timeout_seconds=total_timeout_seconds,
             stream=True,
         )
 
