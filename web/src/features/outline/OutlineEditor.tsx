@@ -7,6 +7,7 @@ import {
   toEditableOutlineContent,
   toStoredOutlineContent,
 } from "./outlineFormat";
+import "./outlineProgress.css";
 
 const DEFAULT_TEMPLATE_ID = "general";
 const AI_VISUAL_TEMPLATE_ID = "ai-visual";
@@ -56,7 +57,7 @@ function assetUrl(value?: string | null) {
 }
 
 function isVisibleTemplate(item: TemplateItem) {
-  return item.id !== "general" && item.id !== AI_VISUAL_TEMPLATE_ID;
+  return item.id !== DEFAULT_TEMPLATE_ID && item.id !== AI_VISUAL_TEMPLATE_ID;
 }
 
 function splitTemplates(templates: TemplateItem[]) {
@@ -91,17 +92,15 @@ export function OutlineEditor({
     createMode === "template" || queryOptions.createMode === "template"
       ? "template"
       : "topic";
-  const preferred =
-    preferredTemplateId || queryOptions.templateId || null;
+  const preferred = preferredTemplateId || queryOptions.templateId || null;
 
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
-  const [template, setTemplate] = useState(
-    preferred || "",
-  );
+  const [template, setTemplate] = useState(preferred || "");
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [templateNotice, setTemplateNotice] = useState("");
 
   useEffect(() => {
     setOutline(initial);
@@ -111,10 +110,31 @@ export function OutlineEditor({
   }, [initial, streaming, activeSlideIndex]);
 
   useEffect(() => {
-    if (preferred) {
+    if (!preferred) return;
+    if (preferred === AI_VISUAL_TEMPLATE_ID || templates.some((item) => item.id === preferred)) {
       setTemplate(preferred);
+      setTemplateNotice("");
+      return;
     }
-  }, [preferred]);
+    if (templates.length === 0) return;
+
+    const fallback =
+      templates.find((item) => item.id === "standard") ??
+      templates.find((item) => isVisibleTemplate(item) && item.is_default !== false) ??
+      templates.find(isVisibleTemplate);
+    const preferredName = DISPLAY_NAMES[preferred] || preferred;
+    if (fallback) {
+      setTemplate(fallback.id);
+      setTemplateNotice(
+        `自动推荐的“${preferredName}”当前未加载，已切换为“${templateName(fallback)}”。你也可以重新选择模板。`,
+      );
+    } else {
+      setTemplate("");
+      setTemplateNotice(
+        `自动推荐的“${preferredName}”当前不可用，请先选择一个已加载的模板。`,
+      );
+    }
+  }, [preferred, templates]);
 
   useEffect(() => {
     if (streaming) setStage("outline");
@@ -132,14 +152,27 @@ export function OutlineEditor({
     () => templates.filter(isVisibleTemplate),
     [templates],
   );
+  const availableTemplateIds = useMemo(
+    () => new Set(templates.map((item) => item.id)),
+    [templates],
+  );
   const { custom, builtin } = useMemo(
     () => splitTemplates(templates),
     [templates],
   );
   const showTemplateStage =
     resolvedCreateMode === "template" && stage === "template" && !streaming;
+  const templateIsActuallyAvailable =
+    template === AI_VISUAL_TEMPLATE_ID || availableTemplateIds.has(template);
   const hasResolvedTemplate =
-    Boolean(template) && ![DEFAULT_TEMPLATE_ID, "auto"].includes(template);
+    Boolean(template) &&
+    ![DEFAULT_TEMPLATE_ID, "auto"].includes(template) &&
+    templateIsActuallyAvailable;
+  const expectedSlides = Math.max(presentation.n_slides || 0, slides.length);
+  const activeTitle =
+    typeof activeSlideIndex === "number"
+      ? outlineTitle(slides[activeSlideIndex]?.content ?? "")
+      : "";
 
   const updateCurrent = (content: string) => {
     if (streaming || showTemplateStage) return;
@@ -161,14 +194,20 @@ export function OutlineEditor({
 
   const removeSlide = () => {
     if (streaming || showTemplateStage || outline.slides.length <= 1) return;
-    setOutline((value) => ({ slides: value.slides.filter((_, index) => index !== selectedSafe) }));
+    setOutline((value) => ({
+      slides: value.slides.filter((_, index) => index !== selectedSafe),
+    }));
     setSelected((value) => Math.max(0, value - 1));
   };
 
   const prepareWithLayout = async (layoutId: string) => {
     if (streaming || saving) return;
     if (!layoutId || [DEFAULT_TEMPLATE_ID, "auto"].includes(layoutId)) {
-      setError("自动模板匹配尚未完成，请等待匹配结果或手动选择一个模板。");
+      setError("自动模板匹配尚未完成，请重新选择一个可用模板。");
+      return;
+    }
+    if (layoutId !== AI_VISUAL_TEMPLATE_ID && !availableTemplateIds.has(layoutId)) {
+      setError("所选模板当前不可用，请重新选择一个已加载的模板。");
       return;
     }
     setSaving(true);
@@ -226,6 +265,7 @@ export function OutlineEditor({
         disabled={saving}
         onClick={() => {
           setTemplate(item.id);
+          setTemplateNotice("");
           void prepareWithLayout(item.id);
         }}
       >
@@ -324,7 +364,11 @@ export function OutlineEditor({
           <header>
             <div>
               <h1>{title || "正在生成大纲"}</h1>
-              {streaming && <p className="outline-stream-status">{status || "AI 正在逐页生成大纲"}</p>}
+              {streaming && (
+                <p className="outline-stream-status">
+                  {status || "AI 正在逐页生成大纲"}
+                </p>
+              )}
               {!streaming && resolvedCreateMode === "template" && (
                 <p className="outline-stream-status">大纲确认后，下一步选择模板进行排版</p>
               )}
@@ -337,21 +381,21 @@ export function OutlineEditor({
                     <select
                       value={template}
                       disabled={streaming || saving || template === AI_VISUAL_TEMPLATE_ID}
-                      onChange={(event) => setTemplate(event.target.value)}
+                      onChange={(event) => {
+                        setTemplate(event.target.value);
+                        setTemplateNotice("");
+                        setError("");
+                      }}
                     >
                       {template === AI_VISUAL_TEMPLATE_ID ? (
                         <option value={AI_VISUAL_TEMPLATE_ID}>AI 自由视觉</option>
                       ) : (
                         <>
                           {!hasResolvedTemplate && (
-                            <option value="">正在自动匹配模板…</option>
+                            <option value="">
+                              {streaming ? "正在自动匹配模板…" : "请选择可用模板…"}
+                            </option>
                           )}
-                          {hasResolvedTemplate &&
-                            !selectableTemplates.some((item) => item.id === template) && (
-                              <option value={template}>
-                                {DISPLAY_NAMES[template] || template} · 自动推荐
-                              </option>
-                            )}
                           {selectableTemplates.map((item) => (
                             <option value={item.id} key={item.id}>
                               {templateName(item)} · {item.layout_count} 种布局
@@ -364,8 +408,13 @@ export function OutlineEditor({
                   <a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">
                     预览模板
                   </a>
-                  <button className="primary" disabled={saving || streaming || !hasResolvedTemplate} onClick={() => void confirmTopic()}>
-                    <SparklesIcon />{streaming ? "生成中…" : saving ? "正在准备…" : "确认生成"}
+                  <button
+                    className="primary"
+                    disabled={saving || streaming || !hasResolvedTemplate}
+                    onClick={() => void confirmTopic()}
+                  >
+                    <SparklesIcon />
+                    {streaming ? "生成中…" : saving ? "正在准备…" : "确认生成"}
                   </button>
                 </>
               ) : (
@@ -380,6 +429,72 @@ export function OutlineEditor({
               )}
             </div>
           </header>
+
+          {streaming ? (
+            <div className="outline-work-panel" role="status" aria-live="polite">
+              <span className="outline-work-spinner" aria-hidden="true" />
+              <div className="outline-work-copy">
+                <strong>AI 正在构思课堂大纲</strong>
+                <p>{status || "正在组织教学目标与页面结构…"}</p>
+                <div className="outline-work-feed">
+                  <span>已读取主题、年龄段和课堂要求</span>
+                  <span>
+                    {slides.length
+                      ? `已展开 ${slides.length}${expectedSlides ? ` / ${expectedSlides}` : ""} 页大纲`
+                      : "正在规划页面顺序与教学节奏"}
+                  </span>
+                  {typeof activeSlideIndex === "number" && (
+                    <span>
+                      正在写入第 {activeSlideIndex + 1} 页
+                      {activeTitle && activeTitle !== "未命名页面" ? `：${activeTitle}` : ""}
+                    </span>
+                  )}
+                  <span>完成后会检查页面衔接，再交由你确认</span>
+                </div>
+              </div>
+              <span className="outline-work-meta">
+                {expectedSlides
+                  ? `${Math.min(slides.length, expectedSlides)} / ${expectedSlides} 页`
+                  : `${slides.length} 页`}
+              </span>
+            </div>
+          ) : slides.length > 0 ? (
+            <div className="outline-complete-banner" role="status">
+              <span className="outline-complete-icon" aria-hidden="true">✓</span>
+              <div className="outline-complete-copy">
+                <strong>大纲已生成完成</strong>
+                <p>可以继续修改内容，也可以选择视觉方案或模板后开始生成 PPT。</p>
+                {templateNotice && (
+                  <p className="outline-template-notice">{templateNotice}</p>
+                )}
+              </div>
+              <div className="outline-complete-actions">
+                <a
+                  className="outline-secondary-action"
+                  href="/templates"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  查看模板
+                </a>
+                {resolvedCreateMode === "topic" ? (
+                  <button
+                    className="primary"
+                    disabled={saving || !hasResolvedTemplate}
+                    onClick={() => void confirmTopic()}
+                  >
+                    <SparklesIcon />
+                    {saving ? "正在准备…" : "确认并生成"}
+                  </button>
+                ) : (
+                  <button className="primary" disabled={saving} onClick={goSelectTemplate}>
+                    <SparklesIcon />选择模板并生成
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           <div className={`outline-editor-flat ${streaming && activeSlideIndex === selectedSafe ? "is-streaming" : ""}`}>
             <div className="page-meta">
               <b>第 {selectedSafe + 1} 页</b>
