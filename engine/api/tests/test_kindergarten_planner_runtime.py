@@ -58,7 +58,7 @@ def test_fast_profile_ignores_stale_kimi_model(monkeypatch):
     assert runtime.request_extra_body is None
     assert runtime.max_tokens == 16000
     assert runtime.timeout_seconds == 180
-    assert runtime.total_timeout_seconds == 360
+    assert runtime.total_timeout_seconds == 420
     assert runtime.stream is True
     assert runtime.config.__class__.__name__ == "OpenAIClientConfig"
     assert runtime.config.api_key == "shared-dmx-key"
@@ -229,7 +229,7 @@ def test_fast_profile_uses_deepseek_bounded_limits(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.max_tokens == 16000
     assert runtime.timeout_seconds == 180
-    assert runtime.total_timeout_seconds == 360
+    assert runtime.total_timeout_seconds == 420
 
 
 def test_fast_profile_limits_can_be_overridden(monkeypatch):
