@@ -1,0 +1,58 @@
+name: Local PPT Browser Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Local Teachnova tools URL on the Windows runner
+        required: true
+        default: http://127.0.0.1:3030/tools
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Browse local PPT flow
+    runs-on: self-hosted
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout diagnostics scripts
+        uses: actions/checkout@v4
+
+      - name: Show runner and browser environment
+        shell: powershell
+        run: |
+          Write-Host "Computer: $env:COMPUTERNAME"
+          Write-Host "User: $env:USERNAME"
+          node --version
+          npm --version
+          $edge = @(
+            "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $edge) { throw "Microsoft Edge was not found on the runner." }
+          Write-Host "Edge: $edge"
+
+      - name: Install isolated Playwright runtime
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
+          npm install --prefix .runtime\playwright --no-package-lock --no-save playwright@1.55.0
+
+      - name: Browse Teachnova and open PPT entry
+        shell: powershell
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+        run: node scripts/local-ui-probe.mjs
+
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-ppt-browser-diagnostics
+          path: .runtime/ui-probe
+          if-no-files-found: warn
+          retention-days: 7
