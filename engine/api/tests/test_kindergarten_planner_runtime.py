@@ -10,6 +10,9 @@ _PLANNER_ENV = (
     "KINDERGARTEN_PLANNER_MODEL",
     "KINDERGARTEN_PLANNER_PROFILE",
     "KINDERGARTEN_PLANNER_FAST_MODEL",
+    "KINDERGARTEN_PLANNER_FAST_MAX_TOKENS",
+    "KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS",
+    "KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS",
     "DMX_API_BASE_URL",
     "DMX_API_KEY",
     "KINDERGARTEN_PLANNER_MAX_TOKENS",
@@ -55,8 +58,8 @@ def test_fast_profile_ignores_stale_legacy_k3_model(monkeypatch):
     assert runtime.profile == "fast"
     assert runtime.request_extra_body is None
     assert runtime.max_tokens == 16000
-    assert runtime.timeout_seconds == 55
-    assert runtime.total_timeout_seconds == 60
+    assert runtime.timeout_seconds == 120
+    assert runtime.total_timeout_seconds == 240
     assert runtime.stream is True
     assert runtime.config.__class__.__name__ == "OpenAIClientConfig"
     assert runtime.config.api_key == "shared-dmx-key"
@@ -187,19 +190,46 @@ def test_planner_runtime_rejects_invalid_premium_settings(
     assert name in str(exc_info.value.detail)
 
 
-def test_fast_profile_hard_bounds_ignore_legacy_240_second_timeout(monkeypatch):
+def test_fast_profile_uses_dedicated_bounded_limits(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_TIMEOUT_SECONDS", "240")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_TIMEOUT_SECONDS", "999")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_MAX_TOKENS", "999999")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.model == "kimi-k2.7-code-highspeed"
     assert runtime.max_tokens == 16000
-    assert runtime.timeout_seconds == 55
-    assert runtime.total_timeout_seconds == 60
+    assert runtime.timeout_seconds == 120
+    assert runtime.total_timeout_seconds == 240
+
+
+def test_fast_profile_limits_can_be_overridden(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MAX_TOKENS", "12000")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "90")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "180")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.max_tokens == 12000
+    assert runtime.timeout_seconds == 90
+    assert runtime.total_timeout_seconds == 180
+
+
+def test_fast_profile_rejects_total_timeout_shorter_than_call(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "120")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "90")
+
+    with pytest.raises(HTTPException) as exc_info:
+        runtime_module.get_kindergarten_planner_runtime()
+
+    assert exc_info.value.status_code == 400
+    assert "FAST_TOTAL_TIMEOUT_SECONDS" in str(exc_info.value.detail)
 
 
 def test_fast_profile_rejects_k3_as_fast_model(monkeypatch):
