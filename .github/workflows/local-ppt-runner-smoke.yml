@@ -1,0 +1,53 @@
+name: Local PPT Runner Smoke Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Local PPT web URL on the Windows runner
+        required: true
+        default: http://127.0.0.1:5173
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify local PPT services
+    runs-on: [self-hosted, Windows, X64, ppt-local]
+    timeout-minutes: 10
+
+    steps:
+      - name: Show runner identity
+        shell: powershell
+        run: |
+          Write-Host "Computer: $env:COMPUTERNAME"
+          Write-Host "User: $env:USERNAME"
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+
+      - name: Check expected local ports
+        shell: powershell
+        run: |
+          $ports = 5173, 5001, 8000
+          foreach ($port in $ports) {
+            $result = Test-NetConnection -ComputerName 127.0.0.1 -Port $port -WarningAction SilentlyContinue
+            Write-Host ("127.0.0.1:{0} TcpTestSucceeded={1}" -f $port, $result.TcpTestSucceeded)
+          }
+
+      - name: Verify local PPT page
+        shell: powershell
+        run: |
+          $url = "${{ inputs.target_url }}"
+          Write-Host "Checking $url"
+          try {
+            $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 20
+            Write-Host "HTTP status: $($response.StatusCode)"
+            Write-Host "Content length: $($response.Content.Length)"
+            if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) {
+              throw "Unexpected HTTP status $($response.StatusCode)"
+            }
+          } catch {
+            Write-Error "Local PPT page is not reachable from the self-hosted runner: $($_.Exception.Message)"
+            exit 1
+          }
