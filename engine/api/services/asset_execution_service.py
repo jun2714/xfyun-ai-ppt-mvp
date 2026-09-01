@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 import os
 
@@ -206,170 +207,222 @@ async def process_presentation_assets(
     on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
     semantic_quality_service: AssetSemanticQualityService | None = None,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
+    """Generate independent asset-plan items concurrently with bounded cost.
+
+    A semantic mismatch gets one scoped retry. A visual-QA outage does not discard
+    an image that the provider already generated successfully, because leaving a
+    permanent blank frame is worse than surfacing a trace warning for later review.
+    """
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
-    generated_assets: list[ImageAsset] = []
     quality_service = (
         semantic_quality_service or build_default_asset_semantic_quality_service()
     )
+    try:
+        concurrency = max(
+            1,
+            min(6, int(os.getenv("ASSET_GENERATION_CONCURRENCY", "3"))),
+        )
+    except ValueError:
+        concurrency = 3
+    semaphore = asyncio.Semaphore(concurrency)
+    checkpoint_lock = asyncio.Lock()
 
-    for item in plan:
-        item_asset_start = len(generated_assets)
-        last_error: Exception | None = None
-        result: str | ImageAsset | None = None
-        source_asset: ImageAsset | None = None
-        derived_outputs: list[str] = []
-        # A paid retry is scoped to the failed asset request. Successful assets
-        # and slide content are never regenerated.
-        for attempt in range(2):
-            trace_id = item.request_id if attempt == 0 else f"{item.request_id}_retry1"
-            materialized_source_to_cleanup: str | None = None
-            try:
-                result = await image_generation_service.generate_image(
-                    ImagePrompt(prompt=_request_prompt(item))
+    async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
+        async with semaphore:
+            last_error: Exception | None = None
+            result: str | ImageAsset | None = None
+            source_asset: ImageAsset | None = None
+            derived_outputs: list[str] = []
+            quality_warning: Exception | None = None
+
+            for attempt in range(2):
+                trace_id = (
+                    item.request_id
+                    if attempt == 0
+                    else f"{item.request_id}_retry1"
                 )
-                source_asset = result if isinstance(result, ImageAsset) else None
-                if item.generation_mode == "sprite-sheet":
-                    if not isinstance(result, ImageAsset):
-                        raise ValueError(
-                            "Sprite sheet processing requires a generated image asset"
+                materialized_source_to_cleanup: str | None = None
+                quality_warning = None
+                try:
+                    result = await image_generation_service.generate_image(
+                        ImagePrompt(prompt=_request_prompt(item))
+                    )
+                    source_asset = result if isinstance(result, ImageAsset) else None
+
+                    if item.generation_mode == "sprite-sheet":
+                        if not isinstance(result, ImageAsset):
+                            raise ValueError(
+                                "Sprite sheet processing requires a generated image asset"
+                            )
+                        local_source, materialized = await _materialize_transform_source(
+                            result,
+                            image_generation_service.output_directory,
+                            trace_id,
                         )
-                    local_source, materialized = await _materialize_transform_source(
-                        result,
-                        image_generation_service.output_directory,
-                        trace_id,
-                    )
-                    if materialized:
-                        materialized_source_to_cleanup = local_source
-                    derived_outputs = crop_sprite_sheet(
-                        local_source,
-                        image_generation_service.output_directory,
-                        item.grid_columns or 0,
-                        item.grid_rows or 0,
-                        len(item.slots),
-                    )
-                elif item.generation_mode == "single-cutout":
-                    if not isinstance(result, ImageAsset):
-                        raise ValueError(
-                            "Cutout processing requires a generated image asset"
+                        if materialized:
+                            materialized_source_to_cleanup = local_source
+                        derived_outputs = crop_sprite_sheet(
+                            local_source,
+                            image_generation_service.output_directory,
+                            item.grid_columns or 0,
+                            item.grid_rows or 0,
+                            len(item.slots),
                         )
-                    local_source, materialized = await _materialize_transform_source(
-                        result,
-                        image_generation_service.output_directory,
-                        trace_id,
-                    )
-                    if materialized:
-                        materialized_source_to_cleanup = local_source
-                    derived_outputs = [
-                        create_transparent_cutout(
-                            local_source, image_generation_service.output_directory
+                    elif item.generation_mode == "single-cutout":
+                        if not isinstance(result, ImageAsset):
+                            raise ValueError(
+                                "Cutout processing requires a generated image asset"
+                            )
+                        local_source, materialized = await _materialize_transform_source(
+                            result,
+                            image_generation_service.output_directory,
+                            trace_id,
                         )
-                    ]
-                elif isinstance(result, ImageAsset) and item.slots:
-                    local_source, materialized = await _materialize_transform_source(
-                        result,
-                        image_generation_service.output_directory,
-                        trace_id,
-                    )
-                    if materialized:
-                        materialized_source_to_cleanup = local_source
-                    normalized_path = crop_to_aspect_ratio(
-                        local_source,
-                        image_generation_service.output_directory,
-                        item.slots[0].aspect_ratio,
-                    )
-                    if normalized_path != local_source:
+                        if materialized:
+                            materialized_source_to_cleanup = local_source
+                        derived_outputs = [
+                            create_transparent_cutout(
+                                local_source,
+                                image_generation_service.output_directory,
+                            )
+                        ]
+                    elif isinstance(result, ImageAsset) and item.slots:
+                        local_source, materialized = await _materialize_transform_source(
+                            result,
+                            image_generation_service.output_directory,
+                            trace_id,
+                        )
+                        if materialized:
+                            materialized_source_to_cleanup = local_source
+                        normalized_path = crop_to_aspect_ratio(
+                            local_source,
+                            image_generation_service.output_directory,
+                            item.slots[0].aspect_ratio,
+                        )
+                        if normalized_path != local_source:
+                            result = ImageAsset(
+                                path=normalized_path,
+                                is_uploaded=False,
+                                extras={
+                                    "source_asset_request_id": item.request_id,
+                                    "generation_mode": item.generation_mode,
+                                    "aspect_ratio": item.slots[0].aspect_ratio,
+                                },
+                            )
+
+                    try:
+                        await _validate_semantic_quality(
+                            quality_service,
+                            item,
+                            result,
+                            derived_outputs,
+                        )
+                    except AssetSemanticQualityError as exc:
+                        if attempt == 0:
+                            raise
+                        quality_warning = exc
+                    except Exception as exc:  # visual-QA timeout or provider outage
+                        quality_warning = exc
+
+                    if item.generation_mode in {"sprite-sheet", "single-cutout"}:
+                        derived_outputs = await _persist_derived_outputs(derived_outputs)
+                    elif (
+                        isinstance(result, ImageAsset)
+                        and source_asset is not None
+                        and result.path != source_asset.path
+                    ):
                         result = ImageAsset(
-                            path=normalized_path,
+                            path=await persist_generated_image(result.path),
                             is_uploaded=False,
-                            extras={
-                                "source_asset_request_id": item.request_id,
-                                "generation_mode": item.generation_mode,
-                                "aspect_ratio": item.slots[0].aspect_ratio,
-                            },
+                            extras=result.extras,
                         )
 
-                # A generated image is not accepted merely because the provider
-                # returned 200. Validate the actual final crop/cutout against the
-                # planner's semantic contract before writing it into slide JSON.
-                await _validate_semantic_quality(
-                    quality_service,
-                    item,
-                    result,
-                    derived_outputs,
-                )
+                    await record_asset_generation_trace(
+                        AssetGenerationTrace(
+                            request_id=trace_id,
+                            presentation_id=presentation_id,
+                            generation_mode=item.generation_mode,
+                            model=image_generation_service.configured_model_name(),
+                            output_count=1,
+                            consumer_slot_count=item.consumer_slot_count,
+                            reused_consumer_slot_count=(
+                                item.consumer_slot_count - 1
+                                if item.generation_mode == "reuse-or-search"
+                                else 0
+                            ),
+                            retry_of=item.request_id if attempt else None,
+                            status=(
+                                "succeeded_with_warning"
+                                if quality_warning is not None
+                                else "succeeded"
+                            ),
+                            cost=None,
+                            error=(
+                                {"visual_qa_warning": _trace_error_payload(quality_warning)}
+                                if quality_warning is not None
+                                else None
+                            ),
+                        )
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    result = None
+                    source_asset = None
+                    derived_outputs = []
+                    await record_asset_generation_trace(
+                        AssetGenerationTrace(
+                            request_id=trace_id,
+                            presentation_id=presentation_id,
+                            generation_mode=item.generation_mode,
+                            model=image_generation_service.configured_model_name(),
+                            output_count=0,
+                            consumer_slot_count=item.consumer_slot_count,
+                            reused_consumer_slot_count=0,
+                            retry_of=item.request_id if attempt else None,
+                            status="failed",
+                            cost=None,
+                            error=_trace_error_payload(exc),
+                        )
+                    )
+                    if not isinstance(exc, AssetSemanticQualityError):
+                        break
+                finally:
+                    _remove_materialized_source(materialized_source_to_cleanup)
 
-                # The provider source may already live in OSS. Persist any local
-                # crop/cutout only after semantic QA passes, so rejected attempts
-                # never become the URL written into slide content.
-                if item.generation_mode in {"sprite-sheet", "single-cutout"}:
-                    derived_outputs = await _persist_derived_outputs(derived_outputs)
-                elif (
-                    isinstance(result, ImageAsset)
-                    and source_asset is not None
-                    and result.path != source_asset.path
-                ):
-                    persisted_path = await persist_generated_image(result.path)
-                    result = ImageAsset(
-                        path=persisted_path,
+            if result is None:
+                assert last_error is not None
+                raise last_error
+
+            item_assets: list[ImageAsset] = []
+            if source_asset is not None:
+                item_assets.append(source_asset)
+            if (
+                isinstance(result, ImageAsset)
+                and result.path != getattr(source_asset, "path", None)
+            ):
+                item_assets.append(result)
+
+            if item.generation_mode == "sprite-sheet":
+                for slot, output in zip(item.slots, derived_outputs):
+                    derived_asset = ImageAsset(
+                        path=output,
                         is_uploaded=False,
-                        extras=result.extras,
+                        extras={
+                            "source_asset_request_id": item.request_id,
+                            "generation_mode": item.generation_mode,
+                        },
                     )
-
-                await record_asset_generation_trace(
-                    AssetGenerationTrace(
-                        request_id=trace_id,
-                        presentation_id=presentation_id,
-                        generation_mode=item.generation_mode,
-                        model=image_generation_service.configured_model_name(),
-                        output_count=1,
-                        consumer_slot_count=item.consumer_slot_count,
-                        reused_consumer_slot_count=(
-                            item.consumer_slot_count - 1
-                            if item.generation_mode == "reuse-or-search"
-                            else 0
-                        ),
-                        retry_of=item.request_id if attempt else None,
-                        status="succeeded",
-                        # Provider responses currently expose no authoritative cost.
-                        # Null is deliberate; recording zero would under-report spend.
-                        cost=None,
+                    item_assets.append(derived_asset)
+                    _assign_url(
+                        slides_by_index[slot.slide_index],
+                        slot,
+                        filesystem_image_path_to_app_data_url(output),
                     )
-                )
-                break
-            except Exception as exc:  # noqa: BLE001 - provider errors are normalized upstream
-                last_error = exc
-                result = None
-                source_asset = None
-                derived_outputs = []
-                await record_asset_generation_trace(
-                    AssetGenerationTrace(
-                        request_id=trace_id,
-                        presentation_id=presentation_id,
-                        generation_mode=item.generation_mode,
-                        model=image_generation_service.configured_model_name(),
-                        output_count=0,
-                        consumer_slot_count=item.consumer_slot_count,
-                        reused_consumer_slot_count=0,
-                        retry_of=item.request_id if attempt else None,
-                        status="failed",
-                        cost=None,
-                        error=_trace_error_payload(exc),
-                    )
-                )
-            finally:
-                _remove_materialized_source(materialized_source_to_cleanup)
-        if result is None:
-            assert last_error is not None
-            raise last_error
-        if source_asset is not None:
-            generated_assets.append(source_asset)
-        if isinstance(result, ImageAsset) and result.path != getattr(source_asset, "path", None):
-            generated_assets.append(result)
-
-        if item.generation_mode == "sprite-sheet":
-            for slot, output in zip(item.slots, derived_outputs):
-                cutout_asset = ImageAsset(
+            elif item.generation_mode == "single-cutout":
+                output = derived_outputs[0]
+                derived_asset = ImageAsset(
                     path=output,
                     is_uploaded=False,
                     extras={
@@ -377,40 +430,21 @@ async def process_presentation_assets(
                         "generation_mode": item.generation_mode,
                     },
                 )
-                generated_assets.append(cutout_asset)
+                item_assets.append(derived_asset)
                 _assign_url(
-                    slides_by_index[slot.slide_index],
-                    slot,
+                    slides_by_index[item.slots[0].slide_index],
+                    item.slots[0],
                     filesystem_image_path_to_app_data_url(output),
                 )
+            else:
+                url = _asset_url(result)
+                for slot in item.slots:
+                    _assign_url(slides_by_index[slot.slide_index], slot, url)
+
             if on_item_completed is not None:
-                await on_item_completed(generated_assets[item_asset_start:])
-            continue
+                async with checkpoint_lock:
+                    await on_item_completed(item_assets)
+            return item_assets
 
-        if item.generation_mode == "single-cutout":
-            output = derived_outputs[0]
-            cutout_asset = ImageAsset(
-                path=output,
-                is_uploaded=False,
-                extras={
-                    "source_asset_request_id": item.request_id,
-                    "generation_mode": item.generation_mode,
-                },
-            )
-            generated_assets.append(cutout_asset)
-            _assign_url(
-                slides_by_index[item.slots[0].slide_index],
-                item.slots[0],
-                filesystem_image_path_to_app_data_url(output),
-            )
-            if on_item_completed is not None:
-                await on_item_completed(generated_assets[item_asset_start:])
-            continue
-
-        url = _asset_url(result)
-        for slot in item.slots:
-            _assign_url(slides_by_index[slot.slide_index], slot, url)
-        if on_item_completed is not None:
-            await on_item_completed(generated_assets[item_asset_start:])
-
-    return generated_assets, plan
+    item_results = await asyncio.gather(*(process_item(item) for item in plan))
+    return [asset for assets in item_results for asset in assets], plan

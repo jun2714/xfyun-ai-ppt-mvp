@@ -29,3 +29,4 @@ class PresentationWithSlides(BaseModel):
     image_policy: ImagePolicy = ImagePolicy.STANDARD
     quality_status: QualityStatus = QualityStatus.PENDING
     quality_report: Optional[dict] = None
+    generation_metadata: Optional[dict] = None

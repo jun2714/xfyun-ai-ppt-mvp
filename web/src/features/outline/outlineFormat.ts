@@ -60,3 +60,25 @@ export function parsePartialOutlineSlides(accumulated: string): SlideOutline[] {
 
   return slides;
 }
+
+/** Build a readable preview from the partial kindergarten lesson-plan JSON. */
+export function parsePartialKindergartenSlides(accumulated: string): SlideOutline[] {
+  const markers = [...accumulated.matchAll(/"screen_content"\s*:\s*\{/g)];
+  return markers.flatMap((marker, index) => {
+    const start = marker.index ?? 0;
+    const end = markers[index + 1]?.index ?? accumulated.length;
+    const block = accumulated.slice(start, end);
+    const title = block.match(/"title"\s*:\s*"((?:\\.|[^"\\])*)"/)?.[1];
+    if (!title) return [];
+    const lines = [unescapePartialJsonString(title)];
+    const pointsBlock = block.match(/"points"\s*:\s*\[([\s\S]*?)(?:\]|$)/)?.[1] ?? "";
+    for (const point of pointsBlock.matchAll(/"((?:\\.|[^"\\])*)"/g)) {
+      lines.push(`- ${unescapePartialJsonString(point[1] ?? "")}`);
+    }
+    const instruction = block.match(
+      /"instruction"\s*:\s*"((?:\\.|[^"\\])*)"/,
+    )?.[1];
+    if (instruction) lines.push(unescapePartialJsonString(instruction));
+    return [{ content: lines.join("\n") }];
+  });
+}

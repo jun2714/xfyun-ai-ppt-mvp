@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import mimetypes
@@ -95,10 +96,23 @@ class VisionAssetSemanticQualityService:
             )
 
         prompt = _build_quality_prompt(required)
-        if self.provider in {"openai", "dmx"}:
-            result = await self._validate_openai(image, prompt)
-        else:
-            result = await self._validate_google(image, prompt)
+        try:
+            timeout_seconds = max(
+                5.0,
+                float(os.getenv("ASSET_SEMANTIC_QA_TIMEOUT_SECONDS", "25")),
+            )
+        except ValueError:
+            timeout_seconds = 25.0
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                if self.provider in {"openai", "dmx"}:
+                    result = await self._validate_openai(image, prompt)
+                else:
+                    result = await self._validate_google(image, prompt)
+        except TimeoutError as exc:
+            raise TimeoutError(
+                f"Visual QA {self.model} exceeded {timeout_seconds:g} seconds"
+            ) from exc
         result.provider = self.provider
         result.model = self.model
         return _enforce_expectations(result, required, self.confidence_threshold)
@@ -134,6 +148,7 @@ class VisionAssetSemanticQualityService:
             ],
             response_format={"type": "json_object"},
             temperature=0,
+            max_tokens=800,
         )
         content = response.choices[0].message.content or "{}"
         return AssetSemanticQualityResult.model_validate(json.loads(content))
@@ -165,8 +180,9 @@ def build_default_asset_semantic_quality_service(
 
     `ASSET_SEMANTIC_QA_PROVIDER` accepts auto/openai/google/dmx/off. In ``auto``
     mode, direct OpenAI/Google credentials remain supported, and a configured
-    ``DMX_API_KEY`` is used as the shared-key fallback. This lets Kimi K3 perform
-    semantic image checks through the same DMXAPI account used by generation.
+    ``DMX_API_KEY`` is used as the shared-key fallback. The DMX text model is used
+    for the small JSON vision check; the multi-minute K3 reasoning model is not a
+    suitable per-image default.
     """
     requested = (os.getenv("ASSET_SEMANTIC_QA_PROVIDER") or "auto").strip().casefold()
     if requested in {"off", "disabled", "none", "0", "false"}:
@@ -221,11 +237,14 @@ def build_default_asset_semantic_quality_service(
             or DEFAULT_GOOGLE_MODEL
         )
     else:
-        model = (
-            os.getenv("ASSET_SEMANTIC_QA_MODEL")
-            or os.getenv("KINDERGARTEN_PLANNER_MODEL")
-            or "kimi-k3"
-        )
+        requested_model = (os.getenv("ASSET_SEMANTIC_QA_MODEL") or "").strip()
+        profile = (os.getenv("ASSET_SEMANTIC_QA_PROFILE") or "fast").strip().casefold()
+        # Older deployments were told to pin K3 here. Fast mode deliberately
+        # ignores that stale value so restarting cannot bring back multi-minute
+        # K3 calls after every generated image.
+        if profile != "premium" and "kimi-k3" in requested_model.casefold():
+            requested_model = ""
+        model = requested_model or os.getenv("DMX_TEXT_MODEL") or "gpt-5-mini"
 
     try:
         threshold = float(os.getenv("ASSET_SEMANTIC_QA_CONFIDENCE", "0.70"))

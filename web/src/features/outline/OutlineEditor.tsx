@@ -97,7 +97,7 @@ export function OutlineEditor({
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
   const [template, setTemplate] = useState(
-    preferred || (resolvedCreateMode === "template" ? "" : DEFAULT_TEMPLATE_ID),
+    preferred || "",
   );
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
@@ -138,6 +138,8 @@ export function OutlineEditor({
   );
   const showTemplateStage =
     resolvedCreateMode === "template" && stage === "template" && !streaming;
+  const hasResolvedTemplate =
+    Boolean(template) && ![DEFAULT_TEMPLATE_ID, "auto"].includes(template);
 
   const updateCurrent = (content: string) => {
     if (streaming || showTemplateStage) return;
@@ -165,8 +167,8 @@ export function OutlineEditor({
 
   const prepareWithLayout = async (layoutId: string) => {
     if (streaming || saving) return;
-    if (!layoutId) {
-      setError("请选择一个模板后再生成。");
+    if (!layoutId || [DEFAULT_TEMPLATE_ID, "auto"].includes(layoutId)) {
+      setError("自动模板匹配尚未完成，请等待匹配结果或手动选择一个模板。");
       return;
     }
     setSaving(true);
@@ -209,7 +211,7 @@ export function OutlineEditor({
   };
 
   const confirmTopic = async () => {
-    await prepareWithLayout(template || DEFAULT_TEMPLATE_ID);
+    await prepareWithLayout(template);
   };
 
   const renderTemplatePickCard = (item: TemplateItem) => {
@@ -341,7 +343,15 @@ export function OutlineEditor({
                         <option value={AI_VISUAL_TEMPLATE_ID}>AI 自由视觉</option>
                       ) : (
                         <>
-                          <option value="general">自动匹配</option>
+                          {!hasResolvedTemplate && (
+                            <option value="">正在自动匹配模板…</option>
+                          )}
+                          {hasResolvedTemplate &&
+                            !selectableTemplates.some((item) => item.id === template) && (
+                              <option value={template}>
+                                {DISPLAY_NAMES[template] || template} · 自动推荐
+                              </option>
+                            )}
                           {selectableTemplates.map((item) => (
                             <option value={item.id} key={item.id}>
                               {templateName(item)} · {item.layout_count} 种布局
@@ -354,7 +364,7 @@ export function OutlineEditor({
                   <a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">
                     预览模板
                   </a>
-                  <button className="primary" disabled={saving || streaming} onClick={() => void confirmTopic()}>
+                  <button className="primary" disabled={saving || streaming || !hasResolvedTemplate} onClick={() => void confirmTopic()}>
                     <SparklesIcon />{streaming ? "生成中…" : saving ? "正在准备…" : "确认生成"}
                   </button>
                 </>

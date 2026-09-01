@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +23,13 @@ from models.kindergarten_lesson_plan import (
     KindergartenLessonPlan,
 )
 from models.presentation_outline_model import PresentationOutlineModel
+from models.sse_response import (
+    SSECompleteResponse,
+    SSEErrorResponse,
+    SSEResponse,
+    SSEStatusResponse,
+)
+from models.sql.presentation import PresentationModel
 from models.sql.template_v2 import TemplateV2
 from services.database import get_async_session
 from services.documents_loader import DocumentsLoader
@@ -35,6 +45,9 @@ from services.kindergarten_plan_quality_service import (
 from services.kindergarten_planner_runtime import (
     get_kindergarten_planner_runtime,
 )
+from services.kindergarten_lesson_planning_service import (
+    resolve_kindergarten_slide_count,
+)
 from services.kindergarten_template_routing_service import (
     AUTO_TEMPLATE_NAME,
     KindergartenTemplateRoutingDecision,
@@ -49,11 +62,14 @@ from services.kindergarten_visual_planning_service import (
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
+from services.owner_scope import get_by_id_unscoped
 from templates.ai_visual_production import build_production_ai_visual_template
+from utils.sse import safe_sse_stream
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
 MAX_KINDERGARTEN_SOURCE_CONTEXT_CHARS = 30000
+LOGGER = logging.getLogger(__name__)
 
 
 class KindergartenLessonPlanRequest(BaseModel):
@@ -108,6 +124,14 @@ class KindergartenPresentationPrepareResponse(KindergartenPresentationCreateResp
     stream_path: str
 
 
+class KindergartenPresentationStartResponse(BaseModel):
+    presentation_id: uuid.UUID
+    outline_path: str
+    outline_stream_path: str
+    n_slides: int
+    visual_mode: KindergartenVisualMode
+
+
 class KindergartenPlannerRuntimeResponse(BaseModel):
     profile: str
     model: str
@@ -150,6 +174,8 @@ async def _planning_source_context(
 async def _generate_validated_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
+    *,
+    text_chunk_callback=None,
 ) -> ValidatedKindergartenPlanningResult:
     runtime = get_kindergarten_planner_runtime()
     try:
@@ -163,6 +189,7 @@ async def _generate_validated_plan(
                 instructions=payload.instructions,
                 source_context=await _planning_source_context(payload),
                 disconnect_checker=request.is_disconnected,
+                text_chunk_callback=text_chunk_callback,
             )
     except TimeoutError as exc:
         raise HTTPException(
@@ -312,7 +339,9 @@ async def _persist_kindergarten_generation_metadata(
 ) -> None:
     """Persist routing so a saved outline can be resumed without URL-only state."""
     theme = dict(presentation.theme or {})
-    theme["kindergarten_generation"] = {
+    existing = theme.get("kindergarten_generation")
+    generation = dict(existing) if isinstance(existing, dict) else {}
+    generation.update({
         "version": 1,
         "age_group": payload.age_group,
         "domain": payload.domain,
@@ -323,7 +352,9 @@ async def _persist_kindergarten_generation_metadata(
         "selected_template": routing.template,
         "template_selection_reason": routing.reason,
         "template_scores": routing.scores,
-    }
+        "outline_status": "ready",
+    })
+    theme["kindergarten_generation"] = generation
     presentation.theme = theme
     sql_session.add(presentation)
     await sql_session.commit()
@@ -334,6 +365,48 @@ def _routing_response_fields(routing) -> dict:
         "selected_template": routing.template,
         "template_selection_reason": routing.reason,
         "template_scores": routing.scores,
+    }
+
+
+def _start_request_metadata(
+    payload: KindergartenPresentationCreateRequest,
+    resolved_n_slides: int,
+) -> dict:
+    request_payload = payload.model_dump(mode="json")
+    request_payload["n_slides"] = resolved_n_slides
+    return {
+        "version": 1,
+        "outline_status": "pending",
+        "requested_template": payload.template,
+        "selected_template": None,
+        "visual_mode": payload.visual_mode,
+        "request": request_payload,
+    }
+
+
+async def _persist_start_metadata(
+    presentation,
+    payload: KindergartenPresentationCreateRequest,
+    resolved_n_slides: int,
+    sql_session: AsyncSession,
+) -> None:
+    theme = dict(presentation.theme or {})
+    theme["kindergarten_generation"] = _start_request_metadata(
+        payload,
+        resolved_n_slides,
+    )
+    presentation.theme = theme
+    sql_session.add(presentation)
+    await sql_session.commit()
+
+
+def _stream_presentation_payload(presentation) -> dict:
+    return {
+        **presentation.model_dump(exclude={"layout", "structure", "theme"}, mode="json"),
+        "slides": [],
+        "generation_metadata": (presentation.theme or {}).get(
+            "kindergarten_generation"
+        ),
     }
 
 
@@ -401,7 +474,6 @@ async def create_kindergarten_presentation(
         visual_style_summary=style_summary,
         sql_session=sql_session,
     )
-
     return KindergartenPresentationCreateResponse(
         presentation_id=presentation.id,
         outline_path=f"/presentations/{presentation.id}/outline",
@@ -414,6 +486,197 @@ async def create_kindergarten_presentation(
         **_routing_response_fields(routing),
     )
 
+
+@KINDERGARTEN_ROUTER.post(
+    "/presentation/start",
+    response_model=KindergartenPresentationStartResponse,
+)
+async def start_kindergarten_presentation(
+    payload: KindergartenPresentationCreateRequest,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    """Persist the project immediately so the browser can stream its outline.
+
+    Planning no longer blocks navigation on the editor upload screen. The
+    stream endpoint below owns the paid model call and writes the validated
+    result back into this durable checkpoint.
+    """
+    resolved_n_slides = resolve_kindergarten_slide_count(
+        payload.n_slides,
+        payload.duration_minutes,
+    )
+    start_payload = payload.model_copy(update={"n_slides": resolved_n_slides})
+    presentation = await create_presentation(
+        content=start_payload.topic,
+        n_slides=resolved_n_slides,
+        language=start_payload.language,
+        file_paths=start_payload.file_paths or None,
+        tone=start_payload.tone,
+        verbosity=start_payload.verbosity,
+        instructions=start_payload.instructions,
+        include_table_of_contents=False,
+        include_title_slide=True,
+        web_search=False,
+        generation_mode="standard",
+        community_design_ids=None,
+        image_policy=start_payload.image_policy,
+        sql_session=sql_session,
+    )
+    presentation.title = start_payload.topic
+    await _persist_start_metadata(
+        presentation,
+        start_payload,
+        resolved_n_slides,
+        sql_session,
+    )
+    return KindergartenPresentationStartResponse(
+        presentation_id=presentation.id,
+        outline_path=f"/presentations/{presentation.id}/outline",
+        outline_stream_path=(
+            f"/api/v1/ppt/kindergarten/presentation/outline/stream/{presentation.id}"
+        ),
+        n_slides=resolved_n_slides,
+        visual_mode=start_payload.visual_mode,
+    )
+
+
+@KINDERGARTEN_ROUTER.get("/presentation/outline/stream/{presentation_id}")
+async def stream_kindergarten_presentation_outline(
+    presentation_id: uuid.UUID,
+    request: Request,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    presentation = await get_by_id_unscoped(
+        sql_session,
+        PresentationModel,
+        presentation_id,
+    )
+    if presentation is None:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+
+    async def inner():
+        if presentation.outlines:
+            yield SSEStatusResponse(status="Loading saved kindergarten outline").to_string()
+            yield SSEResponse(
+                event="response",
+                data=json.dumps(
+                    {
+                        "type": "outline",
+                        "outline": presentation.outlines,
+                    },
+                    ensure_ascii=False,
+                ),
+            ).to_string()
+            yield SSECompleteResponse(
+                key="presentation",
+                value=_stream_presentation_payload(presentation),
+            ).to_string()
+            return
+
+        generation = (presentation.theme or {}).get("kindergarten_generation")
+        raw_payload = generation.get("request") if isinstance(generation, dict) else None
+        if not isinstance(raw_payload, dict):
+            yield SSEErrorResponse(
+                detail="幼教大纲生成参数已丢失，请返回首页重新创建。"
+            ).to_string()
+            return
+
+        try:
+            payload = KindergartenPresentationCreateRequest.model_validate(raw_payload)
+        except Exception:
+            yield SSEErrorResponse(
+                detail="幼教大纲生成参数无效，请返回首页重新创建。"
+            ).to_string()
+            return
+
+        yield SSEStatusResponse(status="正在生成幼教课堂大纲").to_string()
+        chunk_queue: asyncio.Queue[str] = asyncio.Queue()
+
+        async def on_chunk(chunk: str) -> None:
+            await chunk_queue.put(chunk)
+
+        planning_task = asyncio.create_task(
+            _generate_validated_plan(
+                payload,
+                request,
+                text_chunk_callback=on_chunk,
+            )
+        )
+        try:
+            while not planning_task.done() or not chunk_queue.empty():
+                try:
+                    chunk = await asyncio.wait_for(chunk_queue.get(), timeout=1)
+                except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        planning_task.cancel()
+                        return
+                    continue
+                yield SSEResponse(
+                    event="response",
+                    data=json.dumps(
+                        {"type": "kindergarten_chunk", "chunk": chunk},
+                        ensure_ascii=False,
+                    ),
+                ).to_string()
+            result = await planning_task
+            result, routing, style_summary = _apply_visual_mode(payload, result)
+            if payload.visual_mode == "ai-background":
+                await _ensure_ai_visual_template(sql_session)
+
+            presentation.outlines = result.outline.model_dump(mode="json")
+            presentation.n_slides = len(result.outline.slides)
+            presentation.title = payload.topic
+            sql_session.add(presentation)
+            await sql_session.commit()
+            await _persist_kindergarten_generation_metadata(
+                presentation,
+                payload=payload,
+                routing=routing,
+                visual_style_summary=style_summary,
+                sql_session=sql_session,
+            )
+            await MEM0_PRESENTATION_MEMORY_SERVICE.store_generated_outlines(
+                presentation.id,
+                presentation.outlines,
+            )
+            yield SSEResponse(
+                event="response",
+                data=json.dumps(
+                    {"type": "outline", "outline": presentation.outlines},
+                    ensure_ascii=False,
+                ),
+            ).to_string()
+            yield SSECompleteResponse(
+                key="presentation",
+                value=_stream_presentation_payload(presentation),
+            ).to_string()
+        except HTTPException as exc:
+            detail = exc.detail
+            if not isinstance(detail, str):
+                detail = (
+                    detail.get("message")
+                    if isinstance(detail, dict)
+                    else None
+                ) or json.dumps(detail, ensure_ascii=False)
+            yield SSEErrorResponse(detail=detail).to_string()
+        except KindergartenPlanningQualityError as exc:
+            yield SSEErrorResponse(
+                detail=f"幼教课堂大纲质检失败：{exc}"
+            ).to_string()
+        finally:
+            if not planning_task.done():
+                planning_task.cancel()
+                await asyncio.gather(planning_task, return_exceptions=True)
+
+    return StreamingResponse(
+        safe_sse_stream(
+            inner(),
+            logger=LOGGER,
+            error_detail="幼教大纲生成失败，请重试。",
+            on_error=sql_session.rollback,
+        ),
+        media_type="text/event-stream",
+    )
 
 @KINDERGARTEN_ROUTER.post(
     "/presentation/prepare",
