@@ -106,6 +106,22 @@ function parseStreamedSlideChunk(chunk: unknown): any | null {
   return null;
 }
 
+function contiguousSlidesByIndex(slides: unknown): any[] {
+  if (!Array.isArray(slides)) return [];
+  const byIndex = new Map<number, any>();
+  for (const slide of slides) {
+    if (!slide || typeof slide !== "object") continue;
+    const index = Number((slide as any).index);
+    if (!Number.isInteger(index) || index < 0) continue;
+    byIndex.set(index, slide);
+  }
+  const contiguous: any[] = [];
+  for (let index = 0; byIndex.has(index); index += 1) {
+    contiguous.push(byIndex.get(index));
+  }
+  return contiguous;
+}
+
 function hasTemplateV2LayoutPayload(layout: unknown): boolean {
   if (!layout || typeof layout !== "object") return false;
   const layouts = (layout as any).layouts;
@@ -158,6 +174,8 @@ export const usePresentationStreaming = (
     let preloadRequest: Promise<void> | null = null;
     const streamStartedAt = Date.now();
     let streamIsTemplateV2 = preloadPresentationData;
+    const pendingSlideChunks = new Map<number, any>();
+    let nextSlideIndexToPublish = 0;
 
     const closeEventSource = () => {
       if (eventSource) {
@@ -189,14 +207,35 @@ export const usePresentationStreaming = (
       clearRetryTimer();
       setLoading(false);
       dispatch(setStreaming(false));
-      setError(true);
-      settleStreamUrl(presentationId, "failed");
-      // The backend checkpoints generated slides and images before reporting
-      // progress. Reload that saved state before autosave can write stale
-      // placeholders back over a partially completed deck.
-      void Promise.resolve(fetchUserSlides());
+
+      const currentSlides =
+        store.getState().presentationGeneration.presentationData?.slides;
+      const hasPartialDeck = Array.isArray(currentSlides) && currentSlides.length > 0;
+      setError(!hasPartialDeck);
+      // If pages already reached the editor, keep them usable instead of replacing
+      // the whole iframe with “页面加载失败”. The backend checkpoints those pages,
+      // so an asset/provider failure can be resumed later without losing text work.
+      settleStreamUrl(presentationId, hasPartialDeck ? "completed" : "failed");
+      void Promise.resolve(fetchUserSlides())
+        .then(() => {
+          const refreshedSlides =
+            store.getState().presentationGeneration.presentationData?.slides;
+          if (Array.isArray(refreshedSlides) && refreshedSlides.length > 0) {
+            setError(false);
+          }
+        })
+        .catch(() => undefined);
+
       if (options.showToast !== false) {
-        notify.error("生成失败", localizeStreamError(description));
+        if (hasPartialDeck) {
+          notify.warning(
+            "部分内容未生成完",
+            `${localizeStreamError(description)} 已保留当前页面，你可以继续编辑或稍后重试配图。`,
+            { duration: 12_000 }
+          );
+        } else {
+          notify.error("生成失败", localizeStreamError(description));
+        }
       }
     };
 
@@ -215,6 +254,8 @@ export const usePresentationStreaming = (
       clearRetryTimer();
       accumulatedChunks = "";
       previousSlidesLength.current = 0;
+      pendingSlideChunks.clear();
+      nextSlideIndexToPublish = 0;
 
       retryTimer = setTimeout(() => {
         if (!isClosed) {
@@ -281,6 +322,40 @@ export const usePresentationStreaming = (
         retry_count: retryCount,
         duration_ms: Date.now() - streamStartedAt,
       });
+    };
+
+    const publishStreamedSlide = (slide: any) => {
+      const index = Number(slide?.index);
+      if (!Number.isInteger(index) || index < 0) return;
+      pendingSlideChunks.set(index, slide);
+
+      while (pendingSlideChunks.has(nextSlideIndexToPublish)) {
+        const nextSlide = pendingSlideChunks.get(nextSlideIndexToPublish);
+        pendingSlideChunks.delete(nextSlideIndexToPublish);
+        nextSlideIndexToPublish += 1;
+
+        const prev = store.getState().presentationGeneration.presentationData;
+        const normalizedSlide = normalizeBackendAssetUrls(nextSlide);
+        const mergedSlides = mergeSingleSlidePreservingResolvedAssets(
+          prev?.slides,
+          normalizedSlide
+        );
+        dispatch(
+          setPresentationData({
+            ...(prev ?? {}),
+            slides: mergedSlides,
+          } as PresentationData)
+        );
+        previousSlidesLength.current = mergedSlides.length;
+        setLoading(false);
+        if (
+          isTemplateV2SlidePayload(normalizedSlide) &&
+          !hasTemplateV2LayoutPayload(prev?.layout)
+        ) {
+          streamIsTemplateV2 = true;
+          void preloadPreparedPresentation(true);
+        }
+      }
     };
 
     const openStream = () => {
@@ -350,47 +425,27 @@ export const usePresentationStreaming = (
             break;
           }
 
-          case "chunk":
+          case "chunk": {
             accumulatedChunks += data.chunk;
             const streamedSlide = parseStreamedSlideChunk(data.chunk);
             if (streamedSlide) {
-              const prev = store.getState().presentationGeneration.presentationData;
-              const normalizedSlide = normalizeBackendAssetUrls(streamedSlide);
-              const mergedSlides = mergeSingleSlidePreservingResolvedAssets(
-                prev?.slides,
-                normalizedSlide
-              );
-              dispatch(
-                setPresentationData({
-                  ...(prev ?? {}),
-                  slides: mergedSlides,
-                } as PresentationData)
-              );
-              previousSlidesLength.current = mergedSlides.length;
-              setLoading(false);
-              if (
-                isTemplateV2SlidePayload(normalizedSlide) &&
-                !hasTemplateV2LayoutPayload(prev?.layout)
-              ) {
-                streamIsTemplateV2 = true;
-                void preloadPreparedPresentation(true);
-              }
+              publishStreamedSlide(streamedSlide);
             }
 
             try {
               const repairedJson = jsonrepair(accumulatedChunks);
               const partialData = JSON.parse(repairedJson);
               const normalizedPartialData = normalizeBackendAssetUrls(partialData);
+              const contiguousSlides = contiguousSlidesByIndex(
+                normalizedPartialData.slides
+              );
 
-              if (
-                normalizedPartialData.slides &&
-                normalizedPartialData.slides.length > 0
-              ) {
+              if (contiguousSlides.length > 0) {
                 const prev =
                   store.getState().presentationGeneration.presentationData;
                 const mergedSlides = mergeSlidesPreservingResolvedAssets(
                   prev?.slides,
-                  normalizedPartialData.slides
+                  contiguousSlides
                 );
                 dispatch(
                   setPresentationData({
@@ -399,14 +454,18 @@ export const usePresentationStreaming = (
                     slides: mergedSlides,
                   } as PresentationData)
                 );
-                previousSlidesLength.current =
-                  normalizedPartialData.slides.length;
+                previousSlidesLength.current = contiguousSlides.length;
+                nextSlideIndexToPublish = Math.max(
+                  nextSlideIndexToPublish,
+                  contiguousSlides.length
+                );
                 setLoading(false);
               }
             } catch {
               // JSON isn't complete yet, continue accumulating
             }
             break;
+          }
 
           case "slide_assets": {
             if (
@@ -465,6 +524,7 @@ export const usePresentationStreaming = (
               trackTemplateV2StreamCompleted(data.presentation);
               dispatch(setStreaming(false));
               setLoading(false);
+              setError(false);
               isClosed = true;
               closeEventSource();
               clearRetryTimer();
@@ -489,6 +549,7 @@ export const usePresentationStreaming = (
             );
             trackTemplateV2StreamCompleted(data.presentation);
             setLoading(false);
+            setError(false);
             dispatch(setStreaming(false));
             isClosed = true;
             closeEventSource();
