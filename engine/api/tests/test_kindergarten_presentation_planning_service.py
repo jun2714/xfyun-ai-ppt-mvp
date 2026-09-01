@@ -38,7 +38,9 @@ def test_lesson_prompt_requires_cross_slide_coherence():
     assert "先教后练" in system_prompt
     assert "前面提出的问题必须在后面得到明确回应" in system_prompt
     assert "结尾回顾必须回扣 lesson_goals" in system_prompt
-    assert "完整、前后呼应的 lesson_arc" in user_prompt
+    assert "幼儿惊喜感与幻想表达" in system_prompt
+    assert "小小冒险/秘密任务" in user_prompt
+    assert "儿童惊喜钩子" in user_prompt
 
 
 def test_start_endpoint_persists_project_before_planning(monkeypatch):
