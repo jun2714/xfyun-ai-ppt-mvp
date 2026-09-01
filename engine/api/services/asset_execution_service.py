@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+import logging
 import os
 
 from models.image_prompt import ImagePrompt
@@ -38,7 +39,23 @@ from utils.oss_storage import materialize_url_to_file, persist_generated_image
 from utils.process_slides import _set_asset_url, _uses_template_asset_fields
 
 
+LOGGER = logging.getLogger(__name__)
+
+
+def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
+    if not any(slot.semantic_expectations for slot in item.slots):
+        return ""
+    return (
+        " Premium preschool picture-book visual for children age 3-6: warm, bright, "
+        "imaginative and story-like, with a large clearly recognizable subject, friendly "
+        "emotion and one delightful visual surprise. Keep factual features accurate. "
+        "Avoid black abstract textures, corporate stock-photo styling, horror, dense "
+        "background clutter, text, letters, numbers, logos, watermarks or pseudo-text."
+    )
+
+
 def _request_prompt(item: AssetPlanItem) -> str:
+    kindergarten_direction = _kindergarten_visual_direction(item)
     if item.generation_mode == "sprite-sheet":
         cells = "; ".join(
             f"cell {index + 1}: {slot.prompt}"
@@ -47,11 +64,15 @@ def _request_prompt(item: AssetPlanItem) -> str:
         return (
             f"Create a clean {item.grid_columns} by {item.grid_rows} sprite sheet. "
             f"{cells}. One complete centered subject per cell, consistent style and "
-            "scale, large empty margin, solid plain background, no grid lines."
+            f"scale, large empty margin, solid plain background, no grid lines."
+            f"{kindergarten_direction}"
         )
     if item.generation_mode == "composite-image":
         subjects = "; ".join(slot.prompt for slot in item.slots)
-        return f"Create one coherent scene containing: {subjects}."
+        return (
+            f"Create one coherent scene containing: {subjects}."
+            f"{kindergarten_direction}"
+        )
 
     slot = item.slots[0]
     if item.generation_mode == "direct-background":
@@ -62,14 +83,15 @@ def _request_prompt(item: AssetPlanItem) -> str:
         )
         return (
             f"{slot.prompt}. Full-bleed presentation background, aspect ratio "
-            f"{slot.aspect_ratio}, no border.{safe_area}"
+            f"{slot.aspect_ratio}, no border.{safe_area}{kindergarten_direction}"
         )
     if item.generation_mode == "single-cutout":
         return (
             f"{slot.prompt}. One complete centered subject, generous margin, solid "
-            "plain contrasting background suitable for local background removal."
+            f"plain contrasting background suitable for local background removal."
+            f"{kindergarten_direction}"
         )
-    return slot.prompt
+    return f"{slot.prompt}{kindergarten_direction}"
 
 
 def _asset_url(result: str | ImageAsset) -> str:
@@ -210,8 +232,10 @@ async def process_presentation_assets(
     """Generate independent asset-plan items concurrently with bounded cost.
 
     A semantic mismatch gets one scoped retry. A visual-QA outage does not discard
-    an image that the provider already generated successfully, because leaving a
-    permanent blank frame is worse than surfacing a trace warning for later review.
+    an image that the provider already generated successfully. A provider failure
+    for one optional visual also no longer destroys the entire deck: that slot keeps
+    its placeholder, the failure stays in the asset trace, and the remaining slides
+    and images continue to completion so the teacher can still edit the PPT.
     """
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
@@ -221,10 +245,10 @@ async def process_presentation_assets(
     try:
         concurrency = max(
             1,
-            min(6, int(os.getenv("ASSET_GENERATION_CONCURRENCY", "3"))),
+            min(6, int(os.getenv("ASSET_GENERATION_CONCURRENCY", "4"))),
         )
     except ValueError:
-        concurrency = 3
+        concurrency = 4
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
 
@@ -393,7 +417,16 @@ async def process_presentation_assets(
 
             if result is None:
                 assert last_error is not None
-                raise last_error
+                affected_pages = sorted({slot.slide_index + 1 for slot in item.slots})
+                LOGGER.warning(
+                    "Asset generation failed but deck generation will continue: "
+                    "presentation_id=%s request_id=%s pages=%s error=%s",
+                    presentation_id,
+                    item.request_id,
+                    affected_pages,
+                    last_error,
+                )
+                return []
 
             item_assets: list[ImageAsset] = []
             if source_asset is not None:
