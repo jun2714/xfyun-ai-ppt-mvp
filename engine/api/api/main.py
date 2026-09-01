@@ -14,13 +14,13 @@ from api.v1.admin.router import API_V1_ADMIN_ROUTER
 from api.v1.mock.router import API_V1_MOCK_ROUTER
 from api.v1.ppt.router import API_V1_PPT_ROUTER
 from api.v1.webhook.router import API_V1_WEBHOOK_ROUTER
+from utils.cors import build_cors_origins
 from utils.dmx_compat import apply_dmx_compat_env
 from utils.get_env import (
     get_app_data_directory_env,
     get_sentry_dsn_env,
     get_sentry_send_default_pii_env,
     get_sentry_traces_sample_rate_env,
-    get_teachnova_cors_origins,
 )
 from utils.mime_types import init_sandbox_safe_mimetypes
 from utils.path_helpers import get_resource_path
@@ -83,49 +83,20 @@ static_dir = get_resource_path("static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Electron serves Next.js and FastAPI from separate loopback ports. When its
-# runtime Next.js origin is available, use that exact origin so credentialed
-# requests remain standards-compliant. Docker stays same-origin behind nginx;
-# the wildcard fallback preserves standalone FastAPI development behavior.
-# Local web may open the editor as either 127.0.0.1 or localhost; allow both.
-def _cors_origins() -> list[str]:
-    next_public_origin = (os.getenv("NEXT_PUBLIC_URL") or "").strip().rstrip("/")
-    origins: list[str] = []
-    if not next_public_origin:
-        origins = ["*"]
-    else:
-        origins = [next_public_origin]
-        try:
-            from urllib.parse import urlparse
 
-            parsed = urlparse(next_public_origin)
-            if parsed.hostname in ("127.0.0.1", "localhost"):
-                alt_host = "localhost" if parsed.hostname == "127.0.0.1" else "127.0.0.1"
-                alt = f"{parsed.scheme}://{alt_host}"
-                if parsed.port:
-                    alt = f"{alt}:{parsed.port}"
-                if alt not in origins:
-                    origins.append(alt)
-        except Exception:
-            pass
-
-    for origin in get_teachnova_cors_origins():
-        if origin and origin not in origins and origins != ["*"]:
-            origins.append(origin)
-    return origins
-
-
+# Starlette wraps the most recently added middleware around earlier ones. Keep
+# CORS outermost so even auth/session failures carry the browser-visible CORS
+# headers instead of being misreported as an opaque EventSource CORS failure.
+app.add_middleware(UserConfigEnvUpdateMiddleware)
+app.add_middleware(SessionAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins(),
+    allow_origins=build_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition", "Content-Length", "Content-Type"],
 )
-
-app.add_middleware(UserConfigEnvUpdateMiddleware)
-app.add_middleware(SessionAuthMiddleware)
 
 
 @app.middleware("http")

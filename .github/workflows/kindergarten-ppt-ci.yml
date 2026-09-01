@@ -35,7 +35,19 @@ jobs:
           DISABLE_AUTH: 'true'
           APP_DATA_DIRECTORY: ${{ runner.temp }}/sparkdeck-data
           TEMP_DIRECTORY: ${{ runner.temp }}/sparkdeck-temp
-        run: uv run pytest -q
+        shell: bash
+        run: |
+          set +e
+          uv run pytest -q 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+      - name: Upload API pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-pytest-log
+          path: engine/api/pytest.log
+          if-no-files-found: error
 
   web-checks:
     name: Outline web typecheck and build
