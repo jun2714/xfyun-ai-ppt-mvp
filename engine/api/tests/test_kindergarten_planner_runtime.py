@@ -17,7 +17,6 @@ _PLANNER_ENV = (
     "DMX_API_KEY",
     "KINDERGARTEN_PLANNER_MAX_TOKENS",
     "KINDERGARTEN_PLANNER_TIMEOUT_SECONDS",
-    "KINDERGARTEN_PLANNER_REASONING_EFFORT",
 )
 
 
@@ -45,7 +44,7 @@ def test_planner_runtime_falls_back_to_global_config(monkeypatch):
     assert runtime.stream is True
 
 
-def test_fast_profile_ignores_stale_legacy_k3_model(monkeypatch):
+def test_fast_profile_ignores_stale_kimi_model(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_BASE_URL", "https://www.dmxapi.cn/v1")
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
@@ -53,28 +52,26 @@ def test_fast_profile_ignores_stale_legacy_k3_model(monkeypatch):
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
-    assert runtime.model == "kimi-k2.7-code-highspeed"
+    assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
     assert runtime.request_extra_body is None
     assert runtime.max_tokens == 16000
-    assert runtime.timeout_seconds == 120
-    assert runtime.total_timeout_seconds == 240
+    assert runtime.timeout_seconds == 180
+    assert runtime.total_timeout_seconds == 360
     assert runtime.stream is True
     assert runtime.config.__class__.__name__ == "OpenAIClientConfig"
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
 
-def test_planner_runtime_defaults_to_kimi_k2_7_highspeed_with_only_dmx_key(
-    monkeypatch,
-):
+def test_planner_runtime_defaults_to_deepseek_with_only_dmx_key(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
-    assert runtime.model == "kimi-k2.7-code-highspeed"
+    assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
     assert runtime.request_extra_body is None
@@ -82,7 +79,7 @@ def test_planner_runtime_defaults_to_kimi_k2_7_highspeed_with_only_dmx_key(
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
 
-def test_stale_moonshot_url_is_ignored_when_using_shared_dmx_key(monkeypatch):
+def test_stale_moonshot_url_and_kimi_model_are_ignored_with_shared_dmx(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_BASE_URL", "https://www.dmxapi.cn/v1")
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
@@ -92,10 +89,23 @@ def test_stale_moonshot_url_is_ignored_when_using_shared_dmx_key(monkeypatch):
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.source == "shared-dmx-openai-compatible"
-    assert runtime.model == "kimi-k2.7-code-highspeed"
+    assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.request_extra_body is None
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
+
+
+def test_premium_profile_replaces_stale_kimi_with_deepseek(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_PROFILE", "premium")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.model == "deepseek-v4-pro-0813"
+    assert runtime.profile == "premium"
+    assert runtime.request_extra_body is None
 
 
 def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
@@ -104,14 +114,14 @@ def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
     monkeypatch.setenv("KINDERGARTEN_PLANNER_BASE_URL", "https://example.test/v1")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_API_KEY", "dedicated-key")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_PROFILE", "premium")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "deepseek-v4-pro-0813")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
-    assert runtime.model == "kimi-k3"
+    assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "dedicated-openai-compatible"
     assert runtime.profile == "premium"
-    assert runtime.request_extra_body == {"reasoning_effort": "low"}
+    assert runtime.request_extra_body is None
     assert runtime.config.__class__.__name__ == "OpenAIClientConfig"
     assert runtime.config.api_key == "dedicated-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://example.test/v1"
@@ -130,7 +140,7 @@ def test_dedicated_key_requires_dedicated_base_url(monkeypatch):
 
 def test_planner_runtime_rejects_model_without_any_key(monkeypatch):
     _clear_planner_env(monkeypatch)
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "deepseek-v4-pro-0813")
 
     with pytest.raises(HTTPException) as exc_info:
         runtime_module.get_kindergarten_planner_runtime()
@@ -139,16 +149,36 @@ def test_planner_runtime_rejects_model_without_any_key(monkeypatch):
     assert "DMX_API_KEY" in str(exc_info.value.detail)
 
 
-def test_kimi_k3_reasoning_effort_can_be_configured(monkeypatch):
+def test_planner_model_can_be_switched_later_without_code_change(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_PROFILE", "premium")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_REASONING_EFFORT", "high")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "future-outline-model")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
-    assert runtime.request_extra_body == {"reasoning_effort": "high"}
+    assert runtime.model == "future-outline-model"
+    assert runtime.profile == "fast"
+
+
+def test_fast_specific_model_override_wins(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "future-outline-model")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MODEL", "fast-outline-model")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.model == "fast-outline-model"
+
+
+def test_stale_kimi_fast_override_is_replaced_by_deepseek(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MODEL", "kimi-k2.7-code-highspeed")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.model == "deepseek-v4-pro-0813"
 
 
 def test_planner_runtime_reads_its_own_limits(monkeypatch):
@@ -169,7 +199,6 @@ def test_planner_runtime_reads_its_own_limits(monkeypatch):
     [
         ("KINDERGARTEN_PLANNER_MAX_TOKENS", "0"),
         ("KINDERGARTEN_PLANNER_TIMEOUT_SECONDS", "not-a-number"),
-        ("KINDERGARTEN_PLANNER_REASONING_EFFORT", "medium"),
     ],
 )
 def test_planner_runtime_rejects_invalid_premium_settings(
@@ -180,7 +209,6 @@ def test_planner_runtime_rejects_invalid_premium_settings(
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_PROFILE", "premium")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
     monkeypatch.setenv(name, value)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -190,58 +218,45 @@ def test_planner_runtime_rejects_invalid_premium_settings(
     assert name in str(exc_info.value.detail)
 
 
-def test_fast_profile_uses_dedicated_bounded_limits(monkeypatch):
+def test_fast_profile_uses_deepseek_bounded_limits(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_MODEL", "kimi-k3")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_TIMEOUT_SECONDS", "999")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_MAX_TOKENS", "999999")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
-    assert runtime.model == "kimi-k2.7-code-highspeed"
+    assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.max_tokens == 16000
-    assert runtime.timeout_seconds == 120
-    assert runtime.total_timeout_seconds == 240
+    assert runtime.timeout_seconds == 180
+    assert runtime.total_timeout_seconds == 360
 
 
 def test_fast_profile_limits_can_be_overridden(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
     monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MAX_TOKENS", "12000")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "90")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "180")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "210")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "450")
 
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.max_tokens == 12000
-    assert runtime.timeout_seconds == 90
-    assert runtime.total_timeout_seconds == 180
+    assert runtime.timeout_seconds == 210
+    assert runtime.total_timeout_seconds == 450
 
 
 def test_fast_profile_rejects_total_timeout_shorter_than_call(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "120")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "90")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS", "180")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS", "120")
 
     with pytest.raises(HTTPException) as exc_info:
         runtime_module.get_kindergarten_planner_runtime()
 
     assert exc_info.value.status_code == 400
     assert "FAST_TOTAL_TIMEOUT_SECONDS" in str(exc_info.value.detail)
-
-
-def test_fast_profile_rejects_k3_as_fast_model(monkeypatch):
-    _clear_planner_env(monkeypatch)
-    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
-    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MODEL", "kimi-k3")
-
-    with pytest.raises(HTTPException) as exc_info:
-        runtime_module.get_kindergarten_planner_runtime()
-
-    assert exc_info.value.status_code == 400
-    assert "cannot use kimi-k3" in str(exc_info.value.detail)
 
 
 def test_planner_runtime_rejects_unknown_profile(monkeypatch):
