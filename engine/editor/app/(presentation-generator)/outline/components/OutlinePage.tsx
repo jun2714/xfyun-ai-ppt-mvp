@@ -151,6 +151,11 @@ const OutlinePage: React.FC = () => {
   const [hasOutlineStreamFinished, setHasOutlineStreamFinished] =
     useState(false);
 
+  const planner =
+    searchParams.get("planner") === "kindergarten"
+      ? ("kindergarten" as const)
+      : ("standard" as const);
+
   useEffect(() => {
     const urlPresentationId = searchParams.get("id");
     const urlMode = searchParams.get("mode");
@@ -164,7 +169,8 @@ const OutlinePage: React.FC = () => {
 
   const streamState = useOutlineStreaming(
     presentation_id,
-    !isTemplateStage
+    !isTemplateStage,
+    planner
   );
   const { handleDragEnd, handleAddSlide } = useOutlineManagement(outlines);
   const { loadingState, handleSubmit, handleSmartSubmit } =
