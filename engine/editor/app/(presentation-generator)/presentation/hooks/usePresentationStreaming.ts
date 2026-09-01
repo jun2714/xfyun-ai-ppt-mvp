@@ -23,9 +23,11 @@ import {
 } from "../utils/streamAssetMerge";
 import { isTemplateV2Slide } from "../../_shared/blank-slide";
 
-// A retry repeats paid slide-content calls, so allow only one automatic retry.
-const MAX_STREAM_RETRIES = 1;
-const STREAM_RETRY_DELAY_MS = 1_000;
+// This GET starts paid per-slide content generation. Never reopen it automatically:
+// a transient SSE error used to start the whole deck again from page 1 and duplicate
+// gpt-5-mini charges. The backend checkpoints completed text before image work; a
+// deliberate browser refresh can resume that saved state without silently paying twice.
+const PAID_STREAM_AUTO_RETRY_COUNT = 0;
 
 function settleStreamUrl(
   presentationId: string,
@@ -166,9 +168,7 @@ export const usePresentationStreaming = (
 
     let eventSource: EventSource | null = null;
     let accumulatedChunks = "";
-    let retryCount = 0;
     let isClosed = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const shownAssetWarnings = new Set<string>();
     let preloadAttempted = false;
     let preloadRequest: Promise<void> | null = null;
@@ -184,27 +184,21 @@ export const usePresentationStreaming = (
       }
     };
 
-    const clearRetryTimer = () => {
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
-      }
-    };
-
     const finalizeFailure = (
       description: string,
       options: { showToast?: boolean } = {}
     ) => {
+      if (isClosed) return;
       if (streamIsTemplateV2) {
         trackEvent(MixpanelEvent.TemplateV2_Stream_Failed, {
           presentation_id: presentationId,
-          retry_count: retryCount,
+          retry_count: PAID_STREAM_AUTO_RETRY_COUNT,
           duration_ms: Date.now() - streamStartedAt,
           error_message: sanitizeAnalyticsError(description, "Stream failed"),
         });
       }
+      isClosed = true;
       closeEventSource();
-      clearRetryTimer();
       setLoading(false);
       dispatch(setStreaming(false));
 
@@ -212,58 +206,35 @@ export const usePresentationStreaming = (
         store.getState().presentationGeneration.presentationData?.slides;
       const hasPartialDeck = Array.isArray(currentSlides) && currentSlides.length > 0;
       setError(!hasPartialDeck);
-      // If pages already reached the editor, keep them usable instead of replacing
-      // the whole iframe with “页面加载失败”. The backend checkpoints those pages,
-      // so an asset/provider failure can be resumed later without losing text work.
+
+      // Never reload over an in-memory deck on asset failure. The previous code
+      // immediately called fetchUserSlides(), and a not-yet-flushed checkpoint could
+      // replace eight visible pages with one blank slide. Keep the usable deck exactly
+      // as the teacher saw it. Only a no-page failure probes the durable checkpoint.
       settleStreamUrl(presentationId, hasPartialDeck ? "completed" : "failed");
-      void Promise.resolve(fetchUserSlides())
-        .then(() => {
-          const refreshedSlides =
-            store.getState().presentationGeneration.presentationData?.slides;
-          if (Array.isArray(refreshedSlides) && refreshedSlides.length > 0) {
-            setError(false);
-          }
-        })
-        .catch(() => undefined);
+      if (!hasPartialDeck) {
+        void Promise.resolve(fetchUserSlides())
+          .then(() => {
+            const refreshedSlides =
+              store.getState().presentationGeneration.presentationData?.slides;
+            if (Array.isArray(refreshedSlides) && refreshedSlides.length > 0) {
+              setError(false);
+            }
+          })
+          .catch(() => undefined);
+      }
 
       if (options.showToast !== false) {
         if (hasPartialDeck) {
           notify.warning(
             "部分内容未生成完",
-            `${localizeStreamError(description)} 已保留当前页面，你可以继续编辑或稍后重试配图。`,
+            `${localizeStreamError(description)} 已保留当前页面，不会自动重新生成或重复扣费；刷新页面可从后端检查点继续配图。`,
             { duration: 12_000 }
           );
         } else {
           notify.error("生成失败", localizeStreamError(description));
         }
       }
-    };
-
-    const scheduleRetry = (reason: string): boolean => {
-      if (retryCount >= MAX_STREAM_RETRIES || isClosed) {
-        return false;
-      }
-
-      retryCount += 1;
-      const retryDelay = STREAM_RETRY_DELAY_MS * retryCount;
-      console.warn(
-        `Presentation stream retry ${retryCount}/${MAX_STREAM_RETRIES}: ${reason}`
-      );
-
-      closeEventSource();
-      clearRetryTimer();
-      accumulatedChunks = "";
-      previousSlidesLength.current = 0;
-      pendingSlideChunks.clear();
-      nextSlideIndexToPublish = 0;
-
-      retryTimer = setTimeout(() => {
-        if (!isClosed) {
-          openStream();
-        }
-      }, retryDelay);
-
-      return true;
     };
 
     const preloadPreparedPresentation = async (force = false) => {
@@ -319,7 +290,7 @@ export const usePresentationStreaming = (
       trackEvent(MixpanelEvent.TemplateV2_Stream_Completed, {
         presentation_id: presentationId,
         slide_count: Array.isArray(slides) ? slides.length : 0,
-        retry_count: retryCount,
+        retry_count: PAID_STREAM_AUTO_RETRY_COUNT,
         duration_ms: Date.now() - streamStartedAt,
       });
     };
@@ -371,9 +342,7 @@ export const usePresentationStreaming = (
         try {
           data = JSON.parse(event.data);
         } catch {
-          if (!scheduleRetry("invalid SSE payload")) {
-            finalizeFailure("Failed to parse stream response.");
-          }
+          finalizeFailure("Failed to parse stream response.");
           return;
         }
 
@@ -527,14 +496,10 @@ export const usePresentationStreaming = (
               setError(false);
               isClosed = true;
               closeEventSource();
-              clearRetryTimer();
-              retryCount = 0;
 
               settleStreamUrl(presentationId, "completed");
             } catch {
-              if (!scheduleRetry("failed to parse complete payload")) {
-                finalizeFailure("Failed to parse final presentation payload.");
-              }
+              finalizeFailure("Failed to parse final presentation payload.");
             }
             accumulatedChunks = "";
             break;
@@ -553,8 +518,6 @@ export const usePresentationStreaming = (
             dispatch(setStreaming(false));
             isClosed = true;
             closeEventSource();
-            clearRetryTimer();
-            retryCount = 0;
 
             settleStreamUrl(presentationId, "completed");
             break;
@@ -571,25 +534,17 @@ export const usePresentationStreaming = (
               );
               break;
             }
-            if (
-              !scheduleRetry(
-                data.detail || "server returned stream error response"
-              )
-            ) {
-              finalizeFailure(
-                data.detail ||
-                  "Failed to connect to the server. Please try again."
-              );
-            }
+            finalizeFailure(
+              data.detail ||
+                "Failed to connect to the server. Please try again."
+            );
             break;
         }
       });
 
       eventSource.onerror = (error) => {
         console.error("EventSource failed:", error);
-        if (!scheduleRetry("connection lost")) {
-          finalizeFailure("Failed to connect to the server. Please try again.");
-        }
+        finalizeFailure("Failed to connect to the server. Please try again.");
       };
     };
 
@@ -608,7 +563,6 @@ export const usePresentationStreaming = (
     return () => {
       isClosed = true;
       closeEventSource();
-      clearRetryTimer();
     };
   }, [
     presentationId,
