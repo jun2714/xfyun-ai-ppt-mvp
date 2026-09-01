@@ -28,11 +28,10 @@ PREMIUM_PROFILE = "premium"
 DEFAULT_MODEL = "deepseek-v4-pro-0813"
 FAST_MODEL = DEFAULT_MODEL
 FAST_MAX_TOKENS = 16_000
-# DeepSeek V4 Pro is now the default kindergarten outline planner. It may spend
-# longer internally reasoning before a schema-rich ten-page lesson is complete,
-# so keep a generous per-call budget while still bounding the browser wait. The
-# total budget leaves one extra minute of headroom around the single quality-
-# repair attempt used downstream instead of ending exactly at 2 x call timeout.
+# DeepSeek V4 Pro can reason for a long time when DMX leaves thinking enabled.
+# Outline generation does not need visible chain-of-thought: coherence is enforced
+# by our lesson-planning prompt and validators instead. Keep a generous hard
+# timeout for slow provider channels, but disable thinking by default below.
 FAST_CALL_TIMEOUT_SECONDS = 180.0
 FAST_TOTAL_TIMEOUT_SECONDS = 420.0
 
@@ -58,6 +57,10 @@ def _is_kimi_model(model: str) -> bool:
     return "kimi" in model.strip().lower()
 
 
+def _is_deepseek_model(model: str) -> bool:
+    return "deepseek" in model.strip().lower()
+
+
 def _normalize_planner_model(model: str | None) -> str:
     candidate = (model or "").strip()
     # Old deployments may still carry KINDERGARTEN_PLANNER_MODEL=kimi-k3 or a
@@ -70,11 +73,38 @@ def _normalize_planner_model(model: str | None) -> str:
 
 
 def _planner_request_extra_body(model: str) -> dict | None:
-    # Do not force Kimi-style reasoning/thinking flags onto DeepSeek or future
-    # OpenAI-compatible planner models. Provider-specific options can be added
-    # here later if a tested model actually requires them.
-    _ = model
-    return None
+    if not _is_deepseek_model(model):
+        return None
+
+    # DMXAPI documents DeepSeek V4 Pro / Flash as thinking-enabled by default.
+    # That default is useful for hard reasoning tasks but is a poor fit for a
+    # teacher waiting for a ten-page outline. Disable it unless explicitly opted
+    # back in. Prompt-level planning constraints still enforce cross-slide logic.
+    thinking = (
+        os.getenv("KINDERGARTEN_PLANNER_DEEPSEEK_THINKING") or "disabled"
+    ).strip().lower()
+    if thinking not in {"enabled", "disabled"}:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "KINDERGARTEN_PLANNER_DEEPSEEK_THINKING must be enabled or disabled."
+            ),
+        )
+
+    body: dict = {"thinking": {"type": thinking}}
+    if thinking == "enabled":
+        effort = (
+            os.getenv("KINDERGARTEN_PLANNER_DEEPSEEK_REASONING_EFFORT") or "high"
+        ).strip().lower()
+        if effort not in {"high", "max"}:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "KINDERGARTEN_PLANNER_DEEPSEEK_REASONING_EFFORT must be high or max."
+                ),
+            )
+        body["reasoning_effort"] = effort
+    return body
 
 
 def _build_runtime(
