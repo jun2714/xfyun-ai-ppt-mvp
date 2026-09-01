@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -60,15 +61,20 @@ You need to generate structured content json based on the schema.
   production metadata. Never copy field names, activity ids, answer keys, semantic labels,
   teacher notes, or other contract metadata into visible slide text unless the visible
   SLIDE CONTENT already contains that audience-facing information.
+- If preserve_visible_copy=true, the teacher has already approved the visible wording.
+  You are a schema mapper, not a copywriter: copy every audience-facing phrase from
+  SLIDE CONTENT verbatim into suitable editable text fields. Do not paraphrase, shorten,
+  summarize, translate, synonymize, beautify, add a new heading, or invent filler. Keep
+  punctuation, questions, invitations, surprise hooks and action wording unchanged. You
+  may still author image_prompt/icon_query fields and the speaker note. Do not add markdown
+  emphasis inside locked visible copy unless it was already present in SLIDE CONTENT.
 - teaching_goal and teacher_note preserve classroom intent; teacher_note is for the speaker
   note, not the slide body.
 - When a MACHINE CONTENT CONTRACT is present, this is a preschool classroom slide. Preserve
   the child-facing sense of wonder already written in SLIDE CONTENT. A question, invitation,
   mystery, role-play line, sound cue, or action prompt must not be flattened into a generic
-  adult label such as “种子”, “学做”, “认识…”, “游戏时间”, or “总结”. Prefer the supplied
-  title wording verbatim when it fits the schema; if it must be shortened, keep its question,
-  action, surprise, or story hook.
-- For preschool slides, turn supporting copy into something a 3-6 year-old can immediately
+  adult label such as “种子”, “学做”, “认识…”, “游戏时间”, or “总结”.
+- For preschool slides, supporting copy should be something a 3-6 year-old can immediately
   observe, say, choose, imitate, or do. Avoid adjective-only lists, textbook definitions,
   adult report language, empty slogans, and repeated sentence patterns across the deck.
 - Do not make every text field verbose just because the template has space. Large preschool
@@ -141,6 +147,38 @@ AUTO_DETECT_LANGUAGE_INSTRUCTION = (
     "auto-detect from the slide content and use the same language as the slide content"
 )
 
+# Structured generation still decides which template field receives each phrase. For
+# reviewed kindergarten copy we deterministically put the exact outline phrases back into
+# the generated audience-facing string slots afterwards. This removes the second model's
+# opportunity to silently rewrite a teacher-approved outline while retaining its useful
+# schema mapping and image-prompt work.
+_NON_AUDIENCE_STRING_KEYS = {
+    "__speaker_note__",
+    "__content_contract__",
+    "image_prompt",
+    "__image_prompt__",
+    "icon_query",
+    "__icon_query__",
+    "image_url",
+    "__image_url__",
+    "icon_url",
+    "__icon_url__",
+    "url",
+    "prompt",
+    "query",
+    "type",
+    "charttype",
+    "chart_type",
+    "color",
+    "colors",
+    "axiscolor",
+    "axis_color",
+    "gridcolor",
+    "grid_color",
+    "legendcolor",
+    "legend_color",
+}
+
 
 def _resolve_prompt_language(language: Optional[str]) -> str:
     if language is None:
@@ -170,8 +208,8 @@ def get_system_prompt(
     response_schema: Optional[dict] = None,
 ):
     markdown_emphasis_rules = (
-        "- Strictly use markdown to emphasize important points, by bolding or "
-        "italicizing the part of text."
+        "- Use markdown emphasis only when it does not conflict with a locked "
+        "preserve_visible_copy contract."
     )
 
     user_instructions = f"# User Instructions:\n{instructions}" if instructions else ""
@@ -332,6 +370,86 @@ def _prepare_response_schema(
     return ensure_array_schemas_have_items(response_schema)
 
 
+def _strip_outline_markup(line: str) -> str:
+    value = line.strip()
+    value = re.sub(r"^#{1,6}\s+", "", value)
+    value = re.sub(r"^(?:[-*+•]|\d+[.)])\s+", "", value)
+    value = re.sub(r"\*\*(.*?)\*\*", r"\1", value)
+    value = re.sub(r"__(.*?)__", r"\1", value)
+    return value.strip()
+
+
+def _outline_visible_lines(content: str) -> list[str]:
+    return [
+        cleaned
+        for raw in (content or "").splitlines()
+        if (cleaned := _strip_outline_markup(raw))
+    ]
+
+
+def _is_non_audience_string_key(key: str | None) -> bool:
+    if not key:
+        return False
+    normalized = key.strip().casefold()
+    if normalized.startswith("__"):
+        return True
+    return normalized in _NON_AUDIENCE_STRING_KEYS
+
+
+def _audience_string_slots(
+    value,
+    *,
+    parent_key: str | None = None,
+):
+    slots: list[tuple[object, object]] = []
+    if _is_non_audience_string_key(parent_key):
+        return slots
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if _is_non_audience_string_key(str(key)):
+                continue
+            if isinstance(child, str):
+                slots.append((value, key))
+            elif isinstance(child, (dict, list)):
+                slots.extend(_audience_string_slots(child, parent_key=str(key)))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            if isinstance(child, str):
+                slots.append((value, index))
+            elif isinstance(child, (dict, list)):
+                slots.extend(_audience_string_slots(child, parent_key=parent_key))
+    return slots
+
+
+def _apply_locked_visible_copy(generated: dict, outline_content: str) -> dict:
+    """Restore teacher-reviewed copy without another LLM request.
+
+    The model is useful for choosing schema slots and writing visual prompts, but the
+    outline is the final source of truth for kindergarten visible text. If a template
+    exposes fewer text slots than outline lines, the remaining exact phrases are joined
+    into the final slot rather than discarded. Extra generated text slots are blanked so
+    the model cannot silently add filler that was not approved in the outline.
+    """
+    lines = _outline_visible_lines(outline_content)
+    if not lines:
+        return generated
+    slots = _audience_string_slots(generated)
+    if not slots:
+        return generated
+
+    if len(slots) >= len(lines):
+        for index, (container, key) in enumerate(slots):
+            container[key] = lines[index] if index < len(lines) else ""
+        return generated
+
+    for index, (container, key) in enumerate(slots):
+        if index < len(slots) - 1:
+            container[key] = lines[index]
+        else:
+            container[key] = "\n".join(lines[index:])
+    return generated
+
+
 async def get_slide_content_from_type_and_outline(
     slide_layout: SlideLayoutModel,
     outline: SlideOutlineModel,
@@ -382,6 +500,11 @@ async def get_slide_content_from_type_and_outline(
             validate_schema=True,
             disconnect_checker=disconnect_checker,
         )
+        if (
+            outline.content_contract is not None
+            and outline.content_contract.preserve_visible_copy
+        ):
+            generated = _apply_locked_visible_copy(generated, outline.content)
         if contract_data:
             # Keep hidden planning semantics attached to the materialized slide.
             # Asset planning receives SlideModel objects, not PresentationOutlineModel,
