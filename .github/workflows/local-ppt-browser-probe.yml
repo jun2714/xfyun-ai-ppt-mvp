@@ -71,6 +71,15 @@ jobs:
           Assert-ServiceResponds "http://127.0.0.1:5001/upload"
           Assert-ServiceResponds "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime"
 
+      - name: Verify running API contains planner timeout fix
+        shell: powershell
+        run: |
+          $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime" -TimeoutSec 15
+          Write-Host "Planner profile=$($runtime.profile) model=$($runtime.model) call_timeout=$($runtime.call_timeout_seconds)s total_timeout=$($runtime.total_timeout_seconds)s"
+          if ($runtime.profile -eq "fast" -and [double]$runtime.call_timeout_seconds -le 55 -and [double]$runtime.total_timeout_seconds -le 60) {
+            throw "The running API is still using the old 55/60 second planner budget. Pull latest main and restart the local API before another paid outline probe."
+          }
+
       - name: Ensure outline web app is running
         shell: powershell
         run: |
