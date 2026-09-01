@@ -13,6 +13,8 @@ _PLANNER_ENV = (
     "KINDERGARTEN_PLANNER_FAST_MAX_TOKENS",
     "KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS",
     "KINDERGARTEN_PLANNER_FAST_TOTAL_TIMEOUT_SECONDS",
+    "KINDERGARTEN_PLANNER_DEEPSEEK_THINKING",
+    "KINDERGARTEN_PLANNER_DEEPSEEK_REASONING_EFFORT",
     "DMX_API_BASE_URL",
     "DMX_API_KEY",
     "KINDERGARTEN_PLANNER_MAX_TOKENS",
@@ -55,7 +57,7 @@ def test_fast_profile_ignores_stale_kimi_model(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
-    assert runtime.request_extra_body is None
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
     assert runtime.max_tokens == 16000
     assert runtime.timeout_seconds == 180
     assert runtime.total_timeout_seconds == 420
@@ -74,9 +76,35 @@ def test_planner_runtime_defaults_to_deepseek_with_only_dmx_key(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
-    assert runtime.request_extra_body is None
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
+
+
+def test_deepseek_thinking_can_be_explicitly_enabled(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_DEEPSEEK_THINKING", "enabled")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_DEEPSEEK_REASONING_EFFORT", "max")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.request_extra_body == {
+        "thinking": {"type": "enabled"},
+        "reasoning_effort": "max",
+    }
+
+
+def test_invalid_deepseek_thinking_mode_is_rejected(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_DEEPSEEK_THINKING", "auto")
+
+    with pytest.raises(HTTPException) as exc_info:
+        runtime_module.get_kindergarten_planner_runtime()
+
+    assert exc_info.value.status_code == 400
+    assert "DEEPSEEK_THINKING" in str(exc_info.value.detail)
 
 
 def test_stale_moonshot_url_and_kimi_model_are_ignored_with_shared_dmx(monkeypatch):
@@ -90,7 +118,7 @@ def test_stale_moonshot_url_and_kimi_model_are_ignored_with_shared_dmx(monkeypat
 
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.model == "deepseek-v4-pro-0813"
-    assert runtime.request_extra_body is None
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
@@ -105,7 +133,7 @@ def test_premium_profile_replaces_stale_kimi_with_deepseek(monkeypatch):
 
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.profile == "premium"
-    assert runtime.request_extra_body is None
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
 
 
 def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
@@ -121,7 +149,7 @@ def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "dedicated-openai-compatible"
     assert runtime.profile == "premium"
-    assert runtime.request_extra_body is None
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
     assert runtime.config.__class__.__name__ == "OpenAIClientConfig"
     assert runtime.config.api_key == "dedicated-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://example.test/v1"
@@ -158,6 +186,7 @@ def test_planner_model_can_be_switched_later_without_code_change(monkeypatch):
 
     assert runtime.model == "future-outline-model"
     assert runtime.profile == "fast"
+    assert runtime.request_extra_body is None
 
 
 def test_fast_specific_model_override_wins(monkeypatch):
@@ -169,6 +198,7 @@ def test_fast_specific_model_override_wins(monkeypatch):
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.model == "fast-outline-model"
+    assert runtime.request_extra_body is None
 
 
 def test_stale_kimi_fast_override_is_replaced_by_deepseek(monkeypatch):
@@ -179,6 +209,7 @@ def test_stale_kimi_fast_override_is_replaced_by_deepseek(monkeypatch):
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.model == "deepseek-v4-pro-0813"
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
 
 
 def test_planner_runtime_reads_its_own_limits(monkeypatch):
