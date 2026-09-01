@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: Local Teachnova tools URL on the Windows runner
+        description: Local PPT editor upload URL on the Windows runner
         required: true
-        default: http://127.0.0.1:3030/tools
+        default: http://127.0.0.1:5001/upload
+        type: string
+      test_topic:
+        description: Kindergarten topic used by the diagnostic run
+        required: true
+        default: 认识春天的小动物
         type: string
 
 permissions:
@@ -14,13 +19,20 @@ permissions:
 
 jobs:
   probe:
-    name: Browse local PPT flow
+    name: Diagnose local PPT outline flow
     runs-on: self-hosted
     timeout-minutes: 15
 
     steps:
       - name: Checkout diagnostics scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Refresh diagnostics code from latest main
+        shell: powershell
+        run: |
+          git fetch origin main
+          git checkout --force origin/main
+          Write-Host "Diagnostics source: $(git rev-parse HEAD)"
 
       - name: Show runner and browser environment
         shell: powershell
@@ -36,23 +48,43 @@ jobs:
           if (-not $edge) { throw "Microsoft Edge was not found on the runner." }
           Write-Host "Edge: $edge"
 
+      - name: Verify local PPT services are reachable
+        shell: powershell
+        run: |
+          $urls = @(
+            "http://127.0.0.1:5001/upload",
+            "http://127.0.0.1:5173/",
+            "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime"
+          )
+          foreach ($url in $urls) {
+            try {
+              $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 15
+              Write-Host "$url -> $($response.StatusCode)"
+            } catch {
+              Write-Error "$url is not reachable: $($_.Exception.Message)"
+              exit 1
+            }
+          }
+
       - name: Install isolated Playwright runtime
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
           npm install --prefix .runtime\playwright --no-package-lock --no-save playwright@1.55.0
 
-      - name: Browse Teachnova and open PPT entry
+      - name: Reproduce kindergarten outline generation
         shell: powershell
         env:
           TARGET_URL: ${{ inputs.target_url }}
-        run: node scripts/local-ui-probe.mjs
+          TEST_TOPIC: ${{ inputs.test_topic }}
+          API_BASE_URL: http://127.0.0.1:8000/api/v1/ppt
+        run: node scripts/local-outline-probe.mjs
 
-      - name: Upload browser diagnostics
+      - name: Upload outline diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: local-ppt-browser-diagnostics
-          path: .runtime/ui-probe
+          name: local-ppt-outline-diagnostics
+          path: .runtime/outline-probe
           if-no-files-found: warn
           retention-days: 7
