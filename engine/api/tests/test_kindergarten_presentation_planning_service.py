@@ -2,8 +2,6 @@ import asyncio
 from types import SimpleNamespace
 import uuid
 
-import pytest
-
 from models.kindergarten_lesson_plan import KindergartenLessonPlan
 from services import kindergarten_presentation_planning_service as planning_service
 from services.kindergarten_lesson_planning_service import (
@@ -165,13 +163,12 @@ def _plan(*, reveal_answer: str = "B") -> KindergartenLessonPlan:
     )
 
 
-def test_invalid_first_plan_is_repaired_once_before_outline_generation(monkeypatch):
+def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     calls = []
-    plans = [_plan(reveal_answer="A"), _plan(reveal_answer="B")]
 
     async def fake_generate(**kwargs):
         calls.append(kwargs)
-        return plans[len(calls) - 1]
+        return _plan(reveal_answer="A")
 
     monkeypatch.setattr(
         planning_service,
@@ -191,23 +188,29 @@ def test_invalid_first_plan_is_repaired_once_before_outline_generation(monkeypat
         )
     )
 
-    assert result.attempts == 2
+    assert result.attempts == 1
     assert result.quality.passed is True
-    assert len(calls) == 2
-    assert "reveal-answer-mismatch" in calls[1]["instructions"]
-    contract = result.outline.slides[1].content_contract
-    assert contract is not None
-    assert contract.activity_id == "forest-rabbit-1"
-    assert contract.answer_key == "B"
-    assert contract.required_asset_semantics == ["小兔子的两只长耳朵"]
+    assert len(calls) == 1
+    question = result.outline.slides[1].content_contract
+    reveal = result.outline.slides[2].content_contract
+    assert question is not None
+    assert reveal is not None
+    assert question.activity_id == "forest-rabbit-1"
+    assert question.answer_key == "B"
+    assert reveal.answer_key == "B"
 
 
-def test_persistently_invalid_plan_stops_before_downstream_generation(monkeypatch):
+def test_invalid_game_contract_is_downgraded_without_discarding_visible_page(monkeypatch):
     calls = []
+    plan = _plan(reveal_answer="B")
+    bad_question = plan.slides[1].model_copy(update={"game": None})
+    plan = plan.model_copy(
+        update={"slides": [plan.slides[0], bad_question, plan.slides[2]]}
+    )
 
     async def fake_generate(**kwargs):
         calls.append(kwargs)
-        return _plan(reveal_answer="A")
+        return plan
 
     monkeypatch.setattr(
         planning_service,
@@ -215,23 +218,21 @@ def test_persistently_invalid_plan_stops_before_downstream_generation(monkeypatc
         fake_generate,
     )
 
-    with pytest.raises(planning_service.KindergartenPlanningQualityError) as error:
-        asyncio.run(
-            planning_service.generate_validated_kindergarten_presentation_outline(
-                topic="认识森林动物",
-                age_group="4-5岁",
-                domain="science",
-                duration_minutes=20,
-                n_slides=3,
-                instructions=None,
-                source_context=None,
-            )
+    result = asyncio.run(
+        planning_service.generate_validated_kindergarten_presentation_outline(
+            topic="认识森林动物",
+            age_group="4-5岁",
+            domain="science",
+            duration_minutes=20,
+            n_slides=3,
+            instructions=None,
+            source_context=None,
         )
-
-    assert len(calls) == 2
-    assert error.value.attempts == 2
-    assert error.value.report.passed is False
-    assert any(
-        issue.code == "reveal-answer-mismatch"
-        for issue in error.value.report.errors
     )
+
+    assert len(calls) == 1
+    assert result.attempts == 1
+    assert result.quality.passed is True
+    assert "猜猜是谁？" in result.outline.slides[1].content
+    assert result.plan.slides[1].slide_type == "other"
+    assert result.plan.slides[1].game is None
