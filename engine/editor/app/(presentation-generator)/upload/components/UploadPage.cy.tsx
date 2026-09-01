@@ -37,28 +37,13 @@ Cypress.Commands.add("mount", (component, options = {}) => {
   return mount(<RouterWrapper>{component}</RouterWrapper>, options);
 });
 
-const kindergartenResponse = (overrides: Record<string, unknown> = {}) => ({
+const kindergartenStartResponse = (overrides: Record<string, unknown> = {}) => ({
   presentation_id: "test-id",
   outline_path: "/presentations/test-id/outline",
-  selected_template: "standard",
-  template_selection_reason: "domain:health+9",
-  template_scores: { standard: 9 },
+  outline_stream_path:
+    "/api/v1/ppt/kindergarten/presentation/outline/stream/test-id",
+  n_slides: 10,
   visual_mode: "template",
-  visual_style_summary: null,
-  planning_attempts: 1,
-  quality: { passed: true, errors: [], warnings: [] },
-  outline: { slides: [{ content: "# 测试", content_contract: null }] },
-  plan: {
-    meta: {
-      topic: "测试",
-      age_group: "4-5岁",
-      domain: "comprehensive",
-      duration_minutes: 20,
-    },
-    lesson_goals: ["参与课堂活动"],
-    lesson_arc: ["观察", "互动"],
-    slides: [],
-  },
   ...overrides,
 });
 
@@ -73,10 +58,10 @@ const clickGenerate = () => {
 describe("<UploadPage /> kindergarten creation", () => {
   beforeEach(() => {
     cy.viewport(1440, 900);
-    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/start", {
       statusCode: 200,
-      body: kindergartenResponse(),
-    }).as("createKindergartenPresentation");
+      body: kindergartenStartResponse(),
+    }).as("startKindergartenPresentation");
 
     cy.on("window:before:load", (win) => {
       cy.stub(win.location, "assign").as("locationAssign");
@@ -99,7 +84,7 @@ describe("<UploadPage /> kindergarten creation", () => {
     cy.contains("button", "智能模板").click();
     clickGenerate();
 
-    cy.wait("@createKindergartenPresentation")
+    cy.wait("@startKindergartenPresentation")
       .its("request.body")
       .should("include", {
         topic: "洗手好习惯",
@@ -111,20 +96,15 @@ describe("<UploadPage /> kindergarten creation", () => {
 
     cy.get("@locationAssign").should(
       "be.calledWithMatch",
-      /\/presentations\/test-id\/outline\?mode=topic.*template=standard/,
+      /\/presentations\/test-id\/outline\?mode=topic/,
     );
   });
 
   it("sends AI free visual mode and carries the visual preference", () => {
-    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/start", {
       statusCode: 200,
-      body: kindergartenResponse({
-        selected_template: "ai-visual",
-        template_selection_reason:
-          "visual-mode:ai-background;neutral-skeleton+generated-backgrounds",
-        template_scores: { "ai-visual": 100 },
+      body: kindergartenStartResponse({
         visual_mode: "ai-background",
-        visual_style_summary: "清新自然儿童绘本插画",
       }),
     }).as("createAiVisualPresentation");
 
@@ -143,7 +123,7 @@ describe("<UploadPage /> kindergarten creation", () => {
 
     cy.get("@locationAssign").should(
       "be.calledWithMatch",
-      /\/presentations\/test-id\/outline\?mode=topic.*template=ai-visual/,
+      /\/presentations\/test-id\/outline\?mode=topic/,
     );
   });
 
@@ -155,7 +135,7 @@ describe("<UploadPage /> kindergarten creation", () => {
     cy.get('[data-testid="prompt-input"]').type("端午节亲子活动");
     clickGenerate();
 
-    cy.wait("@createKindergartenPresentation")
+    cy.wait("@startKindergartenPresentation")
       .its("request.body.visual_mode")
       .should("equal", "template");
   });
@@ -184,7 +164,7 @@ describe("<UploadPage /> kindergarten creation", () => {
 
     cy.wait("@uploadDoc");
     cy.wait("@decomposeDoc");
-    cy.wait("@createKindergartenPresentation")
+    cy.wait("@startKindergartenPresentation")
       .its("request.body.file_paths")
       .should("deep.equal", ["/tmp/decomposed/example.txt"]);
   });
@@ -195,7 +175,7 @@ describe("<UploadPage /> kindergarten creation", () => {
   });
 
   it("surfaces planner API failures without navigating", () => {
-    cy.intercept("POST", "**/ppt/kindergarten/presentation/create", {
+    cy.intercept("POST", "**/ppt/kindergarten/presentation/start", {
       statusCode: 422,
       body: { detail: { code: "KINDERGARTEN_PLAN_QUALITY_FAILED" } },
     }).as("plannerError");

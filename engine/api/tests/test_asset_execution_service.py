@@ -288,3 +288,78 @@ def test_completed_asset_is_exposed_to_checkpoint_before_return(tmp_path, monkey
     assert len(checkpoints) == 1
     assert len(checkpoints[0]["paths"]) == 2
     assert checkpoints[0]["url"]
+
+
+def test_independent_assets_use_bounded_concurrency(tmp_path, monkeypatch):
+    outputs = [tmp_path / "first.png", tmp_path / "second.png"]
+    for output in outputs:
+        _valid_cutout_source(output)
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    monkeypatch.setattr(
+        asset_execution_service,
+        "build_default_asset_semantic_quality_service",
+        lambda: None,
+    )
+    monkeypatch.setenv("ASSET_GENERATION_CONCURRENCY", "2")
+
+    class SlowImageService(FakeImageService):
+        def __init__(self, output_directory, values):
+            super().__init__(output_directory, values)
+            self.active = 0
+            self.max_active = 0
+
+        async def generate_image(self, prompt):
+            index = self.calls
+            self.calls += 1
+            self.prompts.append(prompt.prompt)
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            await asyncio.sleep(0.02)
+            self.active -= 1
+            return ImageAsset(path=str(self.outputs[index]), is_uploaded=False)
+
+    service = SlowImageService(tmp_path, outputs)
+    slides = [
+        _cutout_slide(index=0, prompt="A red apple"),
+        _cutout_slide(index=1, prompt="A white rabbit"),
+    ]
+    asyncio.run(asset_execution_service.process_presentation_assets(service, slides))
+
+    assert service.max_active == 2
+    assert all("image_url" in slide.content["main"]["subject"] for slide in slides)
+
+
+def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "source.png"
+    _valid_cutout_source(source)
+    traces = []
+
+    async def record(trace):
+        traces.append(trace)
+
+    class TimedOutQualityService:
+        async def validate(self, _image, _expectations):
+            raise TimeoutError("vision check timed out")
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    service = FakeImageService(tmp_path, [source])
+    slide = _cutout_slide(with_semantic_contract=True)
+
+    asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service,
+            [slide],
+            semantic_quality_service=TimedOutQualityService(),
+        )
+    )
+
+    assert service.calls == 1
+    assert slide.content["main"]["subject"]["image_url"]
+    assert traces[-1].status == "succeeded_with_warning"

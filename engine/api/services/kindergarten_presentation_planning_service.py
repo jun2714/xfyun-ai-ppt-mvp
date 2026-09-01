@@ -12,7 +12,7 @@ from services.kindergarten_plan_quality_service import (
     KindergartenPlanQualityReport,
     validate_kindergarten_lesson_plan,
 )
-from utils.llm_utils import DisconnectChecker
+from utils.llm_utils import DisconnectChecker, TextChunkCallback
 
 
 @dataclass(frozen=True)
@@ -72,6 +72,7 @@ async def generate_validated_kindergarten_presentation_outline(
     instructions: Optional[str],
     source_context: Optional[str],
     disconnect_checker: Optional[DisconnectChecker] = None,
+    text_chunk_callback: Optional[TextChunkCallback] = None,
     max_attempts: int = 2,
 ) -> ValidatedKindergartenPlanningResult:
     """Plan a kindergarten lesson and gate it before layout/image generation.
@@ -97,6 +98,10 @@ async def generate_validated_kindergarten_presentation_outline(
             instructions=attempt_instructions,
             source_context=source_context,
             disconnect_checker=disconnect_checker,
+            # Only stream the first attempt. If the quality gate requests a
+            # repair, the final validated outline replaces the preview cleanly
+            # instead of appending a second JSON document to the browser.
+            text_chunk_callback=text_chunk_callback if attempt == 1 else None,
         )
         report = validate_kindergarten_lesson_plan(plan)
         last_report = report

@@ -3,7 +3,10 @@ import { api, consumeStream, localizeError, localizeStatus } from "../../api/cli
 import type { Presentation, PresentationOutline, TemplateItem, TemplateList } from "../../entities/types";
 import { clearReturnTo, peekReturnTo, rememberReturnTo } from "../../navigation/returnTo";
 import { OutlineEditor } from "../outline/OutlineEditor";
-import { parsePartialOutlineSlides } from "../outline/outlineFormat";
+import {
+  parsePartialKindergartenSlides,
+  parsePartialOutlineSlides,
+} from "../outline/outlineFormat";
 
 const EDITOR_BASE =
   import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
@@ -122,7 +125,12 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         setOutline({ slides: [] });
         setActiveSlideIndex(null);
         let accumulated = "";
-        await consumeStream(`/outlines/stream/${presentationId}`, (event) => {
+        const kindergartenOutline =
+          current.generation_metadata?.outline_status === "pending";
+        const streamPath = kindergartenOutline
+          ? `/kindergarten/presentation/outline/stream/${presentationId}`
+          : `/outlines/stream/${presentationId}`;
+        await consumeStream(streamPath, (event) => {
           if (event.type === "status") {
             setStatus(localizeStatus(event.status));
             return;
@@ -137,6 +145,21 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
             } else if (accumulated.trim()) {
               setStatus("正在写入大纲内容…");
             }
+            return;
+          }
+          if (event.type === "kindergarten_chunk") {
+            accumulated += event.chunk;
+            const slides = parsePartialKindergartenSlides(accumulated);
+            if (slides.length) {
+              setOutline({ slides });
+              setActiveSlideIndex(Math.max(0, slides.length - 1));
+              setStatus(`正在生成第 ${slides.length} 页…`);
+            }
+            return;
+          }
+          if (event.type === "outline") {
+            setOutline(event.outline);
+            setActiveSlideIndex(Math.max(0, event.outline.slides.length - 1));
             return;
           }
           if (event.type === "complete" && event.presentation) {
@@ -199,7 +222,10 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         streaming={streaming}
         status={status}
         activeSlideIndex={activeSlideIndex}
-        preferredTemplateId={outlineQuery.templateId}
+        preferredTemplateId={
+          presentation.generation_metadata?.selected_template ||
+          outlineQuery.templateId
+        }
         createMode={outlineQuery.createMode}
       />
     </Shell>

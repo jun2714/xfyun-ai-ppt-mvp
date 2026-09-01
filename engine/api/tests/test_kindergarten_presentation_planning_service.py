@@ -1,9 +1,67 @@
 import asyncio
+from types import SimpleNamespace
+import uuid
 
 import pytest
 
 from models.kindergarten_lesson_plan import KindergartenLessonPlan
 from services import kindergarten_presentation_planning_service as planning_service
+from services.kindergarten_lesson_planning_service import (
+    resolve_kindergarten_slide_count,
+)
+from api.v1.ppt.endpoints import kindergarten as kindergarten_endpoint
+
+
+def test_auto_slide_count_is_classroom_sized_and_explicit_choice_wins():
+    assert resolve_kindergarten_slide_count(None, 15) == 8
+    assert resolve_kindergarten_slide_count(None, 20) == 10
+    assert resolve_kindergarten_slide_count(None, 35) == 12
+    assert resolve_kindergarten_slide_count(None, 50) == 15
+    assert resolve_kindergarten_slide_count(7, 20) == 7
+
+
+def test_start_endpoint_persists_project_before_planning(monkeypatch):
+    presentation = SimpleNamespace(
+        id=uuid.uuid4(),
+        title=None,
+        theme=None,
+    )
+    create_calls = []
+
+    async def fake_create_presentation(**kwargs):
+        create_calls.append(kwargs)
+        return presentation
+
+    class FakeSession:
+        def add(self, _value):
+            return None
+
+        async def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        kindergarten_endpoint,
+        "create_presentation",
+        fake_create_presentation,
+    )
+    payload = kindergarten_endpoint.KindergartenPresentationCreateRequest(
+        topic="小种子长大了",
+        duration_minutes=20,
+        n_slides=None,
+    )
+
+    response = asyncio.run(
+        kindergarten_endpoint.start_kindergarten_presentation(
+            payload,
+            sql_session=FakeSession(),
+        )
+    )
+
+    assert response.presentation_id == presentation.id
+    assert response.n_slides == 10
+    assert create_calls[0]["n_slides"] == 10
+    assert presentation.theme["kindergarten_generation"]["outline_status"] == "pending"
+    assert presentation.theme["kindergarten_generation"]["request"]["n_slides"] == 10
 
 
 def _plan(*, reveal_answer: str = "B") -> KindergartenLessonPlan:

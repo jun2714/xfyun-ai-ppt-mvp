@@ -136,11 +136,19 @@ class ImageGenerationService:
         print(f"Request - Generating Image for {image_prompt}")
 
         try:
-            if is_parallel_image_generation_enabled():
-                image_path = await self._call_image_provider(image_prompt)
-            else:
-                async with _get_image_generation_lock():
+            try:
+                timeout_seconds = max(
+                    10.0,
+                    float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")),
+                )
+            except ValueError:
+                timeout_seconds = 75.0
+            async with asyncio.timeout(timeout_seconds):
+                if is_parallel_image_generation_enabled():
                     image_path = await self._call_image_provider(image_prompt)
+                else:
+                    async with _get_image_generation_lock():
+                        image_path = await self._call_image_provider(image_prompt)
             if image_path:
                 if image_path.startswith("http"):
                     return image_path
@@ -305,7 +313,14 @@ class ImageGenerationService:
             http_options={
                 "base_url": os.getenv(
                     "GEMINI_IMAGE_BASE_URL", "https://generativelanguage.googleapis.com"
-                )
+                ),
+                "timeout": int(
+                    max(
+                        10.0,
+                        float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")),
+                    )
+                    * 1000
+                ),
             },
         )
         response = await asyncio.to_thread(

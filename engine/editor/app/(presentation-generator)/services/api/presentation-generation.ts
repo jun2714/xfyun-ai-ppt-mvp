@@ -49,6 +49,14 @@ export type KindergartenPresentationCreateResponse = {
   };
 };
 
+export type KindergartenPresentationStartResponse = {
+  presentation_id: string;
+  outline_path: string;
+  outline_stream_path: string;
+  n_slides: number;
+  visual_mode: KindergartenVisualMode;
+};
+
 export class PresentationGenerationApi {
   static async uploadDoc(documents: File[]) {
     const formData = new FormData();
@@ -241,6 +249,74 @@ export class PresentationGenerationApi {
       console.error("error in kindergarten presentation creation", error);
       throw error;
     }
+  }
+
+  static async startKindergartenPresentation({
+    topic,
+    age_group = "4-5岁",
+    domain = "comprehensive",
+    duration_minutes = 20,
+    n_slides,
+    instructions,
+    source_context,
+    template = "auto",
+    visual_mode = "template",
+    visual_style,
+    language = "Chinese",
+    image_policy = "standard",
+    file_paths = [],
+    tone = "educational",
+    verbosity = "standard",
+  }: {
+    topic: string;
+    age_group?: string;
+    domain?: KindergartenDomain;
+    duration_minutes?: number;
+    n_slides: number | null;
+    instructions?: string | null;
+    source_context?: string | null;
+    template?: string;
+    visual_mode?: KindergartenVisualMode;
+    visual_style?: string | null;
+    language?: string;
+    image_policy?: "disabled" | "minimal" | "standard";
+    file_paths?: string[];
+    tone?: string | null;
+    verbosity?: string | null;
+  }): Promise<KindergartenPresentationStartResponse> {
+    const limitedSlideCount =
+      typeof n_slides === "number"
+        ? Math.min(Math.max(n_slides, 3), MAX_NUMBER_OF_SLIDES)
+        : null;
+    const response = await fetch(
+      getApiUrl(`/api/v1/ppt/kindergarten/presentation/start`),
+      {
+        method: "POST",
+        headers: getHeader(),
+        body: JSON.stringify({
+          topic,
+          age_group,
+          domain,
+          duration_minutes,
+          n_slides: limitedSlideCount,
+          instructions,
+          source_context,
+          template,
+          visual_mode,
+          visual_style,
+          language,
+          image_policy,
+          file_paths,
+          tone,
+          verbosity,
+        }),
+        cache: "no-cache",
+      },
+    );
+    return (await ApiResponseHandler.handleResponse(
+      response,
+      "Failed to start kindergarten presentation",
+    )) as KindergartenPresentationStartResponse;
   }
 
   static async createBlankPresentation(): Promise<BlankPresentationResponse> {

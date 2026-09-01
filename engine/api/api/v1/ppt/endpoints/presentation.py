@@ -412,7 +412,12 @@ def _extract_template_fonts_from_assets(assets: Any) -> Optional[dict[str, str]]
 
 
 def _presentation_response_data(presentation: PresentationModel) -> dict:
-    return presentation.model_dump(exclude={"layout", "structure", "theme"})
+    return {
+        **presentation.model_dump(exclude={"layout", "structure", "theme"}),
+        "generation_metadata": (presentation.theme or {}).get(
+            "kindergarten_generation"
+        ),
+    }
 
 
 def _insert_toc_layouts(
@@ -1719,7 +1724,15 @@ async def prepare_presentation(
             detail=f"Number of outlines cannot be greater than {MAX_NUMBER_OF_SLIDES}",
         )
 
-    presentation = await sql_session.get(PresentationModel, presentation_id)
+    # The review UI may live on a separate origin from the editor. Its project
+    # read/update endpoints are already bridge-safe and unscoped; prepare must
+    # resolve the exact same saved project instead of returning a misleading 404
+    # when the browser session cookie is not shared across those origins.
+    presentation = await get_by_id_unscoped(
+        sql_session,
+        PresentationModel,
+        presentation_id,
+    )
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 

@@ -13,11 +13,38 @@ from models.kindergarten_lesson_plan import (
 )
 from services.kindergarten_planner_runtime import get_kindergarten_planner_runtime
 from utils.llm_client_error_handler import handle_llm_client_exceptions
-from utils.llm_utils import DisconnectChecker, generate_structured_with_schema_retries
+from utils.llm_utils import (
+    DisconnectChecker,
+    TextChunkCallback,
+    generate_structured_with_schema_retries,
+)
 from utils.schema_utils import prepare_schema_for_validation
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def resolve_kindergarten_slide_count(
+    requested_count: Optional[int],
+    duration_minutes: int,
+) -> int:
+    """Resolve auto page count to a classroom-sized, deterministic deck.
+
+    Letting the model decide without a lower bound produced three-page "lessons"
+    for a normal 20-minute activity. Explicit teacher choices still win; auto
+    mode uses a compact duration-based contract that the response schema enforces.
+    """
+    if requested_count is not None:
+        return max(3, min(requested_count, 40))
+    if duration_minutes <= 15:
+        return 8
+    if duration_minutes <= 30:
+        return 10
+    if duration_minutes <= 45:
+        return 12
+    if duration_minutes <= 60:
+        return 15
+    return 18
 
 
 KINDERGARTEN_LESSON_SYSTEM_PROMPT = """
@@ -121,7 +148,9 @@ async def generate_kindergarten_lesson_plan(
     instructions: Optional[str] = None,
     source_context: Optional[str] = None,
     disconnect_checker: Optional[DisconnectChecker] = None,
+    text_chunk_callback: Optional[TextChunkCallback] = None,
 ) -> KindergartenLessonPlan:
+    n_slides = resolve_kindergarten_slide_count(n_slides, duration_minutes)
     runtime = get_kindergarten_planner_runtime()
     LOGGER.info(
         "Kindergarten planner selected profile=%s model=%s source=%s "
@@ -165,6 +194,7 @@ async def generate_kindergarten_lesson_plan(
             strict=False,
             validate_schema=True,
             disconnect_checker=disconnect_checker,
+            text_chunk_callback=text_chunk_callback,
             max_tokens=runtime.max_tokens,
             extra_body=runtime.request_extra_body,
             # The kindergarten planner can use a dedicated OpenAI-compatible

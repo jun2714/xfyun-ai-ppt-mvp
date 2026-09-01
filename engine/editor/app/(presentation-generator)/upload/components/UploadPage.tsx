@@ -425,12 +425,12 @@ const UploadPage = () => {
     }
   };
 
-  const createKindergartenOutline = async (documentPaths: string[]) => {
+  const startKindergartenOutline = async (documentPaths: string[]) => {
     const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
     const requestContext = teachingContext;
     const requestContent = buildTeachnovaPrompt(topic, requestContext);
     const plannerInstructions = buildPlannerInstructions(config.instructions, requestContext);
-    const createResponse = await PresentationGenerationApi.createKindergartenPresentation({
+    const createResponse = await PresentationGenerationApi.startKindergartenPresentation({
       topic,
       age_group: normalizeAgeGroup(requestContext.age),
       domain: inferKindergartenDomain(`${topic}\n${plannerInstructions || ""}`),
@@ -465,7 +465,7 @@ const UploadPage = () => {
       requestContext,
       destination: getTeachnovaWebOutlineUrl(createResponse.presentation_id, {
         createMode: createFlowMode,
-        templateId: createResponse.selected_template,
+        templateId: undefined,
       }),
     };
   };
@@ -504,27 +504,27 @@ const UploadPage = () => {
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
-    const { createResponse, destination } = await createKindergartenOutline(documentPaths);
+    const { createResponse, destination } = await startKindergartenOutline(documentPaths);
     trackEvent(MixpanelEvent.Upload_Documents_Processed, {
       ...getUploadSnapshotProps(),
       uploaded_documents_count: documents.length,
       decompose_job_count: responses.length,
       extracted_document_count: documentPaths.length,
-      selected_template: createResponse.selected_template,
+      selected_template: "pending-auto-route",
       visual_mode: createResponse.visual_mode,
-      planning_attempts: createResponse.planning_attempts,
+      planning_attempts: 0,
       destination,
     });
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.presentation_id,
-      selected_template: createResponse.selected_template,
+      selected_template: "pending-auto-route",
       visual_mode: createResponse.visual_mode,
       uploaded_documents_count: documents.length,
       extracted_document_count: documentPaths.length,
       destination,
     });
-    continueToOutline(createResponse.presentation_id, createResponse.selected_template);
+    continueToOutline(createResponse.presentation_id);
   };
 
   const handleDirectPresentationGeneration = async () => {
@@ -539,16 +539,16 @@ const UploadPage = () => {
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
 
-    const { createResponse, destination } = await createKindergartenOutline([]);
+    const { createResponse, destination } = await startKindergartenOutline([]);
     trackEvent(MixpanelEvent.Upload_Outline_Generation_Requested, {
       ...getUploadSnapshotProps(),
       presentation_id: createResponse.presentation_id,
-      selected_template: createResponse.selected_template,
+      selected_template: "pending-auto-route",
       visual_mode: createResponse.visual_mode,
-      planning_attempts: createResponse.planning_attempts,
+      planning_attempts: 0,
       destination,
     });
-    continueToOutline(createResponse.presentation_id, createResponse.selected_template);
+    continueToOutline(createResponse.presentation_id);
   };
 
   const handleGenerationError = (error: any) => {
