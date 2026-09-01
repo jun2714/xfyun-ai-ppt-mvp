@@ -1,4 +1,5 @@
 import { extractApiErrorMessage } from "@/utils/apiErrorMessages";
+import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 
 function isAbsoluteHttpUrl(path: string): boolean {
   return /^https?:\/\//i.test(path);
@@ -117,6 +118,16 @@ function resolveBackendPathForRuntime(
   }
 
   return `${getFastAPIUrl()}${normalizedPath}`;
+}
+
+function resolveAuthenticatedBackendAsset(path: string): string {
+  const resolved = resolveBackendPathForRuntime(path, "asset");
+  // TeachNova's bridge token lives in sessionStorage, so normal <img>/Konva
+  // requests do not inherit the Authorization header installed for fetch().
+  // FastAPI protects /app_data/images per user and intentionally returns 404
+  // for an unauthenticated/private asset. Carry the same bridge token in the
+  // query string, exactly as the EventSource stream does.
+  return typeof window !== "undefined" ? withBridgeSessionQuery(resolved) : resolved;
 }
 
 // Utility to get the backend base URL.
@@ -260,7 +271,7 @@ export function resolveBackendAssetUrl(path?: string): string {
       const parsed = new URL(trimmedPath);
       const servedPath = toBackendServedPath(decodeURIComponent(parsed.pathname));
       if (hasBackendAssetPrefix(servedPath)) {
-        return resolveBackendPathForRuntime(servedPath, "asset");
+        return resolveAuthenticatedBackendAsset(servedPath);
       }
       return trimmedPath;
     } catch {
@@ -273,9 +284,8 @@ export function resolveBackendAssetUrl(path?: string): string {
       const parsed = new URL(trimmedPath);
       const servedPath = toBackendServedPath(parsed.pathname);
       if (hasBackendAssetPrefix(servedPath)) {
-        return resolveBackendPathForRuntime(
-          `${servedPath}${parsed.search}${parsed.hash}`,
-          "asset"
+        return resolveAuthenticatedBackendAsset(
+          `${servedPath}${parsed.search}${parsed.hash}`
         );
       }
       return trimmedPath;
@@ -287,7 +297,7 @@ export function resolveBackendAssetUrl(path?: string): string {
   const { path: pathPart, suffix } = splitPathAndSuffix(trimmedPath);
   const servedPath = toBackendServedPath(withLeadingSlash(pathPart));
   if (hasBackendAssetPrefix(servedPath)) {
-    return resolveBackendPathForRuntime(`${servedPath}${suffix}`, "asset");
+    return resolveAuthenticatedBackendAsset(`${servedPath}${suffix}`);
   }
 
   return trimmedPath;
