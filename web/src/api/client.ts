@@ -64,6 +64,9 @@ const hasChinese = (value: string) => /[\u3400-\u9fff]/.test(value);
 export function localizeError(value: unknown, status?: number) {
   const message = value instanceof Error ? value.message : String(value ?? "");
   if (hasChinese(message)) return message;
+  if (/template layout not found|template not found/i.test(message)) {
+    return "所选模板当前不可用，请重新选择模板；若内置模板全部缺失，请重启生成服务以重新加载模板。";
+  }
   if (/failed to fetch|networkerror|network error/i.test(message)) return "无法连接生成服务，请确认服务已启动。";
   if (/timed? out|timeout/i.test(message)) return "模型响应超时，请重试。";
   return (status && ERROR_TEXT[status]) || "操作失败，请稍后重试。";
