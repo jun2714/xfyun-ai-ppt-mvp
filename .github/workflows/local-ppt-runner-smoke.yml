@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: Local PPT web URL on the Windows runner
+        description: Local Teachnova/PPT entry URL on the Windows runner
         required: true
-        default: http://127.0.0.1:5173
+        default: http://127.0.0.1:3030/tools
         type: string
 
 permissions:
@@ -29,13 +29,13 @@ jobs:
       - name: Check expected local ports
         shell: powershell
         run: |
-          $ports = 5173, 5001, 8000
+          $ports = 3030, 5173, 5001, 8000
           foreach ($port in $ports) {
             $result = Test-NetConnection -ComputerName 127.0.0.1 -Port $port -WarningAction SilentlyContinue
             Write-Host ("127.0.0.1:{0} TcpTestSucceeded={1}" -f $port, $result.TcpTestSucceeded)
           }
 
-      - name: Verify local PPT page
+      - name: Verify local Teachnova/PPT entry page
         shell: powershell
         run: |
           $url = "${{ inputs.target_url }}"
@@ -48,6 +48,6 @@ jobs:
               throw "Unexpected HTTP status $($response.StatusCode)"
             }
           } catch {
-            Write-Error "Local PPT page is not reachable from the self-hosted runner: $($_.Exception.Message)"
+            Write-Error "Local Teachnova/PPT page is not reachable from the self-hosted runner: $($_.Exception.Message)"
             exit 1
           }
