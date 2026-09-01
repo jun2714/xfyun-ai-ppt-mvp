@@ -25,16 +25,15 @@ class KindergartenPlannerRuntime:
 
 FAST_PROFILE = "fast"
 PREMIUM_PROFILE = "premium"
-FAST_MODEL = "kimi-k2.7-code-highspeed"
+DEFAULT_MODEL = "deepseek-v4-pro-0813"
+FAST_MODEL = DEFAULT_MODEL
 FAST_MAX_TOKENS = 16_000
-# A normal 20-minute kindergarten activity resolves to ten schema-rich slides.
-# In production the high-speed model can legitimately take more than 55 seconds
-# before the structured response is complete, so the old 55/60 second limits
-# deterministically killed otherwise healthy outline requests. Keep the fast
-# profile bounded, but give one call enough time to finish and leave room for the
-# single quality-repair attempt performed by the planner service.
-FAST_CALL_TIMEOUT_SECONDS = 120.0
-FAST_TOTAL_TIMEOUT_SECONDS = 240.0
+# DeepSeek V4 Pro is now the default kindergarten outline planner. It may spend
+# longer internally reasoning before a schema-rich ten-page lesson is complete,
+# so keep a generous per-call budget while still bounding the browser wait. The
+# total budget leaves room for the single quality-repair attempt used downstream.
+FAST_CALL_TIMEOUT_SECONDS = 180.0
+FAST_TOTAL_TIMEOUT_SECONDS = 360.0
 
 
 def _positive_number_env(name: str, default: str, cast):
@@ -54,23 +53,26 @@ def _positive_number_env(name: str, default: str, cast):
     return value
 
 
+def _is_kimi_model(model: str) -> bool:
+    return "kimi" in model.strip().lower()
+
+
+def _normalize_planner_model(model: str | None) -> str:
+    candidate = (model or "").strip()
+    # Old deployments may still carry KINDERGARTEN_PLANNER_MODEL=kimi-k3 or a
+    # Kimi fast override in their environment. Treat those as stale settings so
+    # a restart immediately moves this outline path to DeepSeek without requiring
+    # the operator to find and remove every old environment variable first.
+    if not candidate or _is_kimi_model(candidate):
+        return DEFAULT_MODEL
+    return candidate
+
+
 def _planner_request_extra_body(model: str) -> dict | None:
-    normalized_model = model.strip().lower()
-    if "kimi-k3" in normalized_model:
-        effort = (
-            os.getenv("KINDERGARTEN_PLANNER_REASONING_EFFORT") or "low"
-        ).strip().lower()
-        if effort not in {"low", "high", "max"}:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "KINDERGARTEN_PLANNER_REASONING_EFFORT must be one of: "
-                    "low, high, max."
-                ),
-            )
-        return {"reasoning_effort": effort}
-    if "kimi-k2.6" in normalized_model or "kimi-k2.5" in normalized_model:
-        return {"thinking": {"type": "disabled"}}
+    # Do not force Kimi-style reasoning/thinking flags onto DeepSeek or future
+    # OpenAI-compatible planner models. Provider-specific options can be added
+    # here later if a tested model actually requires them.
+    _ = model
     return None
 
 
@@ -82,15 +84,6 @@ def _build_runtime(
     profile: str,
 ) -> KindergartenPlannerRuntime:
     if profile == FAST_PROFILE:
-        if "kimi-k3" in model.strip().lower():
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "KINDERGARTEN_PLANNER_FAST_MODEL cannot use kimi-k3. "
-                    "Use kimi-k2.7-code-highspeed or switch the planner profile "
-                    "to premium explicitly."
-                ),
-            )
         call_timeout_seconds = _positive_number_env(
             "KINDERGARTEN_PLANNER_FAST_TIMEOUT_SECONDS",
             str(FAST_CALL_TIMEOUT_SECONDS),
@@ -159,29 +152,33 @@ def _planner_profile() -> str:
     return profile
 
 
-def _planner_model(profile: str, legacy_model: str) -> str:
+def _planner_model(profile: str, configured_model: str) -> str:
     if profile == FAST_PROFILE:
-        return (
-            os.getenv("KINDERGARTEN_PLANNER_FAST_MODEL") or FAST_MODEL
-        ).strip()
-    return legacy_model or "kimi-k3"
+        candidate = (
+            os.getenv("KINDERGARTEN_PLANNER_FAST_MODEL")
+            or configured_model
+            or DEFAULT_MODEL
+        )
+        return _normalize_planner_model(candidate)
+    return _normalize_planner_model(configured_model or DEFAULT_MODEL)
 
 
 def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
     """Resolve the model runtime used by kindergarten lesson planning.
 
-    Standard generation always uses a bounded fast profile. The legacy
-    ``KINDERGARTEN_PLANNER_MODEL`` value is read only when premium is selected
-    explicitly, so a stale production ``kimi-k3`` setting cannot silently turn a
-    normal outline request into a multi-minute reasoning call.
+    DeepSeek V4 Pro is the default for both planner profiles. Existing Kimi model
+    environment values are treated as stale and replaced by the DeepSeek default.
+    A different non-Kimi model can still be tested later through
+    ``KINDERGARTEN_PLANNER_MODEL`` or ``KINDERGARTEN_PLANNER_FAST_MODEL`` without
+    another code change.
     """
     planner_base_url = (
         os.getenv("KINDERGARTEN_PLANNER_BASE_URL") or ""
     ).strip().rstrip("/")
     planner_api_key = (os.getenv("KINDERGARTEN_PLANNER_API_KEY") or "").strip()
-    legacy_model = (os.getenv("KINDERGARTEN_PLANNER_MODEL") or "").strip()
+    configured_model = (os.getenv("KINDERGARTEN_PLANNER_MODEL") or "").strip()
     profile = _planner_profile()
-    planner_model = _planner_model(profile, legacy_model)
+    planner_model = _planner_model(profile, configured_model)
 
     dmx_base_url = (
         os.getenv("DMX_API_BASE_URL") or "https://www.dmxapi.cn/v1"
@@ -218,7 +215,7 @@ def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
             profile=profile,
         )
 
-    if not legacy_model and not planner_base_url:
+    if not configured_model and not planner_base_url:
         return _build_runtime(
             config=get_llm_config(),
             model=get_model(),
