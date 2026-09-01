@@ -13,6 +13,11 @@ on:
         required: true
         default: 认识春天的小动物
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - .github/ppt-probe-trigger
 
 permissions:
   contents: read
@@ -75,8 +80,8 @@ jobs:
       - name: Reproduce kindergarten outline generation
         shell: powershell
         env:
-          TARGET_URL: ${{ inputs.target_url }}
-          TEST_TOPIC: ${{ inputs.test_topic }}
+          TARGET_URL: ${{ inputs.target_url || 'http://127.0.0.1:5001/upload' }}
+          TEST_TOPIC: ${{ inputs.test_topic || '认识春天的小动物' }}
           API_BASE_URL: http://127.0.0.1:8000/api/v1/ppt
         run: node scripts/local-outline-probe.mjs
 
