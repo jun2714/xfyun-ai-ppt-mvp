@@ -7,6 +7,7 @@ import pytest
 from models.kindergarten_lesson_plan import KindergartenLessonPlan
 from services import kindergarten_presentation_planning_service as planning_service
 from services.kindergarten_lesson_planning_service import (
+    build_kindergarten_lesson_messages,
     resolve_kindergarten_slide_count,
 )
 from api.v1.ppt.endpoints import kindergarten as kindergarten_endpoint
@@ -18,6 +19,28 @@ def test_auto_slide_count_is_classroom_sized_and_explicit_choice_wins():
     assert resolve_kindergarten_slide_count(None, 35) == 12
     assert resolve_kindergarten_slide_count(None, 50) == 15
     assert resolve_kindergarten_slide_count(7, 20) == 7
+
+
+def test_lesson_prompt_requires_cross_slide_coherence():
+    messages = build_kindergarten_lesson_messages(
+        topic="认识春天的小动物",
+        age_group="4-5岁",
+        domain="science",
+        duration_minutes=20,
+        n_slides=10,
+        instructions=None,
+        source_context=None,
+    )
+
+    system_prompt = messages[0].content
+    user_prompt = messages[1].content
+    assert isinstance(system_prompt, str)
+    assert isinstance(user_prompt, str)
+    assert "全局连贯性硬约束" in system_prompt
+    assert "先教后练" in system_prompt
+    assert "前面提出的问题必须在后面得到明确回应" in system_prompt
+    assert "结尾回顾必须回扣 lesson_goals" in system_prompt
+    assert "完整、前后呼应的 lesson_arc" in user_prompt
 
 
 def test_start_endpoint_persists_project_before_planning(monkeypatch):
