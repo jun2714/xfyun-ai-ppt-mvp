@@ -31,9 +31,10 @@ FAST_MAX_TOKENS = 16_000
 # DeepSeek V4 Pro is now the default kindergarten outline planner. It may spend
 # longer internally reasoning before a schema-rich ten-page lesson is complete,
 # so keep a generous per-call budget while still bounding the browser wait. The
-# total budget leaves room for the single quality-repair attempt used downstream.
+# total budget leaves one extra minute of headroom around the single quality-
+# repair attempt used downstream instead of ending exactly at 2 x call timeout.
 FAST_CALL_TIMEOUT_SECONDS = 180.0
-FAST_TOTAL_TIMEOUT_SECONDS = 360.0
+FAST_TOTAL_TIMEOUT_SECONDS = 420.0
 
 
 def _positive_number_env(name: str, default: str, cast):
