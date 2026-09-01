@@ -86,8 +86,8 @@ jobs:
           if ($runtime.model -ne $env:EXPECTED_MODEL) {
             throw "The running API is still using planner model '$($runtime.model)' instead of '$env:EXPECTED_MODEL'. Pull latest main and restart the local API before another paid outline probe."
           }
-          if ($runtime.profile -eq "fast" -and ([double]$runtime.call_timeout_seconds -lt 180 -or [double]$runtime.total_timeout_seconds -lt 360)) {
-            throw "The running API does not have the current 180/360 second DeepSeek planner budget. Pull latest main and restart the local API before another paid outline probe."
+          if ($runtime.profile -eq "fast" -and ([double]$runtime.call_timeout_seconds -lt 180 -or [double]$runtime.total_timeout_seconds -lt 420)) {
+            throw "The running API does not have the current 180/420 second DeepSeek planner budget. Pull latest main and restart the local API before another paid outline probe."
           }
 
       - name: Ensure outline web app is running
