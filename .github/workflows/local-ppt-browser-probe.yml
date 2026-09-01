@@ -13,6 +13,11 @@ on:
         required: true
         default: 认识春天的小动物
         type: string
+      expected_model:
+        description: Planner model that must be active before the paid probe starts
+        required: true
+        default: deepseek-v4-pro-0813
+        type: string
   push:
     branches:
       - main
@@ -71,13 +76,18 @@ jobs:
           Assert-ServiceResponds "http://127.0.0.1:5001/upload"
           Assert-ServiceResponds "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime"
 
-      - name: Verify running API contains planner timeout fix
+      - name: Verify running API uses expected planner
         shell: powershell
+        env:
+          EXPECTED_MODEL: ${{ inputs.expected_model || 'deepseek-v4-pro-0813' }}
         run: |
           $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime" -TimeoutSec 15
           Write-Host "Planner profile=$($runtime.profile) model=$($runtime.model) call_timeout=$($runtime.call_timeout_seconds)s total_timeout=$($runtime.total_timeout_seconds)s"
-          if ($runtime.profile -eq "fast" -and [double]$runtime.call_timeout_seconds -le 55 -and [double]$runtime.total_timeout_seconds -le 60) {
-            throw "The running API is still using the old 55/60 second planner budget. Pull latest main and restart the local API before another paid outline probe."
+          if ($runtime.model -ne $env:EXPECTED_MODEL) {
+            throw "The running API is still using planner model '$($runtime.model)' instead of '$env:EXPECTED_MODEL'. Pull latest main and restart the local API before another paid outline probe."
+          }
+          if ($runtime.profile -eq "fast" -and ([double]$runtime.call_timeout_seconds -lt 180 -or [double]$runtime.total_timeout_seconds -lt 360)) {
+            throw "The running API does not have the current 180/360 second DeepSeek planner budget. Pull latest main and restart the local API before another paid outline probe."
           }
 
       - name: Ensure outline web app is running
