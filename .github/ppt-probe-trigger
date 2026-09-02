@@ -1,2 +1,3 @@
-triggered_at=2026-09-01T12:46:00+08:00
-reason=rerun-after-editor-hydration-wait
+triggered_at=2026-09-02T15:25:00+08:00
+reason=full-repair-runtime-restart-and-probe
+expected_commit=8c96ae5dcb664dedec03f36a3d4cab74275d3c5c
