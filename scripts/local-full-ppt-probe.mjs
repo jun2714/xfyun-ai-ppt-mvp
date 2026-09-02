@@ -175,6 +175,9 @@ try {
   if (diagnostics.imageRuntime.body?.model !== "gemini-3.1-flash-lite-image") {
     throw new Error(`Unexpected image runtime: ${JSON.stringify(diagnostics.imageRuntime.body)}`);
   }
+  if (diagnostics.imageRuntime.body?.google_genai_compatible !== true) {
+    throw new Error(`Incompatible Google GenAI SDK runtime: ${JSON.stringify(diagnostics.imageRuntime.body)}`);
+  }
 
   browser = await chromium.launch({ channel: "msedge", headless: true });
   context = await browser.newContext({

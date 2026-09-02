@@ -20,7 +20,7 @@ on:
         type: string
   push:
     branches:
-      - main
+      - fix/kindergarten-generation-stability
     paths:
       - .github/ppt-probe-trigger
 
@@ -37,11 +37,9 @@ jobs:
       - name: Checkout diagnostics scripts
         uses: actions/checkout@v5
 
-      - name: Refresh diagnostics code from latest main
+      - name: Show diagnostics source
         shell: powershell
         run: |
-          git fetch origin main
-          git checkout --force origin/main
           Write-Host "Diagnostics source: $(git rev-parse HEAD)"
 
       - name: Show runner and browser environment
