@@ -42,6 +42,9 @@ def test_image_runtime_reports_migrated_flash_lite_model(monkeypatch):
     assert runtime.timeout_seconds == 75
     assert runtime.concurrency == 4
     assert runtime.disabled is False
+    assert runtime.google_genai_version is not None
+    assert runtime.google_genai_minimum == "2.21.0"
+    assert runtime.google_genai_compatible is True
 
 
 def test_image_runtime_bounds_invalid_operational_values(monkeypatch):

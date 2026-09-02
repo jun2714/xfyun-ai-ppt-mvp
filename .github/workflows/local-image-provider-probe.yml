@@ -31,7 +31,7 @@ jobs:
           }
 
           $runtime | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 ".runtime\image-probe\runtime.json"
-          Write-Host "provider=$($runtime.provider) model=$($runtime.model) timeout=$($runtime.timeout_seconds)s concurrency=$($runtime.concurrency) oss=$($runtime.oss_enabled)"
+          Write-Host "provider=$($runtime.provider) model=$($runtime.model) sdk=$($runtime.google_genai_version) timeout=$($runtime.timeout_seconds)s concurrency=$($runtime.concurrency) oss=$($runtime.oss_enabled)"
 
           if ($runtime.disabled) {
             throw "Image generation is disabled on the running API."
@@ -41,6 +41,9 @@ jobs:
           }
           if ($runtime.model -ne "gemini-3.1-flash-lite-image") {
             throw "Expected gemini-3.1-flash-lite-image but running API reports '$($runtime.model)'. Restart after pulling the current branch before spending on a probe."
+          }
+          if (-not $runtime.google_genai_compatible) {
+            throw "Running API uses google-genai '$($runtime.google_genai_version)' but this model requires at least '$($runtime.google_genai_minimum)'. Sync dependencies and restart before spending on a probe."
           }
 
       - name: Generate one paid probe image

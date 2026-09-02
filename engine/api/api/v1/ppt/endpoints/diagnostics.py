@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from utils.oss_storage import is_oss_enabled
 
 
 DIAGNOSTICS_ROUTER = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
+MIN_GOOGLE_GENAI_VERSION = "2.21.0"
 
 
 class ImageRuntimeResponse(BaseModel):
@@ -23,6 +25,27 @@ class ImageRuntimeResponse(BaseModel):
     concurrency: int
     disabled: bool
     oss_enabled: bool
+    google_genai_version: str | None
+    google_genai_minimum: str
+    google_genai_compatible: bool
+
+
+def _version_tuple(raw_version: str) -> tuple[int, ...]:
+    parts: list[int] = []
+    for part in raw_version.split("."):
+        digits = "".join(character for character in part if character.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _google_genai_runtime() -> tuple[str | None, bool]:
+    try:
+        installed = version("google-genai")
+    except PackageNotFoundError:
+        return None, False
+    return installed, _version_tuple(installed) >= _version_tuple(MIN_GOOGLE_GENAI_VERSION)
 
 
 def _bounded_timeout() -> float:
@@ -69,6 +92,7 @@ def resolve_image_runtime() -> ImageRuntimeResponse:
     elif provider_name:
         model = provider_name
 
+    google_genai_version, google_genai_compatible = _google_genai_runtime()
     return ImageRuntimeResponse(
         provider=provider_name,
         model=model,
@@ -77,6 +101,9 @@ def resolve_image_runtime() -> ImageRuntimeResponse:
         concurrency=_bounded_concurrency(),
         disabled=is_image_generation_disabled(),
         oss_enabled=is_oss_enabled(),
+        google_genai_version=google_genai_version,
+        google_genai_minimum=MIN_GOOGLE_GENAI_VERSION,
+        google_genai_compatible=google_genai_compatible,
     )
 
 
