@@ -3,6 +3,7 @@ import copy
 from datetime import datetime
 import json
 import logging
+import math
 import os
 import re
 import traceback
@@ -907,8 +908,58 @@ def _apply_template_text_content(
         first_run,
         fallback_font=element.get("font"),
     )
+    _fit_template_text_to_box(updated, text)
     updated.pop("text", None)
     return updated
+
+
+def _fit_template_text_to_box(element: dict[str, Any], text: str) -> None:
+    """Shrink generated copy when it cannot fit the template's fixed text box."""
+    size = element.get("size")
+    font = element.get("font")
+    if not isinstance(size, dict) or not isinstance(font, dict):
+        return
+    width = size.get("width")
+    height = size.get("height")
+    current = font.get("size")
+    if not all(
+        isinstance(value, (int, float)) and value > 0
+        for value in (width, height, current)
+    ):
+        return
+
+    line_height = font.get("line_height", 1.15)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.15
+    line_height = max(float(line_height), 1.0)
+
+    def visual_units(value: str) -> float:
+        return sum(1.0 if ord(char) > 0x2FF else 0.55 for char in value)
+
+    candidate = float(current)
+    minimum = min(candidate, 14.0)
+    while candidate > minimum:
+        units_per_line = max(1.0, float(width) / candidate)
+        wrapped_lines = sum(
+            max(1, int(math.ceil(visual_units(line) / units_per_line)))
+            for line in (text.splitlines() or [text])
+        )
+        if wrapped_lines * candidate * line_height <= float(height) * 0.94:
+            break
+        candidate -= 1.0
+
+    fitted = round(max(minimum, candidate), 1)
+    if fitted >= float(current):
+        return
+    font["size"] = fitted
+    for run in element.get("runs") or []:
+        if not isinstance(run, dict):
+            continue
+        run_font = run.get("font")
+        if not isinstance(run_font, dict):
+            run_font = {}
+            run["font"] = run_font
+        run_font["size"] = fitted
 
 
 def _apply_template_image_content(

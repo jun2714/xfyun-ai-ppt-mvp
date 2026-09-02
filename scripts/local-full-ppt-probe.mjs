@@ -140,6 +140,48 @@ const collectImageUrls = (value, found = []) => {
   return found;
 };
 
+const collectTextBoxOverflows = (value, slideIndex, found = []) => {
+  if (Array.isArray(value)) {
+    for (const child of value) collectTextBoxOverflows(child, slideIndex, found);
+    return found;
+  }
+  if (!value || typeof value !== "object") return found;
+  if (value.type === "text" && value.size && value.font && Array.isArray(value.runs)) {
+    const text = value.runs.map((run) => run?.text || "").join("");
+    const width = Number(value.size.width || 0);
+    const height = Number(value.size.height || 0);
+    const fontSize = Number(value.font.size || 0);
+    const lineHeight = Math.max(1, Number(value.font.line_height || 1.15));
+    if (text && width > 0 && height > 0 && fontSize > 0) {
+      const visualUnits = (line) => [...line].reduce(
+        (sum, character) => sum + (character.codePointAt(0) > 0x2ff ? 1 : 0.55),
+        0,
+      );
+      const unitsPerLine = Math.max(1, width / fontSize);
+      const wrappedLines = text.split(/\r?\n/).reduce(
+        (sum, line) => sum + Math.max(1, Math.ceil(visualUnits(line) / unitsPerLine)),
+        0,
+      );
+      const requiredHeight = wrappedLines * fontSize * lineHeight;
+      if (requiredHeight > height * 1.02) {
+        found.push({
+          page: slideIndex + 1,
+          name: value.name || null,
+          text,
+          width,
+          height,
+          fontSize,
+          requiredHeight,
+        });
+      }
+    }
+  }
+  for (const child of Object.values(value)) {
+    if (child && typeof child === "object") collectTextBoxOverflows(child, slideIndex, found);
+  }
+  return found;
+};
+
 const diagnostics = {
   targetUrl,
   apiBase,
@@ -157,6 +199,7 @@ const diagnostics = {
   finalPresentation: null,
   fidelity: [],
   imageChecks: [],
+  layoutOverflows: [],
   result: { state: "starting" },
 };
 
@@ -301,6 +344,16 @@ try {
     if (missing.length) {
       throw new Error(`Page ${index + 1} rewrote reviewed outline copy. Missing: ${missing.join(" | ")}`);
     }
+  }
+
+  diagnostics.layoutOverflows = finalSlides.flatMap((slide, index) =>
+    collectTextBoxOverflows(slide?.ui, index),
+  );
+  if (diagnostics.layoutOverflows.length) {
+    throw new Error(
+      `Final deck contains ${diagnostics.layoutOverflows.length} overflowing text boxes: ` +
+      diagnostics.layoutOverflows.map((item) => `page ${item.page} ${item.name || "text"}`).join(", "),
+    );
   }
 
   if (diagnostics.streamRequests.length !== 1) {
