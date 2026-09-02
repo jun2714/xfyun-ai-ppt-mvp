@@ -1,3 +1,3 @@
-triggered_at=2026-09-02T15:34:00+08:00
-reason=retry-with-windows-powershell
-expected_commit=eb35091753c4dabaeb84e64f139132d293cd46bf
+triggered_at=2026-09-02T15:42:00+08:00
+reason=hot-reload-current-repair-and-full-probe
+expected_revision=asset-v2-text-fit-v1

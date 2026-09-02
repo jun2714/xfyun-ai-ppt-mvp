@@ -15,9 +15,11 @@ from utils.oss_storage import is_oss_enabled
 
 DIAGNOSTICS_ROUTER = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
 MIN_GOOGLE_GENAI_VERSION = "2.21.0"
+GENERATION_STABILITY_REVISION = "asset-v2-text-fit-v1"
 
 
 class ImageRuntimeResponse(BaseModel):
+    generation_stability_revision: str
     provider: str | None
     model: str | None
     base_url: str | None
@@ -94,6 +96,7 @@ def resolve_image_runtime() -> ImageRuntimeResponse:
 
     google_genai_version, google_genai_compatible = _google_genai_runtime()
     return ImageRuntimeResponse(
+        generation_stability_revision=GENERATION_STABILITY_REVISION,
         provider=provider_name,
         model=model,
         base_url=base_url,

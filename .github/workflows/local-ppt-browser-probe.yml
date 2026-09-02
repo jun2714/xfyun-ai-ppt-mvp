@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   probe:
-    name: Restart repair branch and probe full PPT flow
+    name: Hot-reload repair branch and probe full PPT flow
     runs-on: self-hosted
     timeout-minutes: 30
 
@@ -31,39 +31,6 @@ jobs:
             throw "Runner did not checkout the repair branch."
           }
 
-      - name: Locate existing private runtime configuration
-        id: runtime-config
-        shell: powershell
-        run: |
-          $roots = @()
-          if ($env:PPT_LOCAL_PROJECT_ROOT) { $roots += $env:PPT_LOCAL_PROJECT_ROOT }
-          $roots += @(
-            $env:USERPROFILE,
-            "C:\workspace", "C:\projects", "C:\source",
-            "D:\workspace", "D:\projects", "D:\project", "D:\source"
-          )
-          $roots = $roots | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-          $project = $null
-          foreach ($searchRoot in $roots) {
-            Write-Host "Searching runtime config under $searchRoot"
-            $scripts = Get-ChildItem -Path $searchRoot -Filter dev-engine.mjs -File -Recurse -ErrorAction SilentlyContinue
-            foreach ($script in $scripts) {
-              if ($script.FullName -eq (Join-Path $env:GITHUB_WORKSPACE "scripts\dev-engine.mjs")) { continue }
-              $candidate = Split-Path (Split-Path $script.FullName -Parent) -Parent
-              if ((Test-Path (Join-Path $candidate ".env")) -and (Test-Path (Join-Path $candidate "engine\api\server.py"))) {
-                $project = $candidate
-                break
-              }
-            }
-            if ($project) { break }
-          }
-          if (-not $project) {
-            throw "Could not locate the existing PPT project .env. Set PPT_LOCAL_PROJECT_ROOT on ppt-local-win once; no paid request was made."
-          }
-          Write-Host "Using private config from $project (contents are not printed)."
-          Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
-          "source_root=$project" >> $env:GITHUB_OUTPUT
-
       - name: Install repair-branch runtime
         shell: powershell
         run: |
@@ -72,41 +39,23 @@ jobs:
           npm ci --prefix engine/editor
           python -m uv sync --project engine/api --frozen --all-groups
 
-      - name: Stop stale local PPT processes
+      - name: Wait for existing dev servers to hot-reload repair branch
         shell: powershell
         run: |
-          $pids = @()
-          foreach ($port in @(8000, 5001, 5173)) {
-            $pids += Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
-          }
-          $pids | Where-Object { $_ -and $_ -ne $PID } | Select-Object -Unique | ForEach-Object {
-            Write-Host "Stopping stale process tree PID=$_"
-            taskkill /PID $_ /T /F | Out-Host
-          }
-
-      - name: Start repair-branch API, editor and outline web
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force .runtime\runner-probe | Out-Null
-          $env:RUNNER_TRACKING_ID = "teachnova-ppt-repair-runtime"
-          $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
-          $web = Start-Process -FilePath "pnpm.cmd" -ArgumentList @("--filter", "@sparkdeck/web", "dev", "--host", "127.0.0.1") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
-          Write-Host "Started repair runtime: engine PID=$($engine.Id), web PID=$($web.Id)"
           foreach ($url in @(
             "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime",
             "http://127.0.0.1:5001/upload",
             "http://127.0.0.1:5173/"
           )) {
             $ready = $false
-            for ($attempt = 0; $attempt -lt 120; $attempt++) {
+            for ($attempt = 0; $attempt -lt 180; $attempt++) {
               Start-Sleep -Seconds 1
               try {
                 $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
                 if ($response.StatusCode -lt 500) { $ready = $true; break }
               } catch {}
-              if ($engine.HasExited) { throw "Repair engine exited early. See uploaded logs." }
             }
-            if (-not $ready) { throw "$url did not become ready. See uploaded logs." }
+            if (-not $ready) { throw "$url did not become ready after checkout hot reload." }
             Write-Host "$url is ready"
           }
 
@@ -115,6 +64,7 @@ jobs:
         run: |
           $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
           Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible)"
+          if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The API did not hot-reload the current stability fixes; refusing paid probe." }
           if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
           if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
 

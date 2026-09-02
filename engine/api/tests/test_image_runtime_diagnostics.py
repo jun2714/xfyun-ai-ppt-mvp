@@ -37,6 +37,7 @@ def test_image_runtime_reports_migrated_flash_lite_model(monkeypatch):
     runtime = resolve_image_runtime()
 
     assert runtime.provider == "gemini_flash"
+    assert runtime.generation_stability_revision == "asset-v2-text-fit-v1"
     assert runtime.model == "gemini-3.1-flash-lite-image"
     assert runtime.base_url == "https://www.dmxapi.cn"
     assert runtime.timeout_seconds == 75
