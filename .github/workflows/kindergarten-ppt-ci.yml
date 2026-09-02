@@ -37,6 +37,8 @@ jobs:
           APP_DATA_DIRECTORY: ${{ runner.temp }}/sparkdeck-data
           TEMP_DIRECTORY: ${{ runner.temp }}/sparkdeck-temp
         run: uv run pytest -q
+      - name: Test local engine image model migration
+        run: node --test ../../scripts/image-model-config.test.mjs
 
   web-checks:
     name: Outline web typecheck and build

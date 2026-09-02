@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { resolveGeminiImageModel } from "./image-model-config.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const parseEnv = (file) => Object.fromEntries(
   existsSync(file)
@@ -41,7 +43,7 @@ const shared = {
   IMAGE_PROVIDER: source.DMX_IMAGE_API_STYLE === "gemini" ? "gemini_flash" : "openai_compatible",
   GOOGLE_API_KEY: source.DMX_API_KEY || "",
   GEMINI_IMAGE_BASE_URL: source.DMX_GEMINI_BASE_URL || "https://www.dmxapi.cn",
-  GEMINI_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "gemini-2.5-flash-image",
+  GEMINI_IMAGE_MODEL: resolveGeminiImageModel(source),
   OPENAI_COMPAT_IMAGE_BASE_URL: source.DMX_API_BASE_URL || "https://www.dmxapi.cn/v1",
   OPENAI_COMPAT_IMAGE_API_KEY: source.DMX_API_KEY || "",
   OPENAI_COMPAT_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "",
