@@ -1,0 +1,102 @@
+name: Local Gemini Image Provider Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/kindergarten-generation-stability
+    paths:
+      - .github/ppt-image-probe-trigger
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Verify local Gemini image generation and delivery
+    runs-on: self-hosted
+    timeout-minutes: 8
+
+    steps:
+      - name: Probe configured image runtime
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force ".runtime\image-probe" | Out-Null
+          $runtimeUrl = "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime"
+          try {
+            $runtime = Invoke-RestMethod -Uri $runtimeUrl -TimeoutSec 20
+          } catch {
+            throw "Image runtime diagnostics are not available on the running local API. Pull this branch and restart the API before paid image validation. $($_.Exception.Message)"
+          }
+
+          $runtime | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 ".runtime\image-probe\runtime.json"
+          Write-Host "provider=$($runtime.provider) model=$($runtime.model) timeout=$($runtime.timeout_seconds)s concurrency=$($runtime.concurrency) oss=$($runtime.oss_enabled)"
+
+          if ($runtime.disabled) {
+            throw "Image generation is disabled on the running API."
+          }
+          if ($runtime.provider -ne "gemini_flash") {
+            throw "Expected provider gemini_flash but running API reports '$($runtime.provider)'."
+          }
+          if ($runtime.model -ne "gemini-3.1-flash-lite-image") {
+            throw "Expected gemini-3.1-flash-lite-image but running API reports '$($runtime.model)'. Restart after pulling the current branch before spending on a probe."
+          }
+
+      - name: Generate one paid probe image
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prompt = "中国幼儿园绘本插画风格，一颗可爱的小种子从松软泥土里探出嫩芽，清晨暖阳，明亮温暖，主体清晰，画面简洁，不要任何文字、字母、数字、Logo或水印"
+          $encodedPrompt = [System.Uri]::EscapeDataString($prompt)
+          $generateUrl = "http://127.0.0.1:8000/api/v1/ppt/images/generate?prompt=$encodedPrompt"
+          $started = Get-Date
+          $asset = Invoke-RestMethod -Uri $generateUrl -Method Get -TimeoutSec 150
+          $elapsed = ((Get-Date) - $started).TotalSeconds
+
+          if ($asset -isnot [string] -or [string]::IsNullOrWhiteSpace($asset)) {
+            throw "Image endpoint did not return a usable URL: $($asset | ConvertTo-Json -Compress)"
+          }
+          Write-Host "Generated in $([math]::Round($elapsed, 2))s -> $asset"
+
+          if ($asset.StartsWith("/")) {
+            $fetchUrl = "http://127.0.0.1:8000$asset"
+          } elseif ($asset.StartsWith("http://") -or $asset.StartsWith("https://")) {
+            $fetchUrl = $asset
+          } else {
+            throw "Unexpected image URL format: $asset"
+          }
+
+          $outFile = ".runtime\image-probe\generated-image.bin"
+          $response = Invoke-WebRequest -UseBasicParsing -Uri $fetchUrl -TimeoutSec 45 -OutFile $outFile -PassThru
+          $size = (Get-Item $outFile).Length
+          $contentType = [string]$response.Headers["Content-Type"]
+          Write-Host "Fetch status=$($response.StatusCode) type=$contentType bytes=$size"
+
+          if ($response.StatusCode -ne 200) {
+            throw "Generated image URL returned HTTP $($response.StatusCode)."
+          }
+          if ($size -lt 10000) {
+            throw "Generated image payload is unexpectedly small ($size bytes)."
+          }
+          if ($contentType -and -not $contentType.StartsWith("image/")) {
+            throw "Generated asset did not return an image Content-Type: $contentType"
+          }
+
+          [ordered]@{
+            generated_url = $asset
+            fetched_url = $fetchUrl
+            generation_seconds = [math]::Round($elapsed, 3)
+            fetch_status = $response.StatusCode
+            content_type = $contentType
+            bytes = $size
+          } | ConvertTo-Json | Set-Content -Encoding utf8 ".runtime\image-probe\result.json"
+
+      - name: Upload image probe diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-gemini-image-probe
+          path: .runtime/image-probe
+          if-no-files-found: warn
+          retention-days: 7
