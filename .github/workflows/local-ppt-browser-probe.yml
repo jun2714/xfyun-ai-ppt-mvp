@@ -34,8 +34,7 @@ jobs:
       - name: Install repair-branch runtime
         shell: powershell
         run: |
-          corepack enable
-          pnpm install --frozen-lockfile
+          npm install --prefix web --no-package-lock --no-audit --no-fund
           npm ci --prefix engine/editor
           python -m uv sync --project engine/api --frozen --all-groups
 
