@@ -33,7 +33,7 @@ jobs:
 
       - name: Locate existing private runtime configuration
         id: runtime-config
-        shell: pwsh
+        shell: powershell
         run: |
           $roots = @()
           if ($env:PPT_LOCAL_PROJECT_ROOT) { $roots += $env:PPT_LOCAL_PROJECT_ROOT }
@@ -46,7 +46,7 @@ jobs:
           $project = $null
           foreach ($searchRoot in $roots) {
             Write-Host "Searching runtime config under $searchRoot"
-            $scripts = Get-ChildItem -Path $searchRoot -Filter dev-engine.mjs -File -Recurse -Depth 7 -ErrorAction SilentlyContinue
+            $scripts = Get-ChildItem -Path $searchRoot -Filter dev-engine.mjs -File -Recurse -ErrorAction SilentlyContinue
             foreach ($script in $scripts) {
               if ($script.FullName -eq (Join-Path $env:GITHUB_WORKSPACE "scripts\dev-engine.mjs")) { continue }
               $candidate = Split-Path (Split-Path $script.FullName -Parent) -Parent
