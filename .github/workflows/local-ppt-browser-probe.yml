@@ -41,11 +41,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Locate private runtime configuration
         id: runtime-config
         shell: powershell
@@ -76,18 +71,26 @@ jobs:
           if (-not $project) {
             throw "Could not locate the existing PPT project .env; no paid request was made."
           }
+          $bootstrapPython = Join-Path $project "engine\api\.venv\Scripts\python.exe"
+          if (-not (Test-Path $bootstrapPython)) {
+            throw "The existing PPT project has no reusable Python virtual environment; no paid request was made."
+          }
           Write-Host "Using private runtime configuration from $project; file contents remain hidden."
           Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
           "source_root=$project" >> $env:GITHUB_OUTPUT
+          "python_exe=$bootstrapPython" >> $env:GITHUB_OUTPUT
 
       - name: Install repair-branch runtime
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          python -m pip install --disable-pip-version-check --quiet uv
+          $bootstrapPython = "${{ steps.runtime-config.outputs.python_exe }}"
+          $venvPython = Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv\Scripts\python.exe"
+          & $bootstrapPython -m venv (Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv")
+          & $venvPython -m pip install --disable-pip-version-check --quiet uv
           npm install --prefix web --no-package-lock --no-audit --no-fund
           npm ci --prefix engine/editor --no-audit --no-fund
-          python -m uv sync --project engine/api --frozen --all-groups
+          & $venvPython -m uv sync --project engine/api --frozen --all-groups
 
       - name: Stop stale local PPT processes
         shell: powershell
@@ -107,6 +110,8 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Force .runtime\runner-probe | Out-Null
+          $venvScripts = Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv\Scripts"
+          $env:Path = "$venvScripts;$env:Path"
           $env:RUNNER_TRACKING_ID = "teachnova-ppt-repair-runtime"
           $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
           $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
