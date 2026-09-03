@@ -2,6 +2,7 @@ from models.kindergarten_lesson_plan import KindergartenLessonPlan
 from utils.llm_calls.generate_slide_content import (
     _apply_locked_visible_copy,
     _build_schema_fallback,
+    _ensure_required_asset_semantics,
     _outline_visible_lines,
     get_messages,
 )
@@ -42,6 +43,29 @@ def test_schema_fallback_keeps_reviewed_copy_and_asset_semantics():
     assert result["body"] == "我们一起拆开春天来信"
     assert "泥土下睡觉的小种子和春天来信" in result["visual"]["image_prompt"]
     assert result["__speaker_note__"] == "先让孩子猜一猜，再揭晓答案。"
+
+
+def test_required_asset_semantics_are_appended_without_rewriting_prompts():
+    generated = {
+        "visual": {"image_prompt": "温暖泥土里的小种子"},
+        "second": {"image_prompt": "春天菜园的明亮场景"},
+    }
+    result = _ensure_required_asset_semantics(
+        generated,
+        {
+            "required_asset_semantics": [
+                "一封装饰叶子的淡黄色春天信封",
+                "泥土下睡觉的小种子",
+            ]
+        },
+    )
+
+    prompts = "\n".join(
+        [result["visual"]["image_prompt"], result["second"]["image_prompt"]]
+    )
+    assert "温暖泥土里的小种子" in prompts
+    assert "一封装饰叶子的淡黄色春天信封" in prompts
+    assert "泥土下睡觉的小种子" in prompts
 
 
 def test_kindergarten_outline_marks_visible_copy_as_locked():
