@@ -24,7 +24,7 @@ _TEMPLATE_PRIORITY = {
 _AUTO_EXCLUDED_TEMPLATES = {"dynamic"}
 
 _DOMAIN_WEIGHTS: dict[str, dict[str, int]] = {
-    "science": {"dynamic": 9, "standard": 1},
+    "science": {"dynamic": 9, "standard": 9},
     "math": {"dynamic": 5, "standard": 3},
     "language": {"modern": 7, "standard": 2},
     "social": {"modern": 4, "momentum": 2, "standard": 3},
