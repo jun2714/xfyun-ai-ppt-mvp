@@ -578,6 +578,46 @@ def _build_schema_fallback(
     return _apply_locked_visible_copy(fallback, outline_content)
 
 
+def _image_prompt_slots(value) -> list[tuple[dict, str]]:
+    slots: list[tuple[dict, str]] = []
+    if isinstance(value, list):
+        for child in value:
+            slots.extend(_image_prompt_slots(child))
+        return slots
+    if not isinstance(value, dict):
+        return slots
+    for key, child in value.items():
+        if key in {"image_prompt", "__image_prompt__"} and isinstance(child, str):
+            slots.append((value, key))
+        elif isinstance(child, (dict, list)):
+            slots.extend(_image_prompt_slots(child))
+    return slots
+
+
+def _ensure_required_asset_semantics(
+    generated: dict,
+    content_contract: Optional[dict],
+) -> dict:
+    """Deterministically enforce the planner's required visual subjects."""
+    required = [
+        str(value).strip()
+        for value in ((content_contract or {}).get("required_asset_semantics") or [])
+        if str(value).strip()
+    ]
+    if not required:
+        return generated
+    slots = _image_prompt_slots(generated)
+    if not slots:
+        return generated
+    combined = "\n".join(container[key] for container, key in slots)
+    missing = [semantic for semantic in required if semantic not in combined]
+    for index, semantic in enumerate(missing):
+        container, key = slots[index % len(slots)]
+        prompt = container[key].strip()
+        container[key] = f"{prompt}。必须清楚呈现：{semantic}" if prompt else semantic
+    return generated
+
+
 async def get_slide_content_from_type_and_outline(
     slide_layout: SlideLayoutModel,
     outline: SlideOutlineModel,
@@ -654,6 +694,7 @@ async def get_slide_content_from_type_and_outline(
                 outline.content,
                 contract_data,
             )
+        generated = _ensure_required_asset_semantics(generated, contract_data)
         if (
             outline.content_contract is not None
             and outline.content_contract.preserve_visible_copy
