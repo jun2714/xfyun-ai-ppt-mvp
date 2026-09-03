@@ -11,14 +11,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: local-ppt-browser-probe
+  cancel-in-progress: false
+
 jobs:
   probe:
-    name: Hot-reload repair branch and probe full PPT flow
+    name: Deploy repair branch and probe full PPT flow
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
-      - name: Checkout repair branch
+      - name: Checkout exact repair branch
         uses: actions/checkout@v5
         with:
           ref: fix/kindergarten-generation-stability
@@ -26,21 +30,87 @@ jobs:
       - name: Show exact repair revision
         shell: powershell
         run: |
-          Write-Host "Repair revision: $(git rev-parse HEAD)"
+          $revision = git rev-parse HEAD
+          Write-Host "Repair revision: $revision"
           if ((git branch --show-current) -ne "fix/kindergarten-generation-stability") {
             throw "Runner did not checkout the repair branch."
           }
 
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Locate private runtime configuration
+        id: runtime-config
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $roots = @()
+          if ($env:PPT_LOCAL_PROJECT_ROOT) { $roots += $env:PPT_LOCAL_PROJECT_ROOT }
+          $roots += @(
+            "D:\Work",
+            "D:\workspace", "D:\projects", "D:\project", "D:\source",
+            "C:\workspace", "C:\projects", "C:\source"
+          )
+          $roots = $roots | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+          $project = $null
+          foreach ($searchRoot in $roots) {
+            Write-Host "Searching for the existing PPT runtime under $searchRoot"
+            $scripts = Get-ChildItem -Path $searchRoot -Filter dev-engine.mjs -File -Recurse -ErrorAction SilentlyContinue
+            foreach ($script in $scripts) {
+              $candidate = Split-Path (Split-Path $script.FullName -Parent) -Parent
+              if ($candidate -eq $env:GITHUB_WORKSPACE) { continue }
+              if ((Test-Path (Join-Path $candidate ".env")) -and (Test-Path (Join-Path $candidate "engine\api\server.py"))) {
+                $project = $candidate
+                break
+              }
+            }
+            if ($project) { break }
+          }
+          if (-not $project) {
+            throw "Could not locate the existing PPT project .env; no paid request was made."
+          }
+          Write-Host "Using private runtime configuration from $project; file contents remain hidden."
+          Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
+          "source_root=$project" >> $env:GITHUB_OUTPUT
+
       - name: Install repair-branch runtime
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
+          python -m pip install --disable-pip-version-check --quiet uv
           npm install --prefix web --no-package-lock --no-audit --no-fund
-          npm ci --prefix engine/editor
+          npm ci --prefix engine/editor --no-audit --no-fund
           python -m uv sync --project engine/api --frozen --all-groups
 
-      - name: Wait for existing dev servers to hot-reload repair branch
+      - name: Stop stale local PPT processes
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
+          $pids = @()
+          foreach ($port in @(8000, 5001, 5173)) {
+            $pids += Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
+          }
+          $pids | Where-Object { $_ -and $_ -ne $PID } | Select-Object -Unique | ForEach-Object {
+            Write-Host "Stopping stale PPT process tree PID=$_"
+            taskkill /PID $_ /T /F | Out-Host
+          }
+
+      - name: Start exact repair-branch API, editor and outline web
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force .runtime\runner-probe | Out-Null
+          $env:RUNNER_TRACKING_ID = "teachnova-ppt-repair-runtime"
+          $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
+          $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
+          Write-Host "Started repair runtime: engine PID=$($engine.Id), web PID=$($web.Id)"
           foreach ($url in @(
             "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime",
             "http://127.0.0.1:5001/upload",
@@ -53,17 +123,20 @@ jobs:
                 $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
                 if ($response.StatusCode -lt 500) { $ready = $true; break }
               } catch {}
+              if ($engine.HasExited) { throw "Repair engine exited early. See uploaded runtime logs." }
+              if ($web.HasExited) { throw "Repair outline web exited early. See uploaded runtime logs." }
             }
-            if (-not $ready) { throw "$url did not become ready after checkout hot reload." }
+            if (-not $ready) { throw "$url did not become ready. See uploaded runtime logs." }
             Write-Host "$url is ready"
           }
 
-      - name: Verify exact image runtime before paid probe
+      - name: Verify exact runtime before paid probe
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
           $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
-          Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible)"
-          if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The API did not hot-reload the current stability fixes; refusing paid probe." }
+          Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible) revision=$($runtime.generation_stability_revision)"
+          if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The running API is not the current repair revision; refusing paid probe." }
           if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
           if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
 
@@ -71,7 +144,7 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
-          npm install --prefix .runtime\playwright --no-package-lock --no-save playwright@1.55.0
+          npm install --prefix .runtime\playwright --no-package-lock --no-save --no-audit --no-fund playwright@1.55.0
 
       - name: Run one full paid PPT probe
         shell: powershell
