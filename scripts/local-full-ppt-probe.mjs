@@ -184,6 +184,26 @@ const collectTextBoxOverflows = (value, slideIndex, found = []) => {
   return found;
 };
 
+const collectTemplatePlaceholders = (value, slideIndex, found = []) => {
+  if (Array.isArray(value)) {
+    for (const child of value) collectTemplatePlaceholders(child, slideIndex, found);
+    return found;
+  }
+  if (!value || typeof value !== "object") return found;
+  if (value.type === "text" && Array.isArray(value.runs)) {
+    const text = value.runs.map((run) => run?.text || "").join("").trim();
+    if (
+      /^(?:lorem ipsum|heading|title|subtitle|description|your topic|your title|insert text here)\b/i.test(text)
+    ) {
+      found.push({ page: slideIndex + 1, name: value.name || null, text });
+    }
+  }
+  for (const child of Object.values(value)) {
+    if (child && typeof child === "object") collectTemplatePlaceholders(child, slideIndex, found);
+  }
+  return found;
+};
+
 const diagnostics = {
   targetUrl,
   apiBase,
@@ -203,6 +223,7 @@ const diagnostics = {
   imageChecks: [],
   validationErrors: [],
   layoutOverflows: [],
+  templatePlaceholders: [],
   result: { state: "starting" },
 };
 
@@ -362,6 +383,16 @@ try {
     diagnostics.validationErrors.push(
       `Final deck contains ${diagnostics.layoutOverflows.length} overflowing text boxes: ` +
       diagnostics.layoutOverflows.map((item) => `page ${item.page} ${item.name || "text"}`).join(", "),
+    );
+  }
+
+  diagnostics.templatePlaceholders = finalSlides.flatMap((slide, index) =>
+    collectTemplatePlaceholders(slide?.ui, index),
+  );
+  if (diagnostics.templatePlaceholders.length) {
+    diagnostics.validationErrors.push(
+      `Final deck contains ${diagnostics.templatePlaceholders.length} imported template placeholders: ` +
+      diagnostics.templatePlaceholders.map((item) => `page ${item.page} ${item.text}`).join(", "),
     );
   }
 
