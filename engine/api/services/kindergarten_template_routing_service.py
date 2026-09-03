@@ -17,6 +17,12 @@ _TEMPLATE_PRIORITY = {
     "standard": 60,
 }
 
+# The current bundled dynamic pack renders as a dark black/orange business deck
+# despite its legacy routing metadata claiming a bright child-friendly style.
+# Keep manual selection available, but never auto-route preschool lessons to it
+# until that visual pack is replaced or re-audited.
+_AUTO_EXCLUDED_TEMPLATES = {"dynamic"}
+
 _DOMAIN_WEIGHTS: dict[str, dict[str, int]] = {
     "science": {"dynamic": 9, "standard": 1},
     "math": {"dynamic": 5, "standard": 3},
@@ -198,7 +204,10 @@ def resolve_kindergarten_template(
             f"terms:{','.join(matched[:4])}+{weight}"
         )
 
-    best_score = max(scores.values()) if scores else 0
+    eligible_templates = [
+        name for name in _TEMPLATE_PRIORITY if name not in _AUTO_EXCLUDED_TEMPLATES
+    ]
+    best_score = max((scores[name] for name in eligible_templates), default=0)
     if best_score <= 0:
         return KindergartenTemplateRoutingDecision(
             template=KINDERGARTEN_TEMPLATE_FALLBACK,
@@ -207,7 +216,7 @@ def resolve_kindergarten_template(
         )
 
     selected = min(
-        (name for name, score in scores.items() if score == best_score),
+        (name for name in eligible_templates if scores[name] == best_score),
         key=lambda name: (_TEMPLATE_PRIORITY[name], name),
     )
     reason_parts = reasons[selected] or ["highest-routing-score"]
