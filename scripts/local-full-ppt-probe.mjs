@@ -132,6 +132,9 @@ const collectImageUrls = (value, found = []) => {
     return found;
   }
   if (!value || typeof value !== "object") return found;
+  if (value.type === "image" && typeof value.data === "string" && value.data.trim()) {
+    found.push(value.data.trim());
+  }
   for (const [key, child] of Object.entries(value)) {
     if (["image_url", "__image_url__"].includes(key) && typeof child === "string" && child.trim()) {
       found.push(child.trim());
@@ -402,12 +405,21 @@ try {
     );
   }
 
-  const imageUrls = [...new Set(collectImageUrls(finalSlides))]
-    .filter((url) => !/placeholder/i.test(url));
-  diagnostics.imageUrlCount = imageUrls.length;
-  if (imageUrls.length === 0) {
-    throw new Error("Final deck contains no generated image URLs; refusing a false-positive pass.");
+  const isGeneratedImageUrl = (url) => /\/app_data\/images\//.test(url) && !/placeholder/i.test(url);
+  const contentImageUrls = [...new Set(collectImageUrls(finalSlides.map((slide) => slide?.content)))]
+    .filter(isGeneratedImageUrl);
+  const uiImageUrls = [...new Set(collectImageUrls(finalSlides.map((slide) => slide?.ui)))]
+    .filter(isGeneratedImageUrl);
+  diagnostics.contentImageUrlCount = contentImageUrls.length;
+  diagnostics.uiImageUrlCount = uiImageUrls.length;
+  if (contentImageUrls.length === 0) {
+    throw new Error("Database slide content retained only placeholder image URLs after generation.");
   }
+  if (uiImageUrls.length === 0) {
+    throw new Error("Final slide UI contains no generated image URLs.");
+  }
+  const imageUrls = [...new Set([...contentImageUrls, ...uiImageUrls])];
+  diagnostics.imageUrlCount = imageUrls.length;
   for (const rawUrl of imageUrls) {
     let url = rawUrl;
     if (url.startsWith("/")) url = `${new URL(apiBase).origin}${url}`;
