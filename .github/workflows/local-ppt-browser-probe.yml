@@ -129,7 +129,7 @@ jobs:
           $env:GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
           $env:TARGET_URL = "http://127.0.0.1:15001/upload"
           $env:API_BASE_URL = "http://127.0.0.1:18000/api/v1/ppt"
-          $env:TEST_TOPIC = "小种子收到了一封春天的来信"
+          $env:TEST_TOPIC_B64 = "5bCP56eN5a2Q5pS25Yiw5LqG5LiA5bCB5pil5aSp55qE5p2l5L+h"
           $env:EXPECTED_SLIDES = "8"
           $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
           $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev", "--", "--port", "15173") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
