@@ -48,7 +48,8 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
-          enable-cache: true
+          version: '0.12.9'
+          enable-cache: false
 
       - name: Locate private runtime configuration
         id: runtime-config
