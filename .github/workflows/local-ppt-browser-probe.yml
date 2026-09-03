@@ -105,7 +105,14 @@ jobs:
         shell: powershell
         run: npm ci --prefix engine/editor --workspaces=false --no-audit --no-fund
 
-      - name: Start exact repair-branch API, editor and outline web
+      - name: Install isolated Playwright runtime
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
+          npm install --prefix .runtime\playwright --no-package-lock --no-save --no-audit --no-fund playwright@1.55.0
+
+      - name: Start isolated repair runtime and run full paid probe
+        timeout-minutes: 22
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
@@ -118,53 +125,45 @@ jobs:
           $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:18000"
           $env:VITE_EDITOR_BASE_URL = "http://127.0.0.1:15001"
           $env:TEACHNOVA_CORS_ORIGINS = "http://127.0.0.1:15001,http://127.0.0.1:15173,http://localhost:3030,http://127.0.0.1:3030"
-          $env:RUNNER_TRACKING_ID = "teachnova-ppt-repair-runtime"
+          $env:TARGET_URL = "http://127.0.0.1:15001/upload"
+          $env:API_BASE_URL = "http://127.0.0.1:18000/api/v1/ppt"
+          $env:TEST_TOPIC = "小种子收到了一封春天的来信"
+          $env:EXPECTED_SLIDES = "8"
           $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
           $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev", "--", "--port", "15173") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
           Write-Host "Started repair runtime: engine PID=$($engine.Id), web PID=$($web.Id)"
-          foreach ($url in @(
-            "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime",
-            "http://127.0.0.1:15001/upload",
-            "http://127.0.0.1:15173/"
-          )) {
-            $ready = $false
-            for ($attempt = 0; $attempt -lt 180; $attempt++) {
-              Start-Sleep -Seconds 1
-              try {
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
-                if ($response.StatusCode -lt 500) { $ready = $true; break }
-              } catch {}
-              if ($engine.HasExited) { throw "Repair engine exited early. See uploaded runtime logs." }
-              if ($web.HasExited) { throw "Repair outline web exited early. See uploaded runtime logs." }
+          try {
+            foreach ($url in @(
+              "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime",
+              "http://127.0.0.1:15001/upload",
+              "http://127.0.0.1:15173/"
+            )) {
+              $ready = $false
+              for ($attempt = 0; $attempt -lt 180; $attempt++) {
+                Start-Sleep -Seconds 1
+                try {
+                  $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
+                  if ($response.StatusCode -lt 500) { $ready = $true; break }
+                } catch {}
+                if ($engine.HasExited) { throw "Repair engine exited early. See uploaded runtime logs." }
+                if ($web.HasExited) { throw "Repair outline web exited early. See uploaded runtime logs." }
+              }
+              if (-not $ready) { throw "$url did not become ready. See uploaded runtime logs." }
+              Write-Host "$url is ready"
             }
-            if (-not $ready) { throw "$url did not become ready. See uploaded runtime logs." }
-            Write-Host "$url is ready"
+            $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
+            Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible) revision=$($runtime.generation_stability_revision)"
+            if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The running API is not the current repair revision; refusing paid probe." }
+            if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
+            if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
+
+            node scripts/local-full-ppt-probe.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Full PPT browser probe failed with exit code $LASTEXITCODE." }
+          } finally {
+            foreach ($processId in @($engine.Id, $web.Id)) {
+              try { taskkill /PID $processId /T /F | Out-Null } catch {}
+            }
           }
-
-      - name: Verify exact runtime before paid probe
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
-          Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible) revision=$($runtime.generation_stability_revision)"
-          if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The running API is not the current repair revision; refusing paid probe." }
-          if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
-          if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
-
-      - name: Install isolated Playwright runtime
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
-          npm install --prefix .runtime\playwright --no-package-lock --no-save --no-audit --no-fund playwright@1.55.0
-
-      - name: Run one full paid PPT probe
-        shell: powershell
-        env:
-          TARGET_URL: http://127.0.0.1:15001/upload
-          API_BASE_URL: http://127.0.0.1:18000/api/v1/ppt
-          TEST_TOPIC: 小种子收到了一封春天的来信
-          EXPECTED_SLIDES: '8'
-        run: node scripts/local-full-ppt-probe.mjs
 
       - name: Upload full diagnostics and runtime logs
         if: always()
