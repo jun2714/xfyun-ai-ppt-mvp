@@ -5,7 +5,9 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
 const apiBase = (process.env.API_BASE_URL || "http://127.0.0.1:8000/api/v1/ppt").replace(/\/$/, "");
-const topic = process.env.TEST_TOPIC || "小种子收到了一封春天的来信";
+const topic = process.env.TEST_TOPIC_B64
+  ? Buffer.from(process.env.TEST_TOPIC_B64, "base64").toString("utf8")
+  : process.env.TEST_TOPIC || "小种子收到了一封春天的来信";
 const expectedSlides = Number(process.env.EXPECTED_SLIDES || 8);
 const outputDir = resolve(root, ".runtime/full-ppt-probe");
 const playwrightRoot = resolve(root, ".runtime/playwright/node_modules/playwright");
@@ -269,6 +271,10 @@ try {
   const prompt = page.locator('[data-testid="prompt-input"]');
   await prompt.waitFor({ state: "visible", timeout: 45000 });
   await prompt.fill(topic);
+  if (expectedSlides > 0) {
+    await page.getByTestId("slides-select").click();
+    await page.getByRole("option", { name: `${expectedSlides} 页` }).click();
+  }
   await page.getByRole("button", { name: "生成演示文稿" }).click();
 
   await page.waitForURL(/\/presentations\/[^/]+\/outline/, { timeout: 30000 });
@@ -368,7 +374,7 @@ try {
   }
   for (const rawUrl of imageUrls) {
     let url = rawUrl;
-    if (url.startsWith("/")) url = `http://127.0.0.1:8000${url}`;
+    if (url.startsWith("/")) url = `${new URL(apiBase).origin}${url}`;
     const started = Date.now();
     try {
       const response = await context.request.get(url, { timeout: 45000, failOnStatusCode: false });
