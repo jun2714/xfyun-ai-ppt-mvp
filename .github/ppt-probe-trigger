@@ -7,3 +7,5 @@ run: 18
 reason: exact-eight-page-option
 run: 19
 reason: clear-placeholders-expand-text-enforce-image-semantics
+run: 20
+reason: rebalance-card-text-and-verify-images
