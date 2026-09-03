@@ -125,6 +125,8 @@ jobs:
           $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:18000"
           $env:VITE_EDITOR_BASE_URL = "http://127.0.0.1:15001"
           $env:TEACHNOVA_CORS_ORIGINS = "http://127.0.0.1:15001,http://127.0.0.1:15173,http://localhost:3030,http://127.0.0.1:3030"
+          $env:DMX_IMAGE_API_STYLE = "gemini"
+          $env:GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
           $env:TARGET_URL = "http://127.0.0.1:15001/upload"
           $env:API_BASE_URL = "http://127.0.0.1:18000/api/v1/ppt"
           $env:TEST_TOPIC = "小种子收到了一封春天的来信"
