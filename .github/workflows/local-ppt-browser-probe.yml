@@ -41,6 +41,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
       - name: Locate private runtime configuration
         id: runtime-config
         shell: powershell
@@ -71,26 +76,20 @@ jobs:
           if (-not $project) {
             throw "Could not locate the existing PPT project .env; no paid request was made."
           }
-          $bootstrapPython = Join-Path $project "engine\api\.venv\Scripts\python.exe"
-          if (-not (Test-Path $bootstrapPython)) {
-            throw "The existing PPT project has no reusable Python virtual environment; no paid request was made."
-          }
           Write-Host "Using private runtime configuration from $project; file contents remain hidden."
           Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
           "source_root=$project" >> $env:GITHUB_OUTPUT
-          "python_exe=$bootstrapPython" >> $env:GITHUB_OUTPUT
 
       - name: Install repair-branch runtime
         shell: powershell
+        env:
+          UV_PYTHON_INSTALL_DIR: ${{ runner.tool_cache }}\uv-python
         run: |
           $ErrorActionPreference = "Stop"
-          $bootstrapPython = "${{ steps.runtime-config.outputs.python_exe }}"
-          $venvPython = Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv\Scripts\python.exe"
-          & $bootstrapPython -m venv (Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv")
-          & $venvPython -m pip install --disable-pip-version-check --quiet uv
+          uv python install 3.11
           npm install --prefix web --no-package-lock --no-audit --no-fund
           npm ci --prefix engine/editor --no-audit --no-fund
-          & $venvPython -m uv sync --project engine/api --frozen --all-groups
+          uv sync --python 3.11 --project engine/api --frozen --all-groups
 
       - name: Stop stale local PPT processes
         shell: powershell
