@@ -1,5 +1,6 @@
 import copy
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Optional
@@ -18,6 +19,9 @@ from utils.schema_utils import (
     ensure_array_schemas_have_items,
     remove_fields_from_schema,
 )
+
+logger = logging.getLogger(__name__)
+SLIDE_CONTENT_FRESH_ATTEMPTS = 2
 
 SLIDE_CONTENT_SYSTEM_PROMPT = """
 You will be given slide content and response schema.
@@ -450,6 +454,130 @@ def _apply_locked_visible_copy(generated: dict, outline_content: str) -> dict:
     return generated
 
 
+def _fallback_image_prompt(content_contract: Optional[dict]) -> str:
+    contract = content_contract or {}
+    semantic_phrases = [
+        str(value).strip()
+        for value in (contract.get("required_asset_semantics") or [])
+        if str(value).strip()
+    ]
+    descriptions = [
+        str(item.get("description") or item.get("semantic_label") or "").strip()
+        for item in (contract.get("asset_contracts") or [])
+        if isinstance(item, dict)
+        and str(item.get("description") or item.get("semantic_label") or "").strip()
+    ]
+    subject = "；".join(semantic_phrases or descriptions) or "与本页教学内容一致的幼儿绘本场景"
+    detail = descriptions[0] if descriptions else subject
+    return (
+        f"{subject}。{detail}。温暖明亮的中国幼儿绘本插画，主体清楚，构图简洁，"
+        "适合4至6岁儿童观察，不含文字、字母、数字、标志或水印。"
+    )
+
+
+def _schema_fallback_value(
+    schema: object,
+    *,
+    field_name: str = "",
+    content_contract: Optional[dict] = None,
+):
+    """Materialize a conservative schema-shaped value without another model call.
+
+    This is a last-resort circuit breaker for one failed slide. Audience strings are
+    replaced with the reviewed outline immediately afterwards, while image prompts and
+    teacher notes retain the machine contract. A provider error therefore cannot erase
+    every other successfully generated page.
+    """
+    if not isinstance(schema, dict):
+        return ""
+    for union_key in ("oneOf", "anyOf"):
+        choices = schema.get(union_key)
+        if isinstance(choices, list):
+            choice = next(
+                (item for item in choices if isinstance(item, dict) and item.get("type") != "null"),
+                choices[0] if choices else {},
+            )
+            return _schema_fallback_value(
+                choice,
+                field_name=field_name,
+                content_contract=content_contract,
+            )
+
+    enum = schema.get("enum")
+    if isinstance(enum, list) and enum:
+        return copy.deepcopy(enum[0])
+    if "const" in schema:
+        return copy.deepcopy(schema["const"])
+
+    value_type = schema.get("type")
+    if isinstance(value_type, list):
+        value_type = next((item for item in value_type if item != "null"), "string")
+    if value_type is None:
+        if isinstance(schema.get("properties"), dict):
+            value_type = "object"
+        elif isinstance(schema.get("items"), dict):
+            value_type = "array"
+        else:
+            value_type = "string"
+
+    if value_type == "object":
+        properties = schema.get("properties") or {}
+        return {
+            key: _schema_fallback_value(
+                child_schema,
+                field_name=str(key),
+                content_contract=content_contract,
+            )
+            for key, child_schema in properties.items()
+            if isinstance(child_schema, dict)
+        }
+    if value_type == "array":
+        items = schema.get("items") if isinstance(schema.get("items"), dict) else {}
+        minimum = max(1, int(schema.get("minItems") or 0))
+        maximum = int(schema.get("maxItems") or minimum)
+        count = min(minimum, maximum) if maximum >= 0 else minimum
+        return [
+            _schema_fallback_value(
+                items,
+                field_name=field_name,
+                content_contract=content_contract,
+            )
+            for _ in range(max(0, count))
+        ]
+    if value_type == "boolean":
+        return bool(schema.get("default", False))
+    if value_type in {"integer", "number"}:
+        value = schema.get("default", schema.get("minimum", 0))
+        return int(value) if value_type == "integer" else float(value)
+    if value_type == "null":
+        return None
+
+    normalized_key = field_name.strip().casefold()
+    contract = content_contract or {}
+    if normalized_key in {"image_prompt", "__image_prompt__"}:
+        return _fallback_image_prompt(contract)
+    if normalized_key == "__speaker_note__":
+        return str(contract.get("teacher_note") or "请按已确认的大纲引导幼儿观察和互动。")
+    if normalized_key in {"icon_query", "__icon_query__"}:
+        return "儿童课堂"
+    default = schema.get("default")
+    return str(default) if default is not None else ""
+
+
+def _build_schema_fallback(
+    response_schema: dict,
+    outline_content: str,
+    content_contract: Optional[dict],
+) -> dict:
+    fallback = _schema_fallback_value(
+        response_schema,
+        content_contract=content_contract,
+    )
+    if not isinstance(fallback, dict):
+        fallback = {}
+    return _apply_locked_visible_copy(fallback, outline_content)
+
+
 async def get_slide_content_from_type_and_outline(
     slide_layout: SlideLayoutModel,
     outline: SlideOutlineModel,
@@ -490,16 +618,42 @@ async def get_slide_content_from_type_and_outline(
             content_contract=contract_data,
         )
 
-        generated = await generate_structured_with_schema_retries(
-            client,
-            model,
-            messages=messages,
-            response_format=response_format,
-            json_schema=response_schema,
-            strict=False,
-            validate_schema=True,
-            disconnect_checker=disconnect_checker,
-        )
+        generated = None
+        last_error: Optional[Exception] = None
+        for attempt in range(1, SLIDE_CONTENT_FRESH_ATTEMPTS + 1):
+            try:
+                generated = await generate_structured_with_schema_retries(
+                    client,
+                    model,
+                    messages=messages,
+                    response_format=response_format,
+                    json_schema=response_schema,
+                    strict=False,
+                    validate_schema=True,
+                    disconnect_checker=disconnect_checker,
+                )
+                break
+            except Exception as error:
+                last_error = error
+                logger.warning(
+                    "Slide %s content attempt %s/%s failed: %s",
+                    slide_number or "?",
+                    attempt,
+                    SLIDE_CONTENT_FRESH_ATTEMPTS,
+                    error,
+                )
+        if generated is None:
+            logger.error(
+                "Slide %s content provider failed after %s fresh attempts; using reviewed-copy fallback: %s",
+                slide_number or "?",
+                SLIDE_CONTENT_FRESH_ATTEMPTS,
+                last_error,
+            )
+            generated = _build_schema_fallback(
+                response_schema,
+                outline.content,
+                contract_data,
+            )
         if (
             outline.content_contract is not None
             and outline.content_contract.preserve_visible_copy
