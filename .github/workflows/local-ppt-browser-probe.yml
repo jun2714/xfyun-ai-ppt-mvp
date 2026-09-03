@@ -22,6 +22,10 @@ jobs:
     timeout-minutes: 35
 
     steps:
+      - name: Enable Windows long paths
+        shell: powershell
+        run: git config --global core.longpaths true
+
       - name: Checkout exact repair branch
         uses: actions/checkout@v5
         with:
@@ -93,25 +97,12 @@ jobs:
       - name: Install outline web runtime
         timeout-minutes: 5
         shell: powershell
-        run: npm install --prefix web --no-package-lock --no-audit --no-fund
+        run: npm install --prefix web --workspaces=false --no-package-lock --no-audit --no-fund
 
       - name: Install editor runtime
         timeout-minutes: 8
         shell: powershell
-        run: npm ci --prefix engine/editor --no-audit --no-fund
-
-      - name: Stop stale local PPT processes
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          $pids = @()
-          foreach ($port in @(8000, 5001, 5173)) {
-            $pids += Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
-          }
-          $pids | Where-Object { $_ -and $_ -ne $PID } | Select-Object -Unique | ForEach-Object {
-            Write-Host "Stopping stale PPT process tree PID=$_"
-            taskkill /PID $_ /T /F | Out-Host
-          }
+        run: npm ci --prefix engine/editor --workspaces=false --no-audit --no-fund
 
       - name: Start exact repair-branch API, editor and outline web
         shell: powershell
@@ -120,14 +111,20 @@ jobs:
           New-Item -ItemType Directory -Force .runtime\runner-probe | Out-Null
           $venvScripts = Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv\Scripts"
           $env:Path = "$venvScripts;$env:Path"
+          $env:PPT_API_PORT = "18000"
+          $env:PPT_EDITOR_PORT = "15001"
+          $env:PPT_WEB_URL = "http://127.0.0.1:15173"
+          $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:18000"
+          $env:VITE_EDITOR_BASE_URL = "http://127.0.0.1:15001"
+          $env:TEACHNOVA_CORS_ORIGINS = "http://127.0.0.1:15001,http://127.0.0.1:15173,http://localhost:3030,http://127.0.0.1:3030"
           $env:RUNNER_TRACKING_ID = "teachnova-ppt-repair-runtime"
           $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
-          $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
+          $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev", "--", "--port", "15173") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
           Write-Host "Started repair runtime: engine PID=$($engine.Id), web PID=$($web.Id)"
           foreach ($url in @(
-            "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime",
-            "http://127.0.0.1:5001/upload",
-            "http://127.0.0.1:5173/"
+            "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime",
+            "http://127.0.0.1:15001/upload",
+            "http://127.0.0.1:15173/"
           )) {
             $ready = $false
             for ($attempt = 0; $attempt -lt 180; $attempt++) {
@@ -147,7 +144,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
+          $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
           Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible) revision=$($runtime.generation_stability_revision)"
           if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The running API is not the current repair revision; refusing paid probe." }
           if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
@@ -162,8 +159,8 @@ jobs:
       - name: Run one full paid PPT probe
         shell: powershell
         env:
-          TARGET_URL: http://127.0.0.1:5001/upload
-          API_BASE_URL: http://127.0.0.1:8000/api/v1/ppt
+          TARGET_URL: http://127.0.0.1:15001/upload
+          API_BASE_URL: http://127.0.0.1:18000/api/v1/ppt
           TEST_TOPIC: 小种子收到了一封春天的来信
           EXPECTED_SLIDES: '8'
         run: node scripts/local-full-ppt-probe.mjs
