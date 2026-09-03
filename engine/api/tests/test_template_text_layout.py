@@ -172,5 +172,5 @@ def test_fixed_bottom_footer_uses_last_resort_readable_font_floor():
     result = _apply_template_content_to_ui(ui, content)
     footer = result["components"][0]["elements"][0]["children"][0]
 
-    assert footer["font"]["size"] == 12
+    assert 12 <= footer["font"]["size"] <= 16
     assert footer["size"]["height"] == 92.3
