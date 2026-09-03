@@ -19,6 +19,36 @@ def test_explicit_empty_text_clears_imported_placeholder_copy():
     assert result["runs"] == []
 
 
+def test_omitted_generated_slot_clears_imported_lorem_ipsum_copy():
+    ui = {
+        "components": [
+            {
+                "id": "unused_card",
+                "position": {"x": 100, "y": 100},
+                "elements": [
+                    {
+                        "type": "text",
+                        "decorative": False,
+                        "name": "body",
+                        "position": {"x": 0, "y": 0},
+                        "size": {"width": 300, "height": 100},
+                        "font": {"size": 24, "line_height": 1.2},
+                        "runs": [
+                            {
+                                "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    result = _apply_template_content_to_ui(ui, {"unused_card": {}})
+
+    assert result["components"][0]["elements"][0]["runs"] == []
+
+
 def test_lone_heading_uses_vertical_gap_before_font_fitting():
     ui = {
         "components": [
