@@ -1,3 +1,5 @@
 triggered_at=2026-09-03T02:22:00Z
 reason=real-gemini-full-ppt-probe
 expected_revision=asset-v2-text-fit-v1
+run: 17
+reason: slide-fallback-and-exact-eight-pages
