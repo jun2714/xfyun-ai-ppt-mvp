@@ -271,7 +271,7 @@ try {
   await prompt.fill(topic);
   await page.getByRole("button", { name: "生成演示文稿" }).click();
 
-  await page.waitForURL(/http:\/\/127\.0\.0\.1:5173\/presentations\/[^/]+\/outline/, { timeout: 30000 });
+  await page.waitForURL(/\/presentations\/[^/]+\/outline/, { timeout: 30000 });
   const idMatch = page.url().match(/\/presentations\/([^/]+)\/outline/);
   const presentationId = idMatch?.[1];
   if (!presentationId) throw new Error("Could not resolve presentation id after outline navigation.");
