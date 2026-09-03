@@ -363,6 +363,9 @@ try {
   const imageUrls = [...new Set(collectImageUrls(finalSlides))]
     .filter((url) => !/placeholder/i.test(url));
   diagnostics.imageUrlCount = imageUrls.length;
+  if (imageUrls.length === 0) {
+    throw new Error("Final deck contains no generated image URLs; refusing a false-positive pass.");
+  }
   for (const rawUrl of imageUrls) {
     let url = rawUrl;
     if (url.startsWith("/")) url = `http://127.0.0.1:8000${url}`;
