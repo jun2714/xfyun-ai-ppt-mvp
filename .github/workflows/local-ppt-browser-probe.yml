@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: local-ppt-browser-probe
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   probe:
@@ -80,16 +80,25 @@ jobs:
           Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
           "source_root=$project" >> $env:GITHUB_OUTPUT
 
-      - name: Install repair-branch runtime
+      - name: Install portable Python and API runtime
+        timeout-minutes: 12
         shell: powershell
         env:
           UV_PYTHON_INSTALL_DIR: ${{ runner.tool_cache }}\uv-python
         run: |
           $ErrorActionPreference = "Stop"
           uv python install 3.11
-          npm install --prefix web --no-package-lock --no-audit --no-fund
-          npm ci --prefix engine/editor --no-audit --no-fund
           uv sync --python 3.11 --project engine/api --frozen --all-groups
+
+      - name: Install outline web runtime
+        timeout-minutes: 5
+        shell: powershell
+        run: npm install --prefix web --no-package-lock --no-audit --no-fund
+
+      - name: Install editor runtime
+        timeout-minutes: 8
+        shell: powershell
+        run: npm ci --prefix engine/editor --no-audit --no-fund
 
       - name: Stop stale local PPT processes
         shell: powershell
