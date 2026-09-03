@@ -23,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import select
 from constants.presentation import MAX_NUMBER_OF_SLIDES
 from enums.async_task_status import AsyncTaskStatus
@@ -842,6 +843,29 @@ def _rebalance_direct_template_text_boxes(elements: list[Any]) -> None:
             )
             _fit_template_text_to_box(following, following_text)
 
+    for target in targets:
+        target_height = float(target["size"]["height"])
+        if _template_text_required_height(target) <= target_height * 1.02:
+            continue
+        target_text = _template_element_text(target)
+        _fit_template_text_to_box(target, target_text, minimum_size=12.0)
+
+    # Each nested children/elements list owns its own coordinate system. Rebalance
+    # within that list only, never across parent boundaries.
+    for element in elements:
+        if not isinstance(element, dict):
+            continue
+        for key in ("children", "elements"):
+            nested = element.get(key)
+            if isinstance(nested, list):
+                _rebalance_direct_template_text_boxes(nested)
+        child = element.get("child")
+        if isinstance(child, dict):
+            for key in ("children", "elements"):
+                nested = child.get(key)
+                if isinstance(nested, list):
+                    _rebalance_direct_template_text_boxes(nested)
+
 
 def _apply_template_content_to_element(
     element: Any,
@@ -1128,7 +1152,12 @@ def _apply_template_text_content(
     return updated
 
 
-def _fit_template_text_to_box(element: dict[str, Any], text: str) -> None:
+def _fit_template_text_to_box(
+    element: dict[str, Any],
+    text: str,
+    *,
+    minimum_size: float = 14.0,
+) -> None:
     """Shrink generated copy when it cannot fit the template's fixed text box."""
     size = element.get("size")
     font = element.get("font")
@@ -1152,7 +1181,7 @@ def _fit_template_text_to_box(element: dict[str, Any], text: str) -> None:
         return sum(1.0 if ord(char) > 0x2FF else 0.55 for char in value)
 
     candidate = float(current)
-    minimum = min(candidate, 14.0)
+    minimum = min(candidate, float(minimum_size))
     while candidate > minimum:
         units_per_line = max(1.0, float(width) / candidate)
         wrapped_lines = sum(
@@ -2354,7 +2383,9 @@ async def stream_presentation(
         # so a disconnected browser can resume without paying for that image again.
         for slide in slides:
             slide.content = copy.deepcopy(slide.content)
+            flag_modified(slide, "content")
             slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
+            flag_modified(slide, "ui")
         sql_session.add_all(slides)
         sql_session.add_all(new_assets)
         await sql_session.commit()
