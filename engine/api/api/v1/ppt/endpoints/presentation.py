@@ -626,9 +626,26 @@ def _apply_template_content_to_ui(
     if not isinstance(hydrated_components, list):
         return hydrated_ui
 
+    component_y_positions = [
+        float(component.get("position", {}).get("y", 0))
+        if isinstance(component, dict)
+        and isinstance(component.get("position"), dict)
+        and isinstance(component.get("position", {}).get("y"), (int, float))
+        else 0.0
+        for component in hydrated_components
+    ]
+
     for index, component in enumerate(hydrated_components):
         if not isinstance(component, dict):
             continue
+
+        component_y = component_y_positions[index]
+        following_y = [value for value in component_y_positions if value > component_y]
+        next_y = min(following_y) if following_y else 720.0
+        _expand_single_text_component_capacity(
+            component,
+            max(0.0, next_y - component_y - 16.0),
+        )
 
         component_id = component.get("id")
         component_content = content.get(component_keys[index])
@@ -645,6 +662,56 @@ def _apply_template_content_to_ui(
             )
 
     return hydrated_ui
+
+
+def _collect_non_decorative_text_elements(value: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if isinstance(value, list):
+        for child in value:
+            found.extend(_collect_non_decorative_text_elements(child))
+        return found
+    if not isinstance(value, dict):
+        return found
+    if value.get("type") == "text" and value.get("decorative") is False:
+        found.append(value)
+    for key in ("elements", "children"):
+        found.extend(_collect_non_decorative_text_elements(value.get(key)))
+    found.extend(_collect_non_decorative_text_elements(value.get("child")))
+    return found
+
+
+def _expand_single_text_component_capacity(
+    component: dict[str, Any],
+    available_height: float,
+) -> None:
+    """Use vertical whitespace before the next component for a lone text box.
+
+    Several imported templates provide a single short heading placeholder even when
+    their schema is selected for a full reviewed preschool page. Expanding that one
+    editable box before font fitting preserves readable type instead of squeezing five
+    lines into a 46px shell. Components with multiple text boxes are left untouched so
+    their internal layout cannot be made to overlap.
+    """
+    targets = _collect_non_decorative_text_elements(component.get("elements"))
+    if len(targets) != 1 or available_height <= 0:
+        return
+    target = targets[0]
+    size = target.get("size")
+    position = target.get("position")
+    if not isinstance(size, dict):
+        return
+    local_y = (
+        float(position.get("y", 0))
+        if isinstance(position, dict) and isinstance(position.get("y"), (int, float))
+        else 0.0
+    )
+    current_height = size.get("height")
+    expanded_height = available_height - max(0.0, local_y)
+    if (
+        isinstance(current_height, (int, float))
+        and expanded_height > float(current_height)
+    ):
+        size["height"] = expanded_height
 
 
 def _apply_template_content_to_element(
@@ -898,10 +965,17 @@ def _apply_template_text_content(
     value: Any,
 ) -> dict[str, Any]:
     text = _read_template_text(value)
-    if text is None or text == "":
+    if text is None:
         return copy.deepcopy(element)
 
     updated = copy.deepcopy(element)
+    if text == "":
+        # An explicitly empty generated field means this repeated template slot is
+        # unused. Keeping imported sample copy (Heading/Lorem ipsum/Your topic) is
+        # both misleading and a common source of apparent text overlap.
+        updated["runs"] = []
+        updated.pop("text", None)
+        return updated
     first_run = _first_template_text_run(element.get("runs"))
     updated["runs"] = _template_text_runs_from_markdown(
         text,
