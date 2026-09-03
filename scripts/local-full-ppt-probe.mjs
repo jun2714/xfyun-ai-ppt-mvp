@@ -201,6 +201,7 @@ const diagnostics = {
   finalPresentation: null,
   fidelity: [],
   imageChecks: [],
+  validationErrors: [],
   layoutOverflows: [],
   result: { state: "starting" },
 };
@@ -348,7 +349,9 @@ try {
     const missing = expectedLines.filter((line) => !finalText.includes(line));
     diagnostics.fidelity.push({ page: index + 1, expectedLines, missing });
     if (missing.length) {
-      throw new Error(`Page ${index + 1} rewrote reviewed outline copy. Missing: ${missing.join(" | ")}`);
+      diagnostics.validationErrors.push(
+        `Page ${index + 1} rewrote reviewed outline copy. Missing: ${missing.join(" | ")}`,
+      );
     }
   }
 
@@ -356,14 +359,16 @@ try {
     collectTextBoxOverflows(slide?.ui, index),
   );
   if (diagnostics.layoutOverflows.length) {
-    throw new Error(
+    diagnostics.validationErrors.push(
       `Final deck contains ${diagnostics.layoutOverflows.length} overflowing text boxes: ` +
       diagnostics.layoutOverflows.map((item) => `page ${item.page} ${item.name || "text"}`).join(", "),
     );
   }
 
   if (diagnostics.streamRequests.length !== 1) {
-    throw new Error(`Paid presentation stream was opened ${diagnostics.streamRequests.length} times; expected exactly 1.`);
+    diagnostics.validationErrors.push(
+      `Paid presentation stream was opened ${diagnostics.streamRequests.length} times; expected exactly 1.`,
+    );
   }
 
   const imageUrls = [...new Set(collectImageUrls(finalSlides))]
@@ -402,6 +407,10 @@ try {
 
   if (diagnostics.httpErrors.some((item) => item.status === 404 && /app_data\/images/.test(item.url))) {
     throw new Error("Browser observed a 404 for a generated app_data image.");
+  }
+
+  if (diagnostics.validationErrors.length) {
+    throw new Error(diagnostics.validationErrors.join("\n"));
   }
 
   diagnostics.result = {
