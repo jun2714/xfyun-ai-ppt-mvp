@@ -9,3 +9,5 @@ run: 19
 reason: clear-placeholders-expand-text-enforce-image-semantics
 run: 20
 reason: rebalance-card-text-and-verify-images
+run: 21
+reason: persist-json-assets-clear-placeholders-child-safe-template
