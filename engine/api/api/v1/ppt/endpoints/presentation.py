@@ -669,6 +669,7 @@ def _apply_template_content_to_ui(
                 elements,
                 component_content,
             )
+            _rebalance_direct_template_text_boxes(component["elements"])
 
     return hydrated_ui
 
@@ -721,6 +722,97 @@ def _expand_single_text_component_capacity(
         and expanded_height > float(current_height)
     ):
         size["height"] = expanded_height
+
+
+def _template_text_required_height(element: dict[str, Any]) -> float:
+    size = element.get("size")
+    font = element.get("font")
+    if not isinstance(size, dict) or not isinstance(font, dict):
+        return 0.0
+    width = size.get("width")
+    font_size = font.get("size")
+    if not all(
+        isinstance(value, (int, float)) and value > 0
+        for value in (width, font_size)
+    ):
+        return 0.0
+    text = "".join(
+        run.get("text", "")
+        for run in (element.get("runs") or [])
+        if isinstance(run, dict) and isinstance(run.get("text"), str)
+    )
+    if not text:
+        return 0.0
+    line_height = font.get("line_height", 1.15)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.15
+    line_height = max(float(line_height), 1.0)
+    units_per_line = max(1.0, float(width) / float(font_size))
+    wrapped_lines = sum(
+        max(
+            1,
+            int(
+                math.ceil(
+                    sum(1.0 if ord(char) > 0x2FF else 0.55 for char in line)
+                    / units_per_line
+                )
+            ),
+        )
+        for line in (text.splitlines() or [text])
+    )
+    return wrapped_lines * float(font_size) * line_height
+
+
+def _rebalance_direct_template_text_boxes(elements: list[Any]) -> None:
+    """Borrow spare height from the following sibling when a label still wraps.
+
+    Imported card layouts often pair a 28px label with a 140px description box.
+    Chinese locked copy can need two label lines even after reaching the readable
+    14px floor. Use the gap and genuine spare height in the following box while
+    preserving the pair's original bottom edge. Nested/grouped elements are not
+    mixed because their coordinates are relative to different parents.
+    """
+    targets = [
+        element
+        for element in elements
+        if isinstance(element, dict)
+        and element.get("type") == "text"
+        and element.get("decorative") is False
+        and isinstance(element.get("position"), dict)
+        and isinstance(element.get("position", {}).get("y"), (int, float))
+        and isinstance(element.get("size"), dict)
+        and isinstance(element.get("size", {}).get("height"), (int, float))
+    ]
+    targets.sort(key=lambda element: float(element["position"]["y"]))
+    for current, following in zip(targets, targets[1:]):
+        current_height = float(current["size"]["height"])
+        required_height = _template_text_required_height(current)
+        if required_height <= current_height * 1.02:
+            continue
+
+        current_y = float(current["position"]["y"])
+        following_y = float(following["position"]["y"])
+        following_height = float(following["size"]["height"])
+        following_required = _template_text_required_height(following)
+        gap = max(0.0, following_y - (current_y + current_height))
+        following_floor = max(28.0, math.ceil(following_required * 1.05))
+        borrowable = max(0.0, following_height - following_floor)
+        needed = max(0.0, math.ceil(required_height * 1.05) - current_height)
+        borrowed = min(max(0.0, needed - gap), borrowable)
+        gained = min(needed, gap + borrowed)
+        if gained <= 0:
+            continue
+
+        current["size"]["height"] = current_height + gained
+        if borrowed > 0:
+            following["position"]["y"] = following_y + borrowed
+            following["size"]["height"] = following_height - borrowed
+            following_text = "".join(
+                run.get("text", "")
+                for run in (following.get("runs") or [])
+                if isinstance(run, dict) and isinstance(run.get("text"), str)
+            )
+            _fit_template_text_to_box(following, following_text)
 
 
 def _apply_template_content_to_element(
