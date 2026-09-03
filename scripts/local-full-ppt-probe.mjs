@@ -273,7 +273,7 @@ try {
   await prompt.fill(topic);
   if (expectedSlides > 0) {
     await page.getByTestId("slides-select").click();
-    await page.getByRole("option", { name: `${expectedSlides} 页` }).click();
+    await page.getByRole("option", { name: `${expectedSlides} 页`, exact: true }).click();
   }
   await page.getByRole("button", { name: "生成演示文稿" }).click();
 
