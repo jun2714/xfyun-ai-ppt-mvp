@@ -364,6 +364,34 @@ def _collect_template_ui_texts(node: Any, texts: list[str]) -> None:
             _collect_template_ui_texts(child, texts)
 
 
+def _template_element_text(element: dict[str, Any]) -> str:
+    return "".join(
+        run.get("text", "")
+        for run in (element.get("runs") or [])
+        if isinstance(run, dict) and isinstance(run.get("text"), str)
+    ).strip()
+
+
+def _is_imported_template_placeholder_text(text: str) -> bool:
+    normalized = " ".join(text.split()).strip()
+    if not normalized:
+        return False
+    lowered = normalized.casefold()
+    if lowered.startswith("lorem ipsum"):
+        return True
+    if lowered in {
+        "heading",
+        "title",
+        "subtitle",
+        "description",
+        "your topic",
+        "your title",
+        "insert text here",
+    }:
+        return True
+    return any(marker.casefold() in lowered for marker in _TEMPLATE_PLACEHOLDER_MARKERS)
+
+
 def _ui_has_template_placeholders(ui: Any) -> bool:
     texts: list[str] = []
     _collect_template_ui_texts(ui, texts)
@@ -864,6 +892,18 @@ def _apply_template_content_to_element(
         and element_type in GENERATED_VALUE_ELEMENT_TYPES
     ):
         return _apply_template_content_value(element, content)
+
+    if (
+        not has_value
+        and element_type == "text"
+        and element.get("decorative") is False
+        and _is_imported_template_placeholder_text(_template_element_text(element))
+    ):
+        # Generated content intentionally omits unused template slots. Leaving the
+        # imported English demo copy visible makes a finished preschool slide look
+        # corrupted, so clear only well-known placeholder text. Authored static text
+        # and decorative labels remain untouched.
+        return _apply_template_text_content(element, "")
 
     nested_content = value if isinstance(value, dict) else content_values
     nested_direct_value = direct_value and not has_value
