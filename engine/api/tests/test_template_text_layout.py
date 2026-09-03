@@ -136,3 +136,41 @@ def test_wrapped_card_label_borrows_spare_height_from_description():
         + description["size"]["height"]
         - (35.09 + 144.5)
     ) < 1e-6
+
+
+def test_fixed_bottom_footer_uses_last_resort_readable_font_floor():
+    ui = {
+        "components": [
+            {
+                "id": "activity",
+                "position": {"x": 50, "y": 69},
+                "elements": [
+                    {
+                        "type": "group",
+                        "children": [
+                            {
+                                "type": "text",
+                                "decorative": False,
+                                "name": "footer",
+                                "position": {"x": 26, "y": 504},
+                                "size": {"width": 518.13, "height": 92.3},
+                                "font": {"size": 20, "line_height": 1.5},
+                                "runs": [{"text": "Footer"}],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    content = {
+        "activity": {
+            "footer": "先喝水\n再晒太阳\n感到温暖\n冒出小芽\n跟着口令做动作，别太早冒芽哦。"
+        }
+    }
+
+    result = _apply_template_content_to_ui(ui, content)
+    footer = result["components"][0]["elements"][0]["children"][0]
+
+    assert footer["font"]["size"] == 12
+    assert footer["size"]["height"] == 92.3
