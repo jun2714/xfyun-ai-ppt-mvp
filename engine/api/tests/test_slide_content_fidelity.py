@@ -1,9 +1,47 @@
 from models.kindergarten_lesson_plan import KindergartenLessonPlan
 from utils.llm_calls.generate_slide_content import (
     _apply_locked_visible_copy,
+    _build_schema_fallback,
     _outline_visible_lines,
     get_messages,
 )
+
+
+def test_schema_fallback_keeps_reviewed_copy_and_asset_semantics():
+    schema = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "body": {"type": "string"},
+            "visual": {
+                "type": "object",
+                "properties": {"image_prompt": {"type": "string", "minLength": 10}},
+            },
+            "__speaker_note__": {"type": "string"},
+        },
+    }
+    contract = {
+        "preserve_visible_copy": True,
+        "teacher_note": "先让孩子猜一猜，再揭晓答案。",
+        "required_asset_semantics": ["泥土下睡觉的小种子和春天来信"],
+        "asset_contracts": [
+            {
+                "semantic_label": "泥土下睡觉的小种子和春天来信",
+                "description": "一颗小种子睡在温暖泥土里，身旁放着浅绿色信封",
+            }
+        ],
+    }
+
+    result = _build_schema_fallback(
+        schema,
+        "谁给种子宝宝写信啦？\n- 我们一起拆开春天来信",
+        contract,
+    )
+
+    assert result["title"] == "谁给种子宝宝写信啦？"
+    assert result["body"] == "我们一起拆开春天来信"
+    assert "泥土下睡觉的小种子和春天来信" in result["visual"]["image_prompt"]
+    assert result["__speaker_note__"] == "先让孩子猜一猜，再揭晓答案。"
 
 
 def test_kindergarten_outline_marks_visible_copy_as_locked():
