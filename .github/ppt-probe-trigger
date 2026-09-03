@@ -5,3 +5,5 @@ run: 17
 reason: slide-fallback-and-exact-eight-pages
 run: 18
 reason: exact-eight-page-option
+run: 19
+reason: clear-placeholders-expand-text-enforce-image-semantics
