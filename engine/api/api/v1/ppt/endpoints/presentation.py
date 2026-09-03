@@ -626,12 +626,12 @@ def _apply_template_content_to_ui(
     if not isinstance(hydrated_components, list):
         return hydrated_ui
 
-    component_y_positions = [
-        float(component.get("position", {}).get("y", 0))
+    component_y_positions: list[float | None] = [
+        float(component.get("position", {}).get("y"))
         if isinstance(component, dict)
         and isinstance(component.get("position"), dict)
         and isinstance(component.get("position", {}).get("y"), (int, float))
-        else 0.0
+        else None
         for component in hydrated_components
     ]
 
@@ -640,12 +640,21 @@ def _apply_template_content_to_ui(
             continue
 
         component_y = component_y_positions[index]
-        following_y = [value for value in component_y_positions if value > component_y]
-        next_y = min(following_y) if following_y else 720.0
-        _expand_single_text_component_capacity(
-            component,
-            max(0.0, next_y - component_y - 16.0),
-        )
+        # Only infer spare vertical capacity from explicit template geometry.
+        # Synthetic/minimal UIs without component positions describe fixed boxes;
+        # treating their missing y as zero would incorrectly expand them to a full
+        # slide and disable the normal font-fitting safeguard.
+        if component_y is not None:
+            following_y = [
+                value
+                for value in component_y_positions
+                if value is not None and value > component_y
+            ]
+            next_y = min(following_y) if following_y else 720.0
+            _expand_single_text_component_capacity(
+                component,
+                max(0.0, next_y - component_y - 16.0),
+            )
 
         component_id = component.get("id")
         component_content = content.get(component_keys[index])
