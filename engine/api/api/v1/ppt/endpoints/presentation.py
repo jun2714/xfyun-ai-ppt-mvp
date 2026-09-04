@@ -116,6 +116,7 @@ from utils.web_search import build_web_search_query, get_web_search_context
 from api.v1.auth.context import get_current_owner_id
 from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
 from templates.v2.schema import get_template_schema
+from utils.template_text_capacity import estimated_text_height
 from templates.default_templates import resolve_default_template_id
 from services.community_presentations import (
     build_community_design_context,
@@ -655,6 +656,23 @@ def _apply_template_content_to_ui(
     if not isinstance(hydrated_components, list):
         return hydrated_ui
 
+    contract = content.get("__content_contract__")
+    if isinstance(contract, dict) and contract.get("preserve_visible_copy") is True:
+        for element in _collect_non_decorative_text_elements(hydrated_components):
+            font = element.get("font")
+            if not isinstance(font, dict):
+                continue
+            line_height = font.get("line_height", 1.15)
+            if not isinstance(line_height, (int, float)) or not math.isfinite(line_height):
+                line_height = 1.15
+            # Imported Latin display titles can use 0.85 leading. Chinese
+            # two-line reviewed titles need actual line separation, not just
+            # an overflow estimate that silently assumes a larger line height.
+            font["line_height"] = max(float(line_height), 1.15)
+            for run in element.get("runs") or []:
+                if isinstance(run, dict) and isinstance(run.get("font"), dict):
+                    run["font"]["line_height"] = font["line_height"]
+
     component_y_positions: list[float | None] = [
         float(component.get("position", {}).get("y"))
         if isinstance(component, dict)
@@ -780,20 +798,10 @@ def _template_text_required_height(element: dict[str, Any]) -> float:
     if not isinstance(line_height, (int, float)) or line_height <= 0:
         line_height = 1.15
     line_height = max(float(line_height), 1.0)
-    units_per_line = max(1.0, float(width) / float(font_size))
-    wrapped_lines = sum(
-        max(
-            1,
-            int(
-                math.ceil(
-                    sum(1.0 if ord(char) > 0x2FF else 0.55 for char in line)
-                    / units_per_line
-                )
-            ),
-        )
-        for line in (text.splitlines() or [text])
-    )
-    return wrapped_lines * float(font_size) * line_height
+    spacing = font.get("letter_spacing", 0)
+    if not isinstance(spacing, (int, float)) or not math.isfinite(spacing):
+        spacing = 0
+    return estimated_text_height(text, float(width), float(font_size), line_height, spacing)
 
 
 def _rebalance_direct_template_text_boxes(elements: list[Any]) -> None:
@@ -1190,18 +1198,14 @@ def _fit_template_text_to_box(
         line_height = 1.15
     line_height = max(float(line_height), 1.0)
 
-    def visual_units(value: str) -> float:
-        return sum(1.0 if ord(char) > 0x2FF else 0.55 for char in value)
+    spacing = font.get("letter_spacing", 0)
+    if not isinstance(spacing, (int, float)) or not math.isfinite(spacing):
+        spacing = 0
 
     candidate = float(current)
     minimum = min(candidate, float(minimum_size))
     while candidate > minimum:
-        units_per_line = max(1.0, float(width) / candidate)
-        wrapped_lines = sum(
-            max(1, int(math.ceil(visual_units(line) / units_per_line)))
-            for line in (text.splitlines() or [text])
-        )
-        if wrapped_lines * candidate * line_height <= float(height) * 0.94:
+        if estimated_text_height(text, float(width), candidate, line_height, spacing) <= float(height) * 0.94:
             break
         candidate -= 1.0
 
