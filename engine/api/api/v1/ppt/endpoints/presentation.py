@@ -3,6 +3,7 @@ import copy
 from datetime import datetime
 import json
 import logging
+import math
 import os
 import re
 import traceback
@@ -22,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import select
 from constants.presentation import MAX_NUMBER_OF_SLIDES
 from enums.async_task_status import AsyncTaskStatus
@@ -114,6 +116,7 @@ from utils.web_search import build_web_search_query, get_web_search_context
 from api.v1.auth.context import get_current_owner_id
 from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
 from templates.v2.schema import get_template_schema
+from utils.template_text_capacity import estimated_text_height
 from templates.default_templates import resolve_default_template_id
 from services.community_presentations import (
     build_community_design_context,
@@ -361,6 +364,34 @@ def _collect_template_ui_texts(node: Any, texts: list[str]) -> None:
     elif isinstance(node, list):
         for child in node:
             _collect_template_ui_texts(child, texts)
+
+
+def _template_element_text(element: dict[str, Any]) -> str:
+    return "".join(
+        run.get("text", "")
+        for run in (element.get("runs") or [])
+        if isinstance(run, dict) and isinstance(run.get("text"), str)
+    ).strip()
+
+
+def _is_imported_template_placeholder_text(text: str) -> bool:
+    normalized = " ".join(text.split()).strip()
+    if not normalized:
+        return False
+    lowered = normalized.casefold()
+    if lowered.startswith("lorem ipsum"):
+        return True
+    if lowered in {
+        "heading",
+        "title",
+        "subtitle",
+        "description",
+        "your topic",
+        "your title",
+        "insert text here",
+    }:
+        return True
+    return any(marker.casefold() in lowered for marker in _TEMPLATE_PLACEHOLDER_MARKERS)
 
 
 def _ui_has_template_placeholders(ui: Any) -> bool:
@@ -625,9 +656,52 @@ def _apply_template_content_to_ui(
     if not isinstance(hydrated_components, list):
         return hydrated_ui
 
+    contract = content.get("__content_contract__")
+    if isinstance(contract, dict) and contract.get("preserve_visible_copy") is True:
+        for element in _collect_non_decorative_text_elements(hydrated_components):
+            font = element.get("font")
+            if not isinstance(font, dict):
+                continue
+            line_height = font.get("line_height", 1.15)
+            if not isinstance(line_height, (int, float)) or not math.isfinite(line_height):
+                line_height = 1.15
+            # Imported Latin display titles can use 0.85 leading. Chinese
+            # two-line reviewed titles need actual line separation, not just
+            # an overflow estimate that silently assumes a larger line height.
+            font["line_height"] = max(float(line_height), 1.15)
+            for run in element.get("runs") or []:
+                if isinstance(run, dict) and isinstance(run.get("font"), dict):
+                    run["font"]["line_height"] = font["line_height"]
+
+    component_y_positions: list[float | None] = [
+        float(component.get("position", {}).get("y"))
+        if isinstance(component, dict)
+        and isinstance(component.get("position"), dict)
+        and isinstance(component.get("position", {}).get("y"), (int, float))
+        else None
+        for component in hydrated_components
+    ]
+
     for index, component in enumerate(hydrated_components):
         if not isinstance(component, dict):
             continue
+
+        component_y = component_y_positions[index]
+        # Only infer spare vertical capacity from explicit template geometry.
+        # Synthetic/minimal UIs without component positions describe fixed boxes;
+        # treating their missing y as zero would incorrectly expand them to a full
+        # slide and disable the normal font-fitting safeguard.
+        if component_y is not None:
+            following_y = [
+                value
+                for value in component_y_positions
+                if value is not None and value > component_y
+            ]
+            next_y = min(following_y) if following_y else 720.0
+            _expand_single_text_component_capacity(
+                component,
+                max(0.0, next_y - component_y - 16.0),
+            )
 
         component_id = component.get("id")
         component_content = content.get(component_keys[index])
@@ -642,8 +716,176 @@ def _apply_template_content_to_ui(
                 elements,
                 component_content,
             )
+            _rebalance_direct_template_text_boxes(component["elements"])
 
     return hydrated_ui
+
+
+def _collect_non_decorative_text_elements(value: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if isinstance(value, list):
+        for child in value:
+            found.extend(_collect_non_decorative_text_elements(child))
+        return found
+    if not isinstance(value, dict):
+        return found
+    if value.get("type") == "text" and value.get("decorative") is False:
+        found.append(value)
+    for key in ("elements", "children"):
+        found.extend(_collect_non_decorative_text_elements(value.get(key)))
+    found.extend(_collect_non_decorative_text_elements(value.get("child")))
+    return found
+
+
+def _expand_single_text_component_capacity(
+    component: dict[str, Any],
+    available_height: float,
+) -> None:
+    """Use vertical whitespace before the next component for a lone text box.
+
+    Several imported templates provide a single short heading placeholder even when
+    their schema is selected for a full reviewed preschool page. Expanding that one
+    editable box before font fitting preserves readable type instead of squeezing five
+    lines into a 46px shell. Components with multiple text boxes are left untouched so
+    their internal layout cannot be made to overlap.
+    """
+    targets = _collect_non_decorative_text_elements(component.get("elements"))
+    if len(targets) != 1 or available_height <= 0:
+        return
+    target = targets[0]
+    # A nested box belongs to its container's bounds, not the slide. Expanding
+    # it using slide-relative space can cross an image or its parent's bottom.
+    if not any(target is item for item in (component.get("elements") or [])):
+        return
+    size = target.get("size")
+    position = target.get("position")
+    if not isinstance(size, dict):
+        return
+    local_y = (
+        float(position.get("y", 0))
+        if isinstance(position, dict) and isinstance(position.get("y"), (int, float))
+        else 0.0
+    )
+    current_height = size.get("height")
+    expanded_height = available_height - max(0.0, local_y)
+    if (
+        isinstance(current_height, (int, float))
+        and expanded_height > float(current_height)
+    ):
+        size["height"] = expanded_height
+
+
+def _template_text_required_height(element: dict[str, Any]) -> float:
+    size = element.get("size")
+    font = element.get("font")
+    if not isinstance(size, dict) or not isinstance(font, dict):
+        return 0.0
+    width = size.get("width")
+    font_size = font.get("size")
+    if not all(
+        isinstance(value, (int, float)) and value > 0
+        for value in (width, font_size)
+    ):
+        return 0.0
+    text = "".join(
+        run.get("text", "")
+        for run in (element.get("runs") or [])
+        if isinstance(run, dict) and isinstance(run.get("text"), str)
+    )
+    if not text:
+        return 0.0
+    line_height = font.get("line_height", 1.15)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.15
+    line_height = max(float(line_height), 1.0)
+    spacing = font.get("letter_spacing", 0)
+    if not isinstance(spacing, (int, float)) or not math.isfinite(spacing):
+        spacing = 0
+    return estimated_text_height(text, float(width), float(font_size), line_height, spacing)
+
+
+def _rebalance_direct_template_text_boxes(elements: list[Any]) -> None:
+    """Borrow spare height from the following sibling when a label still wraps.
+
+    Imported card layouts often pair a 28px label with a 140px description box.
+    Chinese locked copy can need two label lines even after reaching the readable
+    14px floor. Use the gap and genuine spare height in the following box while
+    preserving the pair's original bottom edge. Nested/grouped elements are not
+    mixed because their coordinates are relative to different parents.
+    """
+    targets = [
+        element
+        for element in elements
+        if isinstance(element, dict)
+        and element.get("type") == "text"
+        and element.get("decorative") is False
+        and isinstance(element.get("position"), dict)
+        and isinstance(element.get("position", {}).get("y"), (int, float))
+        and isinstance(element.get("size"), dict)
+        and isinstance(element.get("size", {}).get("height"), (int, float))
+    ]
+    targets.sort(key=lambda element: float(element["position"]["y"]))
+    for current, following in zip(targets, targets[1:]):
+        current_height = float(current["size"]["height"])
+        required_height = _template_text_required_height(current)
+        if required_height <= current_height * 1.02:
+            continue
+
+        current_y = float(current["position"]["y"])
+        following_y = float(following["position"]["y"])
+        following_height = float(following["size"]["height"])
+        following_required = _template_text_required_height(following)
+        gap = max(0.0, following_y - (current_y + current_height))
+        following_floor = max(28.0, math.ceil(following_required * 1.05))
+        borrowable = max(0.0, following_height - following_floor)
+        # Text siblings need not be adjacent: a card image can sit between its
+        # label and description. Its occupied area is not available whitespace.
+        for sibling in elements:
+            if not isinstance(sibling, dict) or sibling is current or sibling is following:
+                continue
+            sibling_y = (sibling.get("position") or {}).get("y")
+            if isinstance(sibling_y, (int, float)) and current_y < sibling_y < following_y:
+                gap = min(gap, max(0.0, sibling_y - current_y - current_height - 2.0))
+                borrowable = 0.0
+        needed = max(0.0, math.ceil(required_height * 1.05) - current_height)
+        borrowed = min(max(0.0, needed - gap), borrowable)
+        gained = min(needed, gap + borrowed)
+        if gained <= 0:
+            continue
+
+        current["size"]["height"] = current_height + gained
+        if borrowed > 0:
+            following["position"]["y"] = following_y + borrowed
+            following["size"]["height"] = following_height - borrowed
+            following_text = "".join(
+                run.get("text", "")
+                for run in (following.get("runs") or [])
+                if isinstance(run, dict) and isinstance(run.get("text"), str)
+            )
+            _fit_template_text_to_box(following, following_text)
+
+    for target in targets:
+        target_height = float(target["size"]["height"])
+        if _template_text_required_height(target) <= target_height * 1.02:
+            continue
+        target_text = _template_element_text(target)
+        _fit_template_text_to_box(target, target_text, minimum_size=12.0)
+
+    # Each nested children/elements list owns its own coordinate system. Rebalance
+    # within that list only, never across parent boundaries.
+    for element in elements:
+        if not isinstance(element, dict):
+            continue
+        for key in ("children", "elements"):
+            nested = element.get(key)
+            if isinstance(nested, list):
+                _rebalance_direct_template_text_boxes(nested)
+        child = element.get("child")
+        if isinstance(child, dict):
+            for key in ("children", "elements"):
+                nested = child.get(key)
+                if isinstance(nested, list):
+                    _rebalance_direct_template_text_boxes(nested)
 
 
 def _apply_template_content_to_element(
@@ -695,6 +937,18 @@ def _apply_template_content_to_element(
         and element_type in GENERATED_VALUE_ELEMENT_TYPES
     ):
         return _apply_template_content_value(element, content)
+
+    if (
+        not has_value
+        and element_type == "text"
+        and element.get("decorative") is False
+        and _is_imported_template_placeholder_text(_template_element_text(element))
+    ):
+        # Generated content intentionally omits unused template slots. Leaving the
+        # imported English demo copy visible makes a finished preschool slide look
+        # corrupted, so clear only well-known placeholder text. Authored static text
+        # and decorative labels remain untouched.
+        return _apply_template_text_content(element, "")
 
     nested_content = value if isinstance(value, dict) else content_values
     nested_direct_value = direct_value and not has_value
@@ -897,18 +1151,76 @@ def _apply_template_text_content(
     value: Any,
 ) -> dict[str, Any]:
     text = _read_template_text(value)
-    if text is None or text == "":
+    if text is None:
         return copy.deepcopy(element)
 
     updated = copy.deepcopy(element)
+    if text == "":
+        # An explicitly empty generated field means this repeated template slot is
+        # unused. Keeping imported sample copy (Heading/Lorem ipsum/Your topic) is
+        # both misleading and a common source of apparent text overlap.
+        updated["runs"] = []
+        updated.pop("text", None)
+        return updated
     first_run = _first_template_text_run(element.get("runs"))
     updated["runs"] = _template_text_runs_from_markdown(
         text,
         first_run,
         fallback_font=element.get("font"),
     )
+    _fit_template_text_to_box(updated, text)
     updated.pop("text", None)
     return updated
+
+
+def _fit_template_text_to_box(
+    element: dict[str, Any],
+    text: str,
+    *,
+    minimum_size: float = 14.0,
+) -> None:
+    """Shrink generated copy when it cannot fit the template's fixed text box."""
+    size = element.get("size")
+    font = element.get("font")
+    if not isinstance(size, dict) or not isinstance(font, dict):
+        return
+    width = size.get("width")
+    height = size.get("height")
+    current = font.get("size")
+    if not all(
+        isinstance(value, (int, float)) and value > 0
+        for value in (width, height, current)
+    ):
+        return
+
+    line_height = font.get("line_height", 1.15)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.15
+    line_height = max(float(line_height), 1.0)
+
+    spacing = font.get("letter_spacing", 0)
+    if not isinstance(spacing, (int, float)) or not math.isfinite(spacing):
+        spacing = 0
+
+    candidate = float(current)
+    minimum = min(candidate, float(minimum_size))
+    while candidate > minimum:
+        if estimated_text_height(text, float(width), candidate, line_height, spacing) <= float(height) * 0.94:
+            break
+        candidate -= 1.0
+
+    fitted = round(max(minimum, candidate), 1)
+    if fitted >= float(current):
+        return
+    font["size"] = fitted
+    for run in element.get("runs") or []:
+        if not isinstance(run, dict):
+            continue
+        run_font = run.get("font")
+        if not isinstance(run_font, dict):
+            run_font = {}
+            run["font"] = run_font
+        run_font["size"] = fitted
 
 
 def _apply_template_image_content(
@@ -2088,7 +2400,9 @@ async def stream_presentation(
         # so a disconnected browser can resume without paying for that image again.
         for slide in slides:
             slide.content = copy.deepcopy(slide.content)
+            flag_modified(slide, "content")
             slide.ui = _apply_template_content_to_ui(slide.ui, slide.content)
+            flag_modified(slide, "ui")
         sql_session.add_all(slides)
         sql_session.add_all(new_assets)
         await sql_session.commit()

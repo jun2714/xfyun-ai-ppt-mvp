@@ -49,6 +49,12 @@ class SlideContentContract(BaseModel):
     ] = "none"
     visible_characters: int = Field(default=0, ge=0)
 
+    # When true, the reviewed outline is final audience-facing copy. The slide
+    # model may map that copy into template fields and may still author image
+    # prompts/speaker notes, but it must not rewrite, summarize or embellish the
+    # visible wording. Kindergarten planning enables this after teacher review.
+    preserve_visible_copy: bool = False
+
     # Optional teaching metadata. These fields never become audience-facing text;
     # they travel with the outline so later layout, asset and quality stages can
     # preserve the lesson intent without re-inferring it from rendered copy.

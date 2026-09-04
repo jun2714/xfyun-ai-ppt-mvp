@@ -2,145 +2,178 @@ name: Local PPT Browser Probe
 
 on:
   workflow_dispatch:
-    inputs:
-      target_url:
-        description: Local PPT editor upload URL on the Windows runner
-        required: true
-        default: http://127.0.0.1:5001/upload
-        type: string
-      test_topic:
-        description: Kindergarten topic used by the diagnostic run
-        required: true
-        default: 认识春天的小动物
-        type: string
-      expected_model:
-        description: Planner model that must be active before the paid probe starts
-        required: true
-        default: deepseek-v4-pro-0813
-        type: string
   push:
     branches:
-      - main
+      - fix/kindergarten-generation-stability
     paths:
       - .github/ppt-probe-trigger
 
 permissions:
   contents: read
 
+concurrency:
+  group: local-ppt-browser-probe
+  cancel-in-progress: true
+
 jobs:
   probe:
-    name: Diagnose local PPT outline flow
+    name: Deploy repair branch and probe full PPT flow
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 35
 
     steps:
-      - name: Checkout diagnostics scripts
+      - name: Enable Windows long paths
+        shell: powershell
+        run: git config --global core.longpaths true
+
+      - name: Checkout exact repair branch
         uses: actions/checkout@v5
+        with:
+          ref: fix/kindergarten-generation-stability
 
-      - name: Refresh diagnostics code from latest main
+      - name: Show exact repair revision
         shell: powershell
         run: |
-          git fetch origin main
-          git checkout --force origin/main
-          Write-Host "Diagnostics source: $(git rev-parse HEAD)"
-
-      - name: Show runner and browser environment
-        shell: powershell
-        run: |
-          Write-Host "Computer: $env:COMPUTERNAME"
-          Write-Host "User: $env:USERNAME"
-          node --version
-          npm --version
-          $edge = @(
-            "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $edge) { throw "Microsoft Edge was not found on the runner." }
-          Write-Host "Edge: $edge"
-
-      - name: Verify engine and API are reachable
-        shell: powershell
-        run: |
-          function Assert-ServiceResponds([string]$url) {
-            try {
-              $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 15
-              Write-Host "$url -> $($response.StatusCode)"
-            } catch {
-              if ($_.Exception.Response) {
-                Write-Host "$url -> HTTP $([int]$_.Exception.Response.StatusCode) (service reachable)"
-                return
-              }
-              throw "$url is not reachable: $($_.Exception.Message)"
-            }
+          $revision = git rev-parse HEAD
+          Write-Host "Repair revision: $revision"
+          if ((git branch --show-current) -ne "fix/kindergarten-generation-stability") {
+            throw "Runner did not checkout the repair branch."
           }
-          Assert-ServiceResponds "http://127.0.0.1:5001/upload"
-          Assert-ServiceResponds "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime"
 
-      - name: Verify running API uses expected planner
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.9'
+          enable-cache: false
+
+      - name: Locate private runtime configuration
+        id: runtime-config
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $roots = @()
+          if ($env:PPT_LOCAL_PROJECT_ROOT) { $roots += $env:PPT_LOCAL_PROJECT_ROOT }
+          $roots += @(
+            "D:\Work",
+            "D:\workspace", "D:\projects", "D:\project", "D:\source",
+            "C:\workspace", "C:\projects", "C:\source"
+          )
+          $roots = $roots | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+          $project = $null
+          foreach ($searchRoot in $roots) {
+            Write-Host "Searching for the existing PPT runtime under $searchRoot"
+            $scripts = Get-ChildItem -Path $searchRoot -Filter dev-engine.mjs -File -Recurse -ErrorAction SilentlyContinue
+            foreach ($script in $scripts) {
+              $candidate = Split-Path (Split-Path $script.FullName -Parent) -Parent
+              if ($candidate -eq $env:GITHUB_WORKSPACE) { continue }
+              if ((Test-Path (Join-Path $candidate ".env")) -and (Test-Path (Join-Path $candidate "engine\api\server.py"))) {
+                $project = $candidate
+                break
+              }
+            }
+            if ($project) { break }
+          }
+          if (-not $project) {
+            throw "Could not locate the existing PPT project .env; no paid request was made."
+          }
+          Write-Host "Using private runtime configuration from $project; file contents remain hidden."
+          Copy-Item (Join-Path $project ".env") (Join-Path $env:GITHUB_WORKSPACE ".env") -Force
+          "source_root=$project" >> $env:GITHUB_OUTPUT
+
+      - name: Install portable Python and API runtime
+        timeout-minutes: 12
         shell: powershell
         env:
-          EXPECTED_MODEL: ${{ inputs.expected_model || 'deepseek-v4-pro-0813' }}
+          UV_PYTHON_INSTALL_DIR: ${{ runner.tool_cache }}\uv-python
         run: |
-          $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/ppt/kindergarten/planner/runtime" -TimeoutSec 15
-          Write-Host "Planner profile=$($runtime.profile) model=$($runtime.model) call_timeout=$($runtime.call_timeout_seconds)s total_timeout=$($runtime.total_timeout_seconds)s"
-          if ($runtime.model -ne $env:EXPECTED_MODEL) {
-            throw "The running API is still using planner model '$($runtime.model)' instead of '$env:EXPECTED_MODEL'. Pull latest main and restart the local API before another paid outline probe."
-          }
-          if ($runtime.profile -eq "fast" -and ([double]$runtime.call_timeout_seconds -lt 180 -or [double]$runtime.total_timeout_seconds -lt 420)) {
-            throw "The running API does not have the current 180/420 second DeepSeek planner budget. Pull latest main and restart the local API before another paid outline probe."
-          }
+          $ErrorActionPreference = "Stop"
+          uv python install 3.11
+          uv sync --python 3.11 --project engine/api --frozen --all-groups
 
-      - name: Ensure outline web app is running
+      - name: Install outline web runtime
+        timeout-minutes: 5
         shell: powershell
-        run: |
-          $webUrl = "http://127.0.0.1:5173/"
-          try {
-            $response = Invoke-WebRequest -UseBasicParsing -Uri $webUrl -TimeoutSec 5
-            Write-Host "$webUrl already running -> $($response.StatusCode)"
-            exit 0
-          } catch {
-            Write-Host "Outline web app is not running; starting a temporary Vite server for this probe."
-          }
+        run: npm install --prefix web --workspaces=false --no-package-lock --no-audit --no-fund
 
-          npm install --prefix web --no-package-lock --no-audit --no-fund
-          $process = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev") -WorkingDirectory $PWD -PassThru -WindowStyle Hidden
-          Write-Host "Started outline web app process PID=$($process.Id)"
-
-          $ready = $false
-          for ($i = 0; $i -lt 30; $i++) {
-            Start-Sleep -Seconds 1
-            try {
-              $response = Invoke-WebRequest -UseBasicParsing -Uri $webUrl -TimeoutSec 3
-              Write-Host "$webUrl -> $($response.StatusCode)"
-              $ready = $true
-              break
-            } catch {
-              if ($process.HasExited) {
-                throw "Outline web app exited before becoming ready (exit $($process.ExitCode))."
-              }
-            }
-          }
-          if (-not $ready) { throw "Outline web app did not become ready within 30 seconds." }
+      - name: Install editor runtime
+        timeout-minutes: 8
+        shell: powershell
+        run: npm ci --prefix engine/editor --workspaces=false --no-audit --no-fund
 
       - name: Install isolated Playwright runtime
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force .runtime\playwright | Out-Null
-          npm install --prefix .runtime\playwright --no-package-lock --no-save playwright@1.55.0
+          npm install --prefix .runtime\playwright --no-package-lock --no-save --no-audit --no-fund playwright@1.55.0
 
-      - name: Reproduce kindergarten outline generation
+      - name: Start isolated repair runtime and run full paid probe
+        timeout-minutes: 22
         shell: powershell
-        env:
-          TARGET_URL: ${{ inputs.target_url || 'http://127.0.0.1:5001/upload' }}
-          TEST_TOPIC: ${{ inputs.test_topic || '认识春天的小动物' }}
-          API_BASE_URL: http://127.0.0.1:8000/api/v1/ppt
-        run: node scripts/local-outline-probe.mjs
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force .runtime\runner-probe | Out-Null
+          $venvScripts = Join-Path $env:GITHUB_WORKSPACE "engine\api\.venv\Scripts"
+          $env:Path = "$venvScripts;$env:Path"
+          $env:PPT_API_PORT = "18000"
+          $env:PPT_EDITOR_PORT = "15001"
+          $env:PPT_WEB_URL = "http://127.0.0.1:15173"
+          $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:18000"
+          $env:VITE_EDITOR_BASE_URL = "http://127.0.0.1:15001"
+          $env:TEACHNOVA_CORS_ORIGINS = "http://127.0.0.1:15001,http://127.0.0.1:15173,http://localhost:3030,http://127.0.0.1:3030"
+          $env:DMX_IMAGE_API_STYLE = "gemini"
+          $env:GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+          $env:TARGET_URL = "http://127.0.0.1:15001/upload"
+          $env:API_BASE_URL = "http://127.0.0.1:18000/api/v1/ppt"
+          $env:TEST_TOPIC_B64 = "5bCP56eN5a2Q5pS25Yiw5LqG5LiA5bCB5pil5aSp55qE5p2l5L+h"
+          $env:EXPECTED_SLIDES = "8"
+          $engine = Start-Process -FilePath "node.exe" -ArgumentList @("scripts/dev-engine.mjs") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\engine.out.log" -RedirectStandardError ".runtime\runner-probe\engine.err.log" -PassThru
+          $web = Start-Process -FilePath "npm.cmd" -ArgumentList @("--prefix", "web", "run", "dev", "--", "--port", "15173") -WorkingDirectory $env:GITHUB_WORKSPACE -RedirectStandardOutput ".runtime\runner-probe\web.out.log" -RedirectStandardError ".runtime\runner-probe\web.err.log" -PassThru
+          Write-Host "Started repair runtime: engine PID=$($engine.Id), web PID=$($web.Id)"
+          try {
+            foreach ($url in @(
+              "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime",
+              "http://127.0.0.1:15001/upload",
+              "http://127.0.0.1:15173/"
+            )) {
+              $ready = $false
+              for ($attempt = 0; $attempt -lt 180; $attempt++) {
+                Start-Sleep -Seconds 1
+                try {
+                  $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
+                  if ($response.StatusCode -lt 500) { $ready = $true; break }
+                } catch {}
+                if ($engine.HasExited) { throw "Repair engine exited early. See uploaded runtime logs." }
+                if ($web.HasExited) { throw "Repair outline web exited early. See uploaded runtime logs." }
+              }
+              if (-not $ready) { throw "$url did not become ready. See uploaded runtime logs." }
+              Write-Host "$url is ready"
+            }
+            $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
+            Write-Host "provider=$($runtime.provider) model=$($runtime.model) google_genai=$($runtime.google_genai_version) compatible=$($runtime.google_genai_compatible) revision=$($runtime.generation_stability_revision)"
+            if ($runtime.generation_stability_revision -ne "asset-v2-text-fit-v1") { throw "The running API is not the current repair revision; refusing paid probe." }
+            if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
+            if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
 
-      - name: Upload outline diagnostics
+            node scripts/local-full-ppt-probe.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Full PPT browser probe failed with exit code $LASTEXITCODE." }
+          } finally {
+            foreach ($processId in @($engine.Id, $web.Id)) {
+              try { taskkill /PID $processId /T /F | Out-Null } catch {}
+            }
+          }
+
+      - name: Upload full diagnostics and runtime logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: local-ppt-outline-diagnostics
-          path: .runtime/outline-probe
+          name: local-full-ppt-diagnostics-${{ github.run_id }}
+          path: |
+            .runtime/full-ppt-probe
+            .runtime/runner-probe
           if-no-files-found: warn
           retention-days: 7

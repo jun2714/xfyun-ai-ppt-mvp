@@ -154,6 +154,7 @@ class KindergartenLessonPlan(BaseModel):
                         requires_images=bool(required_semantics),
                         media_role=_media_role_for_assets(slide.assets),
                         visible_characters=len("".join(visible_lines)),
+                        preserve_visible_copy=True,
                         teaching_goal=slide.teaching_goal,
                         teacher_note=slide.teacher_note,
                         interaction_type=slide.interaction.type,

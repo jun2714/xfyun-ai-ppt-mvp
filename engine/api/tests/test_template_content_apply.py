@@ -17,6 +17,35 @@ GENERAL_TEMPLATE = ROOT / "templates" / "general" / "template.json"
 
 
 class TemplateContentApplyTests(unittest.TestCase):
+    def test_long_locked_copy_shrinks_to_fixed_template_box(self):
+        ui = {
+            "components": [
+                {
+                    "id": "hero",
+                    "elements": [
+                        {
+                            "type": "text",
+                            "name": "title",
+                            "decorative": False,
+                            "size": {"width": 530, "height": 120},
+                            "font": {"size": 60, "line_height": 0.8},
+                            "runs": [{"text": "短标题"}],
+                        }
+                    ],
+                }
+            ]
+        }
+        hydrated = _apply_template_content_to_ui(
+            ui,
+            {"hero": {"title": "摸一摸：它是硬硬的还是软软的？\n小眼睛仔细看一看\n小手轻轻摸一摸"}},
+        )
+        text = hydrated["components"][0]["elements"][0]
+        self.assertLess(text["font"]["size"], 60)
+        self.assertEqual(
+            text["runs"][0]["font"]["size"],
+            text["font"]["size"],
+        )
+
     def test_general_feature_cards_replace_english_placeholders(self):
         template = json.loads(GENERAL_TEMPLATE.read_text(encoding="utf-8"))
         layout = next(

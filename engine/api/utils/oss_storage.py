@@ -364,8 +364,24 @@ async def persist_existing_asset_url(
 
 async def persist_generated_image(local_path: str) -> str:
     """Upload a generated/uploaded image and drop the local copy."""
-    if not is_oss_enabled() or not local_path or not os.path.isfile(local_path):
+    if not local_path or not os.path.isfile(local_path):
         return local_path
+    if not is_oss_enabled():
+        # Provider output is working data. Copy it to an immutable owner-scoped
+        # browser asset before returning it so later crop/temp cleanup cannot leave
+        # slide JSON pointing at a path that no longer exists.
+        import shutil
+        import uuid
+        from utils.asset_directory_utils import get_images_directory
+
+        destination_dir = get_images_directory()
+        ext = os.path.splitext(local_path)[1] or ".png"
+        destination = os.path.join(destination_dir, f"{uuid.uuid4()}{ext}")
+        temp_destination = destination + ".partial"
+        shutil.copy2(local_path, temp_destination)
+        os.replace(temp_destination, destination)
+        LOGGER.info("[local-assets] persisted generated image path=%s", destination)
+        return destination
     from api.v1.auth.context import get_current_owner_id
     import uuid
 

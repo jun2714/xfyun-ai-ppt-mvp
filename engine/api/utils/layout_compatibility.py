@@ -109,7 +109,8 @@ def _normalized_capabilities(values: list[str]) -> set[str]:
 
 def _is_teaching_contract(contract: SlideContentContract) -> bool:
     return bool(
-        contract.teaching_goal
+        contract.preserve_visible_copy
+        or contract.teaching_goal
         or contract.teacher_note
         or contract.activity_id
         or contract.required_asset_semantics
@@ -233,6 +234,24 @@ def get_allowed_layout_indices_for_outline(
                 slide_number=slide_number,
                 contract=contract.model_dump(mode="json"),
             )
+
+        if contract.preserve_visible_copy:
+            # Local import avoids coupling model/schema initialization to the
+            # generation module. This helper makes no model or network request.
+            from utils.llm_calls.generate_slide_content import reviewed_outline_fits_schema
+
+            structural = [
+                index for index in structural
+                if reviewed_outline_fits_schema(
+                    presentation_layout.slides[index].json_schema, outline_slide.content
+                )
+            ]
+            if not structural:
+                raise LayoutCompatibilityError(
+                    f"Slide {slide_number} reviewed text does not fit any compatible layout; choose a roomier template",
+                    slide_number=slide_number,
+                    contract=contract.model_dump(mode="json"),
+                )
 
         if audited_indices:
             compatible = [

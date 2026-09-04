@@ -42,7 +42,7 @@ def _plan(
     )
 
 
-def test_science_exploration_routes_to_dynamic():
+def test_science_exploration_avoids_dark_dynamic_auto_template():
     decision = resolve_kindergarten_template(
         _plan(
             topic="春天里的种子",
@@ -52,7 +52,7 @@ def test_science_exploration_routes_to_dynamic():
         "auto",
     )
 
-    assert decision.template == "dynamic"
+    assert decision.template == "standard"
     assert decision.scores["dynamic"] > decision.scores["standard"]
 
 
@@ -127,3 +127,17 @@ def test_manual_template_selection_is_never_rewritten():
     assert decision.template == "general"
     assert decision.reason == "manual-selection"
     assert decision.scores == {}
+
+
+def test_manual_dynamic_template_selection_remains_available():
+    decision = resolve_kindergarten_template(
+        _plan(
+            topic="春天里的种子",
+            domain="science",
+            slide_types=["cover-scene", "image-observation"],
+        ),
+        "dynamic",
+    )
+
+    assert decision.template == "dynamic"
+    assert decision.reason == "manual-selection"

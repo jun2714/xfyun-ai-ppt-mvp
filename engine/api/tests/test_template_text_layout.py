@@ -1,0 +1,200 @@
+from api.v1.ppt.endpoints.presentation import (
+    _apply_template_content_to_ui,
+    _apply_template_text_content,
+)
+
+
+def test_explicit_empty_text_clears_imported_placeholder_copy():
+    element = {
+        "type": "text",
+        "decorative": False,
+        "name": "body",
+        "size": {"width": 300, "height": 100},
+        "font": {"size": 24, "line_height": 1.2},
+        "runs": [{"text": "Lorem ipsum placeholder"}],
+    }
+
+    result = _apply_template_text_content(element, "")
+
+    assert result["runs"] == []
+
+
+def test_omitted_generated_slot_clears_imported_lorem_ipsum_copy():
+    ui = {
+        "components": [
+            {
+                "id": "unused_card",
+                "position": {"x": 100, "y": 100},
+                "elements": [
+                    {
+                        "type": "text",
+                        "decorative": False,
+                        "name": "body",
+                        "position": {"x": 0, "y": 0},
+                        "size": {"width": 300, "height": 100},
+                        "font": {"size": 24, "line_height": 1.2},
+                        "runs": [
+                            {
+                                "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    result = _apply_template_content_to_ui(ui, {"unused_card": {}})
+
+    assert result["components"][0]["elements"][0]["runs"] == []
+
+
+def test_lone_heading_uses_vertical_gap_before_font_fitting():
+    ui = {
+        "components": [
+            {
+                "id": "heading",
+                "position": {"x": 60, "y": 60},
+                "elements": [
+                    {
+                        "type": "text",
+                        "decorative": False,
+                        "name": "title",
+                        "position": {"x": 0, "y": 0},
+                        "size": {"width": 1000, "height": 46},
+                        "font": {"size": 60, "line_height": 1.25},
+                        "runs": [{"text": "Heading"}],
+                    }
+                ],
+            },
+            {
+                "id": "media",
+                "position": {"x": 60, "y": 252},
+                "elements": [{"type": "image", "decorative": True}],
+            },
+        ]
+    }
+    content = {
+        "heading": {
+            "title": "第一行\n第二行\n第三行\n第四行\n第五行",
+        }
+    }
+
+    result = _apply_template_content_to_ui(ui, content)
+    heading = result["components"][0]["elements"][0]
+
+    assert heading["size"]["height"] == 176
+    assert 20 <= heading["font"]["size"] < 60
+    assert "第五行" in heading["runs"][0]["text"]
+
+
+def test_wrapped_card_label_borrows_spare_height_from_description():
+    ui = {
+        "components": [
+            {
+                "id": "card",
+                "position": {"x": 150, "y": 470},
+                "elements": [
+                    {
+                        "type": "text",
+                        "decorative": False,
+                        "name": "label",
+                        "position": {"x": 0, "y": 0},
+                        "size": {"width": 229.52, "height": 28},
+                        "font": {"size": 18.6, "line_height": 1.4},
+                        "runs": [{"text": "Label"}],
+                    },
+                    {
+                        "type": "text",
+                        "decorative": False,
+                        "name": "description",
+                        "position": {"x": 0, "y": 35.09},
+                        "size": {"width": 232.15, "height": 144.5},
+                        "font": {"size": 17.78, "line_height": 1.5},
+                        "runs": [{"text": "Description"}],
+                    },
+                ],
+            }
+        ]
+    }
+    content = {
+        "card": {
+            "label": "它先钻出圆圆的头，再伸出两片小叶子。",
+            "description": "小芽说：谢谢你们帮我找到水和阳光。",
+        }
+    }
+
+    result = _apply_template_content_to_ui(ui, content)
+    label, description = result["components"][0]["elements"]
+
+    assert label["font"]["size"] == 14
+    assert label["size"]["height"] >= 40
+    assert description["position"]["y"] > 35.09
+    assert description["size"]["height"] < 144.5
+    assert abs(
+        description["position"]["y"]
+        + description["size"]["height"]
+        - (35.09 + 144.5)
+    ) < 1e-6
+
+
+def test_fixed_bottom_footer_uses_last_resort_readable_font_floor():
+    ui = {
+        "components": [
+            {
+                "id": "activity",
+                "position": {"x": 50, "y": 69},
+                "elements": [
+                    {
+                        "type": "group",
+                        "children": [
+                            {
+                                "type": "text",
+                                "decorative": False,
+                                "name": "footer",
+                                "position": {"x": 26, "y": 504},
+                                "size": {"width": 518.13, "height": 92.3},
+                                "font": {"size": 20, "line_height": 1.5},
+                                "runs": [{"text": "Footer"}],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    content = {
+        "activity": {
+            "footer": "先喝水\n再晒太阳\n感到温暖\n冒出小芽\n跟着口令做动作，别太早冒芽哦。"
+        }
+    }
+
+    result = _apply_template_content_to_ui(ui, content)
+    footer = result["components"][0]["elements"][0]["children"][0]
+
+    assert footer["font"]["size"] == 12
+    assert footer["size"]["height"] == 92.3
+
+
+def test_label_growth_does_not_use_intervening_image_as_whitespace():
+    from api.v1.ppt.endpoints.presentation import _rebalance_direct_template_text_boxes
+
+    label = {
+        "type": "text", "decorative": False,
+        "position": {"x": 0, "y": 0},
+        "size": {"width": 99.1, "height": 26.09},
+        "font": {"size": 14, "line_height": 1.4},
+        "runs": [{"text": "小雨点轻轻落下来"}],
+    }
+    picture = {"type": "image", "position": {"x": 0, "y": 40.96},
+               "size": {"width": 100, "height": 212.63}}
+    description = {
+        "type": "text", "decorative": False,
+        "position": {"x": 0, "y": 265.15},
+        "size": {"width": 100, "height": 137.72},
+        "font": {"size": 14, "line_height": 1.4},
+        "runs": [{"text": "喝到水啦"}],
+    }
+    _rebalance_direct_template_text_boxes([label, picture, description])
+    assert label["size"]["height"] <= picture["position"]["y"] - 2
+    assert description["position"]["y"] == 265.15
