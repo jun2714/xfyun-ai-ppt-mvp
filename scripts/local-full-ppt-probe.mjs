@@ -145,6 +145,17 @@ const collectImageUrls = (value, found = []) => {
   return found;
 };
 
+const collectVisibleUiText = (value, found = []) => {
+  if (!value || typeof value !== "object") return found;
+  if (value.type === "text" && Array.isArray(value.runs)) {
+    found.push(value.runs.map((run) => run?.text || "").join(""));
+  }
+  for (const child of Object.values(value)) {
+    if (child && typeof child === "object") collectVisibleUiText(child, found);
+  }
+  return found;
+};
+
 const collectTextBoxOverflows = (value, slideIndex, found = []) => {
   if (Array.isArray(value)) {
     for (const child of value) collectTextBoxOverflows(child, slideIndex, found);
@@ -280,7 +291,7 @@ try {
     if (/\/api\/v1\/ppt\/presentation\/stream\//.test(url)) {
       streamResponse = response;
     }
-    if (response.status() >= 400 && isLocalPptApi(url)) {
+    if (response.status() >= 400 && (isLocalPptApi(url) || /\/app_data\/images\//.test(url))) {
       const text = await response.text().catch(() => "");
       diagnostics.httpErrors.push(redact({
         status: response.status(),
@@ -350,6 +361,7 @@ try {
     new Promise((resolvePromise) => setTimeout(() => resolvePromise(false), 420000)),
   ]);
   diagnostics.streamFinished = streamFinished;
+  if (!streamFinished) diagnostics.validationErrors.push("Generation stream did not finish before timeout.");
 
   await page.waitForTimeout(2000);
   const finalResponse = await requestJson(`${apiBase}/presentation/${presentationId}`);
@@ -371,10 +383,12 @@ try {
     const expectedLines = outlineVisibleLines(outlineSlides[index]?.content);
     const finalText = collectAudienceStrings(finalSlides[index]?.content).join("\n");
     const missing = expectedLines.filter((line) => !finalText.includes(line));
-    diagnostics.fidelity.push({ page: index + 1, expectedLines, missing });
-    if (missing.length) {
+    const visibleUiText = collectVisibleUiText(finalSlides[index]?.ui).join("\n");
+    const missingFromUi = expectedLines.filter((line) => !visibleUiText.includes(line));
+    diagnostics.fidelity.push({ page: index + 1, expectedLines, missing, missingFromUi });
+    if (missing.length || missingFromUi.length) {
       diagnostics.validationErrors.push(
-        `Page ${index + 1} rewrote reviewed outline copy. Missing: ${missing.join(" | ")}`,
+        `Page ${index + 1} lost reviewed copy. Content missing: ${missing.join(" | ")}; UI missing: ${missingFromUi.join(" | ")}`,
       );
     }
   }
@@ -412,6 +426,10 @@ try {
     .filter(isGeneratedImageUrl);
   diagnostics.contentImageUrlCount = contentImageUrls.length;
   diagnostics.uiImageUrlCount = uiImageUrls.length;
+  if (contentImageUrls.some((url) => !uiImageUrls.includes(url)) ||
+      uiImageUrls.some((url) => !contentImageUrls.includes(url))) {
+    diagnostics.validationErrors.push("Stored content and rendered UI disagree on generated image URLs.");
+  }
   if (contentImageUrls.length === 0) {
     throw new Error("Database slide content retained only placeholder image URLs after generation.");
   }
@@ -437,7 +455,16 @@ try {
         durationMs: Date.now() - started,
       });
       if (status !== 200) throw new Error(`Generated image returned HTTP ${status}: ${url}`);
+      if (!contentType.startsWith("image/")) throw new Error(`Image URL returned ${contentType}: ${url}`);
       if (body.length < 10000) throw new Error(`Generated image is unexpectedly small (${body.length} bytes): ${url}`);
+      const imagePath = new URL(url);
+      const proxyUrl = `${new URL(targetUrl).origin}${imagePath.pathname}${imagePath.search}`;
+      const proxyResponse = await context.request.get(proxyUrl, { timeout: 45000, failOnStatusCode: false });
+      const proxyBody = await proxyResponse.body();
+      diagnostics.imageChecks.at(-1).editorProxyStatus = proxyResponse.status();
+      if (proxyResponse.status() !== 200 || !proxyBody.equals(body)) {
+        throw new Error(`Editor proxy did not deliver the identical image: ${redact(proxyUrl)}`);
+      }
     } catch (error) {
       diagnostics.imageChecks.push({
         url: redact(url),
