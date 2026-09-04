@@ -11,3 +11,5 @@ run: 20
 reason: rebalance-card-text-and-verify-images
 run: 21
 reason: persist-json-assets-clear-placeholders-child-safe-template
+run: 22
+reason: schema-ordered-copy-capacity-and-editor-image-proxy
