@@ -168,6 +168,7 @@ const collectTextBoxOverflows = (value, slideIndex, found = []) => {
     const height = Number(value.size.height || 0);
     const fontSize = Number(value.font.size || 0);
     const lineHeight = Math.max(1, Number(value.font.line_height || 1.15));
+    const letterSpacing = Math.max(0, Number(value.font.letter_spacing || 0));
     if (text && width > 0 && height > 0 && fontSize > 0) {
       const visualUnits = (line) => [...line].reduce(
         (sum, character) => sum + (character.codePointAt(0) > 0x2ff ? 1 : 0.55),
@@ -175,7 +176,9 @@ const collectTextBoxOverflows = (value, slideIndex, found = []) => {
       );
       const unitsPerLine = Math.max(1, width / fontSize);
       const wrappedLines = text.split(/\r?\n/).reduce(
-        (sum, line) => sum + Math.max(1, Math.ceil(visualUnits(line) / unitsPerLine)),
+        (sum, line) => sum + Math.max(1, Math.ceil(
+          (visualUnits(line) + Math.max(0, [...line].length - 1) * letterSpacing / fontSize) / unitsPerLine,
+        )),
         0,
       );
       const requiredHeight = wrappedLines * fontSize * lineHeight;
