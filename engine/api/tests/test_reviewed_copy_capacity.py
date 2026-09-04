@@ -10,6 +10,7 @@ from api.v1.ppt.endpoints.presentation import (
     _collect_non_decorative_text_elements,
     _template_element_text,
     _template_text_required_height,
+    _fit_template_text_to_box,
 )
 from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
 from models.presentation_outline_model import PresentationOutlineModel, SlideOutlineModel, SlideContentContract
@@ -67,6 +68,34 @@ def test_internal_geometry_is_removed_from_provider_response_schema():
     assert "x-text-boxes" not in json.dumps(result)
 
 
+def test_font_fitting_counts_letter_spacing_at_the_wrap_boundary():
+    element = {"size": {"width": 61, "height": 25},
+               "font": {"size": 20, "line_height": 1.15, "letter_spacing": 2},
+               "runs": [{"text": "小种子"}]}
+    _fit_template_text_to_box(element, "小种子")
+    assert element["font"]["size"] == 19
+    assert _template_text_required_height(element) <= 25 * 0.94
+
+
+def test_reviewed_chinese_title_gets_real_line_separation_without_changing_original_template():
+    element = {
+        "type": "text", "name": "title", "decorative": False,
+        "size": {"width": 530, "height": 136},
+        "font": {"size": 63, "line_height": 0.85},
+        "runs": [{"text": "Heading", "font": {"size": 63, "line_height": 0.85}}],
+    }
+    ui = {"components": [{"id": "heading", "elements": [element]}]}
+    content = {"heading": {"title": "小种子说：谢谢你们叫醒我"},
+               "__content_contract__": {"preserve_visible_copy": True}}
+    result = _apply_template_content_to_ui(ui, content)
+    title = result["components"][0]["elements"][0]
+    assert title["font"]["line_height"] == 1.15
+    assert all(run["font"]["line_height"] == 1.15 for run in title["runs"])
+    assert _template_text_required_height(title) <= 136 * 0.94
+    assert element["font"]["line_height"] == 0.85
+    assert _template_element_text(title) == content["heading"]["title"]
+
+
 def test_all_incompatible_layouts_stop_before_any_paid_model_call(monkeypatch):
     from utils.llm_calls import generate_presentation_structure as module
 
@@ -115,6 +144,7 @@ def test_long_outline_replay_filters_or_fits_every_allowed_standard_layout():
             selected = layout.slides[index]
             generated = _schema_fallback_value(selected.json_schema)
             content = _apply_locked_visible_copy(generated, text, selected.json_schema)
+            content["__content_contract__"] = {"preserve_visible_copy": True}
             ui = _apply_template_content_to_ui(copy.deepcopy(source_ui[selected.id]), content)
             elements = _collect_non_decorative_text_elements(ui["components"])
             visible = "\n".join(_template_element_text(element) for element in elements)
