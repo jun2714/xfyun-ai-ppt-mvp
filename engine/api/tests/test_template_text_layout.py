@@ -172,5 +172,29 @@ def test_fixed_bottom_footer_uses_last_resort_readable_font_floor():
     result = _apply_template_content_to_ui(ui, content)
     footer = result["components"][0]["elements"][0]["children"][0]
 
-    assert 12 <= footer["font"]["size"] <= 16
+    assert footer["font"]["size"] == 12
     assert footer["size"]["height"] == 92.3
+
+
+def test_label_growth_does_not_use_intervening_image_as_whitespace():
+    from api.v1.ppt.endpoints.presentation import _rebalance_direct_template_text_boxes
+
+    label = {
+        "type": "text", "decorative": False,
+        "position": {"x": 0, "y": 0},
+        "size": {"width": 99.1, "height": 26.09},
+        "font": {"size": 14, "line_height": 1.4},
+        "runs": [{"text": "小雨点轻轻落下来"}],
+    }
+    picture = {"type": "image", "position": {"x": 0, "y": 40.96},
+               "size": {"width": 100, "height": 212.63}}
+    description = {
+        "type": "text", "decorative": False,
+        "position": {"x": 0, "y": 265.15},
+        "size": {"width": 100, "height": 137.72},
+        "font": {"size": 14, "line_height": 1.4},
+        "runs": [{"text": "喝到水啦"}],
+    }
+    _rebalance_direct_template_text_boxes([label, picture, description])
+    assert label["size"]["height"] <= picture["position"]["y"] - 2
+    assert description["position"]["y"] == 265.15
