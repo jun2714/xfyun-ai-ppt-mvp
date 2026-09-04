@@ -39,6 +39,8 @@ jobs:
         run: uv run pytest -q
       - name: Test local engine image model migration
         run: node --test ../../scripts/image-model-config.test.mjs
+      - name: Test PPT image acceptance gates
+        run: node --test ../../scripts/tests/ppt-image-validation.test.mjs
 
   web-checks:
     name: Outline web typecheck and build
