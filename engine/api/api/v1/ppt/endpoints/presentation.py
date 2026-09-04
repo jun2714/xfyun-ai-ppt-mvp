@@ -735,6 +735,10 @@ def _expand_single_text_component_capacity(
     if len(targets) != 1 or available_height <= 0:
         return
     target = targets[0]
+    # A nested box belongs to its container's bounds, not the slide. Expanding
+    # it using slide-relative space can cross an image or its parent's bottom.
+    if not any(target is item for item in (component.get("elements") or [])):
+        return
     size = target.get("size")
     position = target.get("position")
     if not isinstance(size, dict):
@@ -826,6 +830,15 @@ def _rebalance_direct_template_text_boxes(elements: list[Any]) -> None:
         gap = max(0.0, following_y - (current_y + current_height))
         following_floor = max(28.0, math.ceil(following_required * 1.05))
         borrowable = max(0.0, following_height - following_floor)
+        # Text siblings need not be adjacent: a card image can sit between its
+        # label and description. Its occupied area is not available whitespace.
+        for sibling in elements:
+            if not isinstance(sibling, dict) or sibling is current or sibling is following:
+                continue
+            sibling_y = (sibling.get("position") or {}).get("y")
+            if isinstance(sibling_y, (int, float)) and current_y < sibling_y < following_y:
+                gap = min(gap, max(0.0, sibling_y - current_y - current_height - 2.0))
+                borrowable = 0.0
         needed = max(0.0, math.ceil(required_height * 1.05) - current_height)
         borrowed = min(max(0.0, needed - gap), borrowable)
         gained = min(needed, gap + borrowed)
