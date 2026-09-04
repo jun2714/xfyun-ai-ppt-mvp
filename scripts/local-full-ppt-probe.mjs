@@ -356,10 +356,18 @@ try {
   }
   if (!streamResponse) throw new Error("Presentation EventSource request was never observed.");
 
-  const streamFinished = await Promise.race([
-    streamResponse.finished().then(() => true).catch(() => false),
-    new Promise((resolvePromise) => setTimeout(() => resolvePromise(false), 420000)),
-  ]);
+  let streamTimeout;
+  let streamFinished;
+  try {
+    streamFinished = await Promise.race([
+      streamResponse.finished().then((error) => !error).catch(() => false),
+      new Promise((resolvePromise) => {
+        streamTimeout = setTimeout(() => resolvePromise(false), 420000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(streamTimeout);
+  }
   diagnostics.streamFinished = streamFinished;
   if (!streamFinished) diagnostics.validationErrors.push("Generation stream did not finish before timeout.");
 
