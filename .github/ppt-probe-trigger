@@ -17,3 +17,5 @@ run: 23
 reason: keep-model-layout-choice-within-hard-compatible-candidates
 run: 24
 reason: physical-text-capacity-filter-and-reviewed-chinese-line-height
+run: 25
+reason: complete-same-name-image-slot-coverage-and-reject-black-placeholders
