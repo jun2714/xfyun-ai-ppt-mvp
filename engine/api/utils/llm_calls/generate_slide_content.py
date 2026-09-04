@@ -425,17 +425,81 @@ def _audience_string_slots(
     return slots
 
 
-def _apply_locked_visible_copy(generated: dict, outline_content: str) -> dict:
+def _schema_audience_slots(value, schema: dict):
+    """Enumerate editable strings in template order, never model JSON key order."""
+    slots = []
+    if isinstance(value, dict):
+        for key, child_schema in (schema.get("properties") or {}).items():
+            if key not in value or _is_non_audience_string_key(key):
+                continue
+            child = value[key]
+            if isinstance(child, str):
+                slots.append((value, key, child_schema.get("maxLength")))
+            elif isinstance(child, (dict, list)):
+                slots.extend(_schema_audience_slots(child, child_schema))
+    elif isinstance(value, list):
+        child_schema = schema.get("items") or {}
+        for index, child in enumerate(value):
+            if isinstance(child, str):
+                slots.append((value, index, child_schema.get("maxLength")))
+            elif isinstance(child, (dict, list)):
+                slots.extend(_schema_audience_slots(child, child_schema))
+    return slots
+
+
+def _apply_locked_visible_copy(
+    generated: dict, outline_content: str, response_schema: Optional[dict] = None
+) -> dict:
     """Restore teacher-reviewed copy without another LLM request.
 
-    The model is useful for choosing schema slots and writing visual prompts, but the
-    outline is the final source of truth for kindergarten visible text. If a template
-    exposes fewer text slots than outline lines, the remaining exact phrases are joined
-    into the final slot rather than discarded. Extra generated text slots are blanked so
-    the model cannot silently add filler that was not approved in the outline.
+    With a template schema, preserve field order and declared capacities independently
+    of the provider's JSON serialization order. Blank unused fields and never truncate
+    reviewed phrases. The schema-less legacy path retains its original behavior.
     """
     lines = _outline_visible_lines(outline_content)
     if not lines:
+        return generated
+    if response_schema is not None:
+        ordered_slots = _schema_audience_slots(generated, response_schema)
+        memo = {}
+
+        def allocate(slot_index, line_index):
+            if line_index == len(lines):
+                return (0, [])
+            if slot_index == len(ordered_slots):
+                return None
+            state = (slot_index, line_index)
+            if state in memo:
+                return memo[state]
+            limit = ordered_slots[slot_index][2]
+            best = None
+            # Prefer one phrase per field. Combine adjacent phrases only if needed
+            # and the declared capacity permits it. A 3-character badge is never
+            # allowed to swallow a 13-character reviewed title.
+            for count in range(1, len(lines) - line_index + 1):
+                phrase = "\n".join(lines[line_index:line_index + count])
+                if isinstance(limit, (int, float)) and len(phrase) > limit:
+                    break
+                tail = allocate(slot_index + 1, line_index + count)
+                if tail is not None:
+                    candidate = (tail[0] + (count - 1) ** 2,
+                                 [(slot_index, phrase)] + tail[1])
+                    if best is None or candidate[0] < best[0]:
+                        best = candidate
+            skipped = allocate(slot_index + 1, line_index)
+            if skipped is not None and (best is None or skipped[0] < best[0]):
+                best = skipped
+            memo[state] = best
+            return best
+
+        allocation = allocate(0, 0)
+        if allocation is None:
+            raise ValueError("Reviewed outline does not fit the selected template text capacities")
+        for container, key in _audience_string_slots(generated):
+            container[key] = ""
+        for slot_index, phrase in allocation[1]:
+            container, key, _limit = ordered_slots[slot_index]
+            container[key] = phrase
         return generated
     slots = _audience_string_slots(generated)
     if not slots:
@@ -575,7 +639,7 @@ def _build_schema_fallback(
     )
     if not isinstance(fallback, dict):
         fallback = {}
-    return _apply_locked_visible_copy(fallback, outline_content)
+    return _apply_locked_visible_copy(fallback, outline_content, response_schema)
 
 
 def _image_prompt_slots(value) -> list[tuple[dict, str]]:
@@ -699,7 +763,9 @@ async def get_slide_content_from_type_and_outline(
             outline.content_contract is not None
             and outline.content_contract.preserve_visible_copy
         ):
-            generated = _apply_locked_visible_copy(generated, outline.content)
+            generated = _apply_locked_visible_copy(
+                generated, outline.content, slide_layout.json_schema
+            )
         if contract_data:
             # Keep hidden planning semantics attached to the materialized slide.
             # Asset planning receives SlideModel objects, not PresentationOutlineModel,
