@@ -15,3 +15,5 @@ run: 22
 reason: schema-ordered-copy-capacity-and-editor-image-proxy
 run: 23
 reason: keep-model-layout-choice-within-hard-compatible-candidates
+run: 24
+reason: physical-text-capacity-filter-and-reviewed-chinese-line-height
