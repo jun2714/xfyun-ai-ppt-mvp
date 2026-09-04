@@ -14,6 +14,7 @@ from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_config import get_llm_config
 from utils.llm_provider import get_model
 from utils.llm_utils import DisconnectChecker, generate_structured_with_schema_retries
+from utils.template_text_capacity import locked_text_fits_field
 from utils.schema_utils import (
     add_field_in_schema,
     ensure_array_schemas_have_items,
@@ -330,7 +331,7 @@ def _apply_language_text_limits(value, use_cjk_limits: bool):
     result = {
         key: _apply_language_text_limits(child, use_cjk_limits)
         for key, child in value.items()
-        if key != "x-cjk-max-length"
+        if key not in {"x-cjk-max-length", "x-text-boxes"}
     }
     cjk_limit = value.get("x-cjk-max-length")
     if use_cjk_limits and isinstance(cjk_limit, int) and cjk_limit > 0:
@@ -434,14 +435,14 @@ def _schema_audience_slots(value, schema: dict):
                 continue
             child = value[key]
             if isinstance(child, str):
-                slots.append((value, key, child_schema.get("maxLength")))
+                slots.append((value, key, child_schema))
             elif isinstance(child, (dict, list)):
                 slots.extend(_schema_audience_slots(child, child_schema))
     elif isinstance(value, list):
         child_schema = schema.get("items") or {}
         for index, child in enumerate(value):
             if isinstance(child, str):
-                slots.append((value, index, child_schema.get("maxLength")))
+                slots.append((value, index, child_schema))
             elif isinstance(child, (dict, list)):
                 slots.extend(_schema_audience_slots(child, child_schema))
     return slots
@@ -471,14 +472,14 @@ def _apply_locked_visible_copy(
             state = (slot_index, line_index)
             if state in memo:
                 return memo[state]
-            limit = ordered_slots[slot_index][2]
+            field_schema = ordered_slots[slot_index][2]
             best = None
             # Prefer one phrase per field. Combine adjacent phrases only if needed
             # and the declared capacity permits it. A 3-character badge is never
             # allowed to swallow a 13-character reviewed title.
             for count in range(1, len(lines) - line_index + 1):
                 phrase = "\n".join(lines[line_index:line_index + count])
-                if isinstance(limit, (int, float)) and len(phrase) > limit:
+                if not locked_text_fits_field(phrase, field_schema):
                     break
                 tail = allocate(slot_index + 1, line_index + count)
                 if tail is not None:
@@ -516,6 +517,18 @@ def _apply_locked_visible_copy(
         else:
             container[key] = "\n".join(lines[index:])
     return generated
+
+
+def reviewed_outline_fits_schema(schema: dict, outline_content: str) -> bool:
+    """Use the same deterministic allocator before any paid slide-content call."""
+    skeleton = _schema_fallback_value(schema)
+    if not isinstance(skeleton, dict):
+        return False
+    try:
+        _apply_locked_visible_copy(skeleton, outline_content, schema)
+    except ValueError:
+        return False
+    return True
 
 
 def _fallback_image_prompt(content_contract: Optional[dict]) -> str:
@@ -754,7 +767,7 @@ async def get_slide_content_from_type_and_outline(
                 last_error,
             )
             generated = _build_schema_fallback(
-                response_schema,
+                slide_layout.json_schema,
                 outline.content,
                 contract_data,
             )
