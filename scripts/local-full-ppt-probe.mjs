@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { collectUnresolvedImageSlots } from "./lib/ppt-image-validation.mjs";
 
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
@@ -430,6 +431,16 @@ try {
     );
   }
 
+  diagnostics.unresolvedImageSlots = finalSlides.flatMap((slide, index) => [
+    ...collectUnresolvedImageSlots(slide?.content, index + 1, "content"),
+    ...collectUnresolvedImageSlots(slide?.ui, index + 1, "ui"),
+  ]);
+  if (diagnostics.unresolvedImageSlots.length) {
+    diagnostics.validationErrors.push(
+      `Final deck still contains unresolved image slots: ` +
+      diagnostics.unresolvedImageSlots.map((item) => `page ${item.page} ${item.source}:${item.path.join(".")}`).join(", "),
+    );
+  }
   const isGeneratedImageUrl = (url) => /\/app_data\/images\//.test(url) && !/placeholder/i.test(url);
   const contentImageUrls = [...new Set(collectImageUrls(finalSlides.map((slide) => slide?.content)))]
     .filter(isGeneratedImageUrl);
