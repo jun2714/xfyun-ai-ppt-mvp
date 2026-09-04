@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from .models.layouts import RawSlideLayout
+from utils.template_text_capacity import template_text_boxes
 
 
 CONTENT_TYPES = {
@@ -220,6 +221,7 @@ def _content_schema_for_element(element: dict[str, Any]) -> dict[str, Any]:
                 "minLength": 1 if element.get("min_length") else None,
                 "maxLength": element.get("max_length"),
                 "x-cjk-max-length": _cjk_text_capacity(element),
+                "x-text-boxes": template_text_boxes(element) if element_type == "text" else None,
             }
         )
 
@@ -864,7 +866,23 @@ def _component_merge_repeated_schemas(
     if any(_component_comparable_repeated_schema(schema) != first for schema in schemas):
         return None
 
-    return _without_none_values(copy.deepcopy(schemas[0]))
+    merged = copy.deepcopy(schemas[0])
+    _merge_repeated_text_boxes(merged, schemas)
+    return _without_none_values(merged)
+
+
+def _merge_repeated_text_boxes(target: dict, schemas: list[dict]) -> None:
+    """An array's text must fit every repeated instance, not just the first."""
+    boxes = []
+    for schema in schemas:
+        for box in schema.get("x-text-boxes") or []:
+            if box not in boxes:
+                boxes.append(copy.deepcopy(box))
+    if boxes:
+        target["x-text-boxes"] = boxes
+    for key, value in target.items():
+        if isinstance(value, dict):
+            _merge_repeated_text_boxes(value, [schema[key] for schema in schemas if isinstance(schema.get(key), dict)])
 
 
 def _component_comparable_repeated_schema(value: Any, key: str = "") -> Any:
@@ -879,7 +897,7 @@ def _component_comparable_repeated_schema(value: Any, key: str = "") -> Any:
 
     comparable: dict[str, Any] = {}
     for nested_key in sorted(value):
-        if nested_key == "x-element-path":
+        if nested_key in {"x-element-path", "x-text-boxes"}:
             continue
         comparable[nested_key] = _component_comparable_repeated_schema(
             value[nested_key],
@@ -899,6 +917,7 @@ def _component_content_field_schema(field: dict[str, Any]) -> dict[str, Any]:
             "minLength": 1 if element.get("min_length") else None,
             "maxLength": element.get("max_length"),
             "x-cjk-max-length": _cjk_text_capacity(element),
+            "x-text-boxes": template_text_boxes(element),
         }
     elif element_type == "image":
         prompt_key = _component_image_prompt_key(element)
