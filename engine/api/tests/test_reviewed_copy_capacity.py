@@ -23,7 +23,7 @@ from utils.llm_calls.generate_slide_content import (
 from utils.template_text_capacity import locked_text_fits_field, template_text_boxes
 
 
-def _field(width=190, height=19, font_size=15, max_length=100):
+def _field(width=190, height=24, font_size=15, max_length=100):
     return {"type": "string", "maxLength": max_length, "x-text-boxes": template_text_boxes({
         "size": {"width": width, "height": height},
         "font": {"size": font_size, "line_height": 1},
@@ -49,12 +49,12 @@ def test_long_action_moves_to_roomy_body_without_rewriting_or_smaller_font_floor
     assert result["title"] == "小种子收到来信啦"
     assert result["body"] == "信封上有一朵迎春花\n先别拆开，猜一猜里面会有什么话。"
     assert result["caption"] == ""
-    assert schema["properties"]["caption"]["x-text-boxes"][0]["minimum_font_size"] == 14
+    assert schema["properties"]["caption"]["x-text-boxes"][0]["minimum_font_size"] == 18
 
 
 def test_repeated_fields_keep_the_strictest_instance_geometry():
     wide = {"type": "object", "properties": {"label": _field(300, 40)}}
-    narrow = {"type": "object", "properties": {"label": _field(70, 19)}}
+    narrow = {"type": "object", "properties": {"label": _field(70, 24)}}
     result = _component_merge_repeated_schemas([wide, narrow])
     assert result is not None
     field = result["properties"]["label"]
@@ -66,6 +66,57 @@ def test_repeated_fields_keep_the_strictest_instance_geometry():
 def test_internal_geometry_is_removed_from_provider_response_schema():
     result = _prepare_response_schema({"type": "object", "properties": {"title": _field()}}, "Chinese")
     assert "x-text-boxes" not in json.dumps(result)
+
+
+def test_locked_copy_spreads_across_every_visual_card_in_original_order():
+    card_schema = {"type": "object", "properties": {
+        "image": {"type": "object", "properties": {
+            "image_prompt": {"type": "string"},
+            "image_url": {"type": "string"},
+        }},
+        "title": _field(220, 32, 24),
+        "body": _field(220, 48, 16),
+    }}
+    schema = {"type": "object", "properties": {
+        "headline": _field(900, 90, 54),
+        "cards": {"type": "array", "items": card_schema},
+    }}
+    generated = {
+        "headline": "改写",
+        "cards": [
+            {"image": {"image_prompt": "a", "image_url": ""}, "title": "改写", "body": "改写"},
+            {"image": {"image_prompt": "b", "image_url": ""}, "title": "改写", "body": "改写"},
+            {"image": {"image_prompt": "c", "image_url": ""}, "title": "改写", "body": "改写"},
+        ],
+    }
+    result = _apply_locked_visible_copy(
+        generated,
+        "春天来信了\n阳光照一照\n轻轻喝点水\n耐心等发芽",
+        schema,
+    )
+    assert result["headline"] == "春天来信了"
+    card_copy = [card["title"] or card["body"] for card in result["cards"]]
+    assert card_copy == ["阳光照一照", "轻轻喝点水", "耐心等发芽"]
+    assert all(bool(card["title"] or card["body"]) for card in result["cards"])
+
+
+def test_reviewed_body_is_raised_to_classroom_projection_floor():
+    element = {
+        "type": "text", "name": "body", "decorative": False,
+        "size": {"width": 320, "height": 48},
+        "font": {"size": 14, "line_height": 1.2},
+        "runs": [{"text": "Heading", "font": {"size": 14, "line_height": 1.2}}],
+    }
+    ui = {"components": [{"id": "body", "elements": [element]}]}
+    content = {
+        "body": {"body": "轻轻给种子喝一点水"},
+        "__content_contract__": {"preserve_visible_copy": True},
+    }
+    result = _apply_template_content_to_ui(ui, content)
+    body = result["components"][0]["elements"][0]
+    assert body["font"]["size"] == 18
+    assert all(run["font"]["size"] == 18 for run in body["runs"])
+    assert _template_text_required_height(body) <= body["size"]["height"] * 0.94
 
 
 def test_font_fitting_counts_letter_spacing_at_the_wrap_boundary():

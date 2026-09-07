@@ -363,3 +363,13 @@ def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
     assert service.calls == 1
     assert slide.content["main"]["subject"]["image_url"]
     assert traces[-1].status == "succeeded_with_warning"
+
+
+def test_kindergarten_asset_prompt_requires_one_illustration_medium():
+    slide = _cutout_slide(with_semantic_contract=True)
+    item = asset_execution_service.build_asset_plan([slide])[0]
+    prompt = asset_execution_service._request_prompt(item)
+    assert "consistent 2D children's picture-book illustration style" in prompt
+    assert "never photography" in prompt
+    assert "photorealism" in prompt
+    assert "mixed media" in prompt

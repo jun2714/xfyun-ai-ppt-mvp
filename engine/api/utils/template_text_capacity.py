@@ -3,6 +3,18 @@
 import math
 
 
+CLASSROOM_BODY_MINIMUM_SIZE = 18.0
+CLASSROOM_TITLE_MINIMUM_SIZE = 32.0
+
+
+def classroom_minimum_font_size(font_size: float) -> float:
+    """Projection-safe type floor for visible preschool teaching copy."""
+    value = float(font_size)
+    if value >= CLASSROOM_TITLE_MINIMUM_SIZE:
+        return CLASSROOM_TITLE_MINIMUM_SIZE
+    return max(value, CLASSROOM_BODY_MINIMUM_SIZE)
+
+
 def estimated_text_height(text: str, width: float, font_size: float,
                           line_height: float, letter_spacing: float = 0.0) -> float:
     lines = 0
@@ -28,9 +40,9 @@ def template_text_boxes(element: dict) -> list[dict] | None:
         spacing = 0
     return [{
         "width": float(width), "height": float(height),
-        # Match the existing fitter's floor; do not introduce smaller type to
-        # squeeze a long phrase into a badge or single-line caption.
-        "minimum_font_size": min(float(font_size), 14.0),
+        # Classroom copy must remain legible on a projected slide. Tiny template
+        # captions are skipped during allocation instead of shrinking reviewed text.
+        "minimum_font_size": classroom_minimum_font_size(float(font_size)),
         "line_height": max(float(line_height), 1.15),
         "letter_spacing": max(float(spacing), 0.0),
     }]

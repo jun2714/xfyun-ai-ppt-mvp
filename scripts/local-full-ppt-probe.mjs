@@ -1,7 +1,11 @@
 import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { collectUnresolvedImageSlots } from "./lib/ppt-image-validation.mjs";
+import {
+  collectEmptyVisualCards,
+  collectUnreadableAudienceText,
+  collectUnresolvedImageSlots,
+} from "./lib/ppt-image-validation.mjs";
 
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
@@ -241,6 +245,8 @@ const diagnostics = {
   imageChecks: [],
   validationErrors: [],
   layoutOverflows: [],
+  unreadableAudienceText: [],
+  emptyVisualCards: [],
   templatePlaceholders: [],
   result: { state: "starting" },
 };
@@ -412,6 +418,26 @@ try {
     diagnostics.validationErrors.push(
       `Final deck contains ${diagnostics.layoutOverflows.length} overflowing text boxes: ` +
       diagnostics.layoutOverflows.map((item) => `page ${item.page} ${item.name || "text"}`).join(", "),
+    );
+  }
+
+  diagnostics.unreadableAudienceText = finalSlides.flatMap((slide, index) =>
+    collectUnreadableAudienceText(slide?.ui, index + 1),
+  );
+  if (diagnostics.unreadableAudienceText.length) {
+    diagnostics.validationErrors.push(
+      `Final deck contains ${diagnostics.unreadableAudienceText.length} text boxes below the 18px classroom floor: ` +
+      diagnostics.unreadableAudienceText.map((item) => `page ${item.page} ${item.fontSize}px`).join(", "),
+    );
+  }
+
+  diagnostics.emptyVisualCards = finalSlides.flatMap((slide, index) =>
+    collectEmptyVisualCards(slide?.ui, index + 1),
+  );
+  if (diagnostics.emptyVisualCards.length) {
+    diagnostics.validationErrors.push(
+      `Final deck contains ${diagnostics.emptyVisualCards.length} image cards without audience copy: ` +
+      diagnostics.emptyVisualCards.map((item) => `page ${item.page} ${item.name || "card"}`).join(", "),
     );
   }
 

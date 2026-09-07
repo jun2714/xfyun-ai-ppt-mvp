@@ -116,7 +116,10 @@ from utils.web_search import build_web_search_query, get_web_search_context
 from api.v1.auth.context import get_current_owner_id
 from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
 from templates.v2.schema import get_template_schema
-from utils.template_text_capacity import estimated_text_height
+from utils.template_text_capacity import (
+    classroom_minimum_font_size,
+    estimated_text_height,
+)
 from templates.default_templates import resolve_default_template_id
 from services.community_presentations import (
     build_community_design_context,
@@ -657,7 +660,11 @@ def _apply_template_content_to_ui(
         return hydrated_ui
 
     contract = content.get("__content_contract__")
-    if isinstance(contract, dict) and contract.get("preserve_visible_copy") is True:
+    preserve_visible_copy = (
+        isinstance(contract, dict)
+        and contract.get("preserve_visible_copy") is True
+    )
+    if preserve_visible_copy:
         for element in _collect_non_decorative_text_elements(hydrated_components):
             font = element.get("font")
             if not isinstance(font, dict):
@@ -718,6 +725,10 @@ def _apply_template_content_to_ui(
             )
             _rebalance_direct_template_text_boxes(component["elements"])
 
+    if preserve_visible_copy:
+        for element in _collect_non_decorative_text_elements(hydrated_components):
+            _apply_classroom_text_floor(element)
+
     return hydrated_ui
 
 
@@ -773,6 +784,48 @@ def _expand_single_text_component_capacity(
         and expanded_height > float(current_height)
     ):
         size["height"] = expanded_height
+
+
+def _apply_classroom_text_floor(element: dict[str, Any]) -> None:
+    """Raise generated preschool copy only when the fixed box can hold it."""
+    font = element.get("font")
+    size = element.get("size")
+    if not isinstance(font, dict) or not isinstance(size, dict):
+        return
+    current = font.get("size")
+    width = size.get("width")
+    height = size.get("height")
+    if not all(
+        isinstance(value, (int, float)) and value > 0
+        for value in (current, width, height)
+    ):
+        return
+    text = _template_element_text(element)
+    if not text:
+        return
+    minimum = classroom_minimum_font_size(float(current))
+    if minimum <= float(current):
+        return
+    line_height = font.get("line_height", 1.15)
+    if not isinstance(line_height, (int, float)) or line_height <= 0:
+        line_height = 1.15
+    spacing = font.get("letter_spacing", 0)
+    if not isinstance(spacing, (int, float)) or not math.isfinite(spacing):
+        spacing = 0
+    required = estimated_text_height(
+        text, float(width), minimum, max(float(line_height), 1.0), spacing
+    )
+    if required > float(height) * 0.94:
+        return
+    font["size"] = minimum
+    for run in element.get("runs") or []:
+        if not isinstance(run, dict):
+            continue
+        run_font = run.get("font")
+        if not isinstance(run_font, dict):
+            run_font = {}
+            run["font"] = run_font
+        run_font["size"] = minimum
 
 
 def _template_text_required_height(element: dict[str, Any]) -> float:

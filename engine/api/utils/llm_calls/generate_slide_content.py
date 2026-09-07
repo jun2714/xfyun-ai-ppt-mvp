@@ -426,36 +426,83 @@ def _audience_string_slots(
     return slots
 
 
-def _schema_audience_slots(value, schema: dict):
-    """Enumerate editable strings in template order, never model JSON key order."""
+def _schema_contains_image_field(schema: object, field_name: str = "") -> bool:
+    if field_name.strip().casefold() in {
+        "image_prompt", "__image_prompt__", "image_url", "__image_url__"
+    }:
+        return True
+    if not isinstance(schema, dict):
+        return False
+    return any(
+        _schema_contains_image_field(child, str(key))
+        for key, child in (schema.get("properties") or {}).items()
+    )
+
+
+def _schema_describes_visual_item(schema: dict) -> bool:
+    properties = schema.get("properties") or {}
+    has_audience_text = any(
+        isinstance(child, dict)
+        and child.get("type") == "string"
+        and not _is_non_audience_string_key(str(key))
+        for key, child in properties.items()
+    )
+    has_image = any(
+        _schema_contains_image_field(child, str(key))
+        for key, child in properties.items()
+    )
+    return has_audience_text and has_image
+
+
+def _schema_audience_slots(
+    value,
+    schema: dict,
+    *,
+    path: tuple = (),
+    visual_group: tuple | None = None,
+):
+    """Enumerate editable strings in template order and preserve card grouping."""
     slots = []
+    current_group = path if _schema_describes_visual_item(schema) else visual_group
     if isinstance(value, dict):
         for key, child_schema in (schema.get("properties") or {}).items():
             if key not in value or _is_non_audience_string_key(key):
                 continue
             child = value[key]
+            child_path = path + (("key", str(key)),)
             if isinstance(child, str):
-                slots.append((value, key, child_schema))
+                slots.append((value, key, child_schema, current_group))
             elif isinstance(child, (dict, list)):
-                slots.extend(_schema_audience_slots(child, child_schema))
+                slots.extend(_schema_audience_slots(
+                    child,
+                    child_schema,
+                    path=child_path,
+                    visual_group=current_group,
+                ))
     elif isinstance(value, list):
         child_schema = schema.get("items") or {}
         for index, child in enumerate(value):
+            child_path = path + (("index", index),)
             if isinstance(child, str):
-                slots.append((value, index, child_schema))
+                slots.append((value, index, child_schema, current_group))
             elif isinstance(child, (dict, list)):
-                slots.extend(_schema_audience_slots(child, child_schema))
+                slots.extend(_schema_audience_slots(
+                    child,
+                    child_schema,
+                    path=child_path,
+                    visual_group=current_group,
+                ))
     return slots
-
 
 def _apply_locked_visible_copy(
     generated: dict, outline_content: str, response_schema: Optional[dict] = None
 ) -> dict:
     """Restore teacher-reviewed copy without another LLM request.
 
-    With a template schema, preserve field order and declared capacities independently
-    of the provider's JSON serialization order. Blank unused fields and never truncate
-    reviewed phrases. The schema-less legacy path retains its original behavior.
+    With a template schema, preserve field order and physical capacities. For
+    repeated visual cards, maximize the number of cards that receive audience
+    copy before using secondary captions. This keeps reviewed line order while
+    avoiding a finished card that contains an image but no explanation.
     """
     lines = _outline_visible_lines(outline_content)
     if not lines:
@@ -464,42 +511,66 @@ def _apply_locked_visible_copy(
         ordered_slots = _schema_audience_slots(generated, response_schema)
         memo = {}
 
+        def better(candidate, current):
+            if candidate is None:
+                return current
+            if current is None:
+                return candidate
+            candidate_rank = (-len(candidate[0]), candidate[1])
+            current_rank = (-len(current[0]), current[1])
+            return candidate if candidate_rank < current_rank else current
+
         def allocate(slot_index, line_index):
             if line_index == len(lines):
-                return (0, [])
+                return (frozenset(), 0, [])
             if slot_index == len(ordered_slots):
                 return None
             state = (slot_index, line_index)
             if state in memo:
                 return memo[state]
             field_schema = ordered_slots[slot_index][2]
+            field_group = ordered_slots[slot_index][3]
             best = None
-            # Prefer one phrase per field. Combine adjacent phrases only if needed
-            # and the declared capacity permits it. A 3-character badge is never
-            # allowed to swallow a 13-character reviewed title.
             for count in range(1, len(lines) - line_index + 1):
                 phrase = "\n".join(lines[line_index:line_index + count])
                 if not locked_text_fits_field(phrase, field_schema):
                     break
                 tail = allocate(slot_index + 1, line_index + count)
                 if tail is not None:
-                    candidate = (tail[0] + (count - 1) ** 2,
-                                 [(slot_index, phrase)] + tail[1])
-                    if best is None or candidate[0] < best[0]:
-                        best = candidate
-            skipped = allocate(slot_index + 1, line_index)
-            if skipped is not None and (best is None or skipped[0] < best[0]):
-                best = skipped
+                    used_groups = tail[0]
+                    if field_group is not None:
+                        used_groups = used_groups | {field_group}
+                    candidate = (
+                        used_groups,
+                        tail[1] + (count - 1) ** 2,
+                        [(slot_index, phrase)] + tail[2],
+                    )
+                    best = better(candidate, best)
+            best = better(allocate(slot_index + 1, line_index), best)
             memo[state] = best
             return best
 
-        allocation = allocate(0, 0)
+        # Preserve the reviewed heading in the first suitable non-card field.
+        # Card-coverage scoring must never move a one-line slide title into a card.
+        prefix = []
+        start_slot = 0
+        start_line = 0
+        for index, (_container, _key, field_schema, field_group) in enumerate(ordered_slots):
+            if field_group is None and locked_text_fits_field(lines[0], field_schema):
+                prefix = [(index, lines[0])]
+                start_slot = index + 1
+                start_line = 1
+                break
+
+        allocation = allocate(start_slot, start_line)
+        if allocation is not None and prefix:
+            allocation = (allocation[0], allocation[1], prefix + allocation[2])
         if allocation is None:
             raise ValueError("Reviewed outline does not fit the selected template text capacities")
         for container, key in _audience_string_slots(generated):
             container[key] = ""
-        for slot_index, phrase in allocation[1]:
-            container, key, _limit = ordered_slots[slot_index]
+        for slot_index, phrase in allocation[2]:
+            container, key, _limit, _visual_group = ordered_slots[slot_index]
             container[key] = phrase
         return generated
     slots = _audience_string_slots(generated)
@@ -517,7 +588,6 @@ def _apply_locked_visible_copy(
         else:
             container[key] = "\n".join(lines[index:])
     return generated
-
 
 def reviewed_outline_fits_schema(schema: dict, outline_content: str) -> bool:
     """Use the same deterministic allocator before any paid slide-content call."""
