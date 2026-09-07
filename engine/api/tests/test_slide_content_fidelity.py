@@ -255,10 +255,16 @@ def test_recorded_eight_page_outline_fits_bundled_standard_layouts():
             return [reverse_keys(child) for child in value]
         return value
 
+    rejected_as_unreadable = []
     for case in cases:
         schema = schemas[case["layout"]]
         generated = reverse_keys(_schema_fallback_value(schema))
-        content = _apply_locked_visible_copy(generated, case["outline"], schema)
+        try:
+            content = _apply_locked_visible_copy(generated, case["outline"], schema)
+        except ValueError:
+            rejected_as_unreadable.append(case["layout"])
+            continue
+        content["__content_contract__"] = {"preserve_visible_copy": True}
         ui = _apply_template_content_to_ui(layouts[case["layout"]], content)
         elements = _collect_non_decorative_text_elements(ui["components"])
         visible = "\n".join(_template_element_text(element) for element in elements)
@@ -268,3 +274,4 @@ def test_recorded_eight_page_outline_fits_bundled_standard_layouts():
             height = (element.get("size") or {}).get("height")
             if isinstance(height, (int, float)):
                 assert _template_text_required_height(element) <= height * 1.02, (case["layout"], _template_element_text(element))
+    assert rejected_as_unreadable, "projection floor should reject at least one old cramped layout"

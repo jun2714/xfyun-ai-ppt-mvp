@@ -555,8 +555,16 @@ def _apply_locked_visible_copy(
         prefix = []
         start_slot = 0
         start_line = 0
+        has_physical_capacity = any(
+            bool(field_schema.get("x-text-boxes"))
+            for _container, _key, field_schema, _field_group in ordered_slots
+        )
         for index, (_container, _key, field_schema, field_group) in enumerate(ordered_slots):
-            if field_group is None and locked_text_fits_field(lines[0], field_schema):
+            if (
+                has_physical_capacity
+                and field_group is None
+                and locked_text_fits_field(lines[0], field_schema)
+            ):
                 prefix = [(index, lines[0])]
                 start_slot = index + 1
                 start_line = 1
