@@ -69,6 +69,22 @@ def test_no_binding_uses_scene_instead_of_guessing_image_pairing():
         build_classroom_content(schemas["classroom_cards_3"], outline)
 
 
+def test_outline_bullets_preserve_roles_and_exact_visual_bindings():
+    _, schemas = _pack()
+    outline = _outline()
+    contract = outline.content_contract
+    outline.content = "\n".join([
+        "# " + contract.screen_title,
+        *("• " + point for point in contract.screen_points),
+        contract.screen_instruction,
+    ])
+    assert preferred_classroom_layout(outline) == "classroom_cards_3"
+    result = build_classroom_content(schemas["classroom_cards_3"], outline)
+    assert result["invitation"]["cue"] == contract.screen_instruction
+    assert result["__content_contract__"]["asset_contracts"]
+    assert result["card_0"]["text"] == contract.screen_points[0]
+
+
 def test_newly_edited_outline_never_restores_stale_copy_or_visuals():
     _, schemas = _pack()
     outline = _outline()
@@ -160,4 +176,3 @@ def test_lesson_conversion_retains_screen_and_interaction_roles():
     assert resolve_kindergarten_template(plan, "auto", allow_classroom=False).template != "kindergarten-classroom"
     plan.slides[0].assets[0].audience_text = "另一个页面的内容"
     assert "asset-caption-mismatch" in {e.code for e in validate_kindergarten_lesson_plan(plan).errors}
-

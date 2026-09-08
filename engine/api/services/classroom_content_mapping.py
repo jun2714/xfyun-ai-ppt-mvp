@@ -9,7 +9,7 @@ def _lines(content):
     # Match reviewed Markdown normalization without importing the LLM module.
     lines = []
     for raw in content.splitlines():
-        line = re.sub(r"^\s*(?:#{1,6}\s*|[-*+]\s+|\d+[.)]\s+)", "", raw).strip()
+        line = re.sub(r"^\s*(?:#{1,6}\s*|[-*+•]\s+|\d+[.)]\s+)", "", raw).strip()
         line = line.replace("**", "").replace("__", "")
         if line:
             lines.append(line)
