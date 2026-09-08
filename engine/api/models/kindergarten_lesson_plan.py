@@ -83,6 +83,10 @@ class LessonAssetSpec(BaseModel):
     expected_count: int = Field(default=1, ge=1, le=12)
     role: Literal["background", "framed-image", "cutout"] = "framed-image"
     qa_required: bool = True
+    audience_text: Optional[str] = Field(
+        default=None, max_length=160,
+        description="Exact screen_content.points phrase illustrated by this asset. Never use list position to guess the binding. Omit for a whole-scene image.",
+    )
 
 
 class LessonGameSpec(BaseModel):
@@ -155,6 +159,11 @@ class KindergartenLessonPlan(BaseModel):
                         media_role=_media_role_for_assets(slide.assets),
                         visible_characters=len("".join(visible_lines)),
                         preserve_visible_copy=True,
+                        screen_title=slide.screen_content.title,
+                        screen_points=list(slide.screen_content.points),
+                        screen_instruction=slide.screen_content.instruction,
+                        interaction_instruction=slide.interaction.instruction,
+                        classroom_role=slide.slide_type,
                         teaching_goal=slide.teaching_goal,
                         teacher_note=slide.teacher_note,
                         interaction_type=slide.interaction.type,
@@ -169,6 +178,7 @@ class KindergartenLessonPlan(BaseModel):
                                 expected_count=asset.expected_count,
                                 role=asset.role,
                                 qa_required=asset.qa_required,
+                                audience_text=asset.audience_text,
                             )
                             for asset in required_assets
                         ],

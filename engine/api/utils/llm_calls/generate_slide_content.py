@@ -784,6 +784,12 @@ async def get_slide_content_from_type_and_outline(
     slide_number: Optional[int] = None,
     disconnect_checker: Optional[DisconnectChecker] = None,
 ):
+    from templates.kindergarten_classroom import CLASSROOM_LAYOUT_PREFIX
+    if slide_layout.id.startswith(CLASSROOM_LAYOUT_PREFIX):
+        from services.classroom_content_mapping import build_classroom_content
+        # Reviewed structured copy needs no second paid text model call.
+        return build_classroom_content(slide_layout.json_schema, outline)
+
     response_schema = _prepare_response_schema(slide_layout.json_schema, language)
     if response_schema is None:
         return {}

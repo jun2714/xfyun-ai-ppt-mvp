@@ -13,6 +13,7 @@ from services.kindergarten_lesson_planning_service import (
     generate_kindergarten_lesson_plan,
 )
 from services.kindergarten_plan_quality_service import (
+    CLASSROOM_CONTENT_ERRORS,
     KindergartenPlanQualityReport,
     validate_kindergarten_lesson_plan,
 )
@@ -156,6 +157,9 @@ def _repair_machine_contracts(
     report: KindergartenPlanQualityReport,
 ) -> KindergartenLessonPlan:
     """Repair recoverable hidden contracts without a second paid model call."""
+    if any(issue.code in CLASSROOM_CONTENT_ERRORS for issue in report.errors):
+        # Never hide a pedagogical failure by removing its semantic contract.
+        return plan
     slides = list(plan.slides)
 
     # First preserve useful semantics where a deterministic correction is obvious.

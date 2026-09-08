@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   collectEmptyVisualCards,
+  collectClassroomMappingErrors,
   collectUnreadableAudienceText,
   collectUnresolvedImageSlots,
 } from "./lib/ppt-image-validation.mjs";
@@ -422,13 +423,23 @@ try {
   }
 
   diagnostics.unreadableAudienceText = finalSlides.flatMap((slide, index) =>
-    collectUnreadableAudienceText(slide?.ui, index + 1),
+    collectUnreadableAudienceText(slide?.ui, index + 1,
+      slide?.content?.__content_contract__?.classroom_mapping_version === 1 ? 32 : 18),
   );
   if (diagnostics.unreadableAudienceText.length) {
     diagnostics.validationErrors.push(
-      `Final deck contains ${diagnostics.unreadableAudienceText.length} text boxes below the 18px classroom floor: ` +
+      `Final deck contains ${diagnostics.unreadableAudienceText.length} text boxes below the applicable classroom font floor: ` +
       diagnostics.unreadableAudienceText.map((item) => `page ${item.page} ${item.fontSize}px`).join(", "),
     );
+  }
+
+  diagnostics.classroomMappingErrors = finalSlides.flatMap((slide, index) =>
+    collectClassroomMappingErrors(slide, index + 1),
+  );
+  diagnostics.validationErrors.push(...diagnostics.classroomMappingErrors);
+  if (process.env.EXPECT_CLASSROOM_PACK !== "false" &&
+      finalSlides.some((slide) => slide?.content?.__content_contract__?.classroom_mapping_version !== 1)) {
+    diagnostics.validationErrors.push("Automatic lesson did not use the new classroom semantic pack.");
   }
 
   diagnostics.emptyVisualCards = finalSlides.flatMap((slide, index) =>
@@ -538,6 +549,14 @@ try {
     checkedImages: diagnostics.imageChecks.length,
   };
   await page.screenshot({ path: resolve(outputDir, "04-editor-final.png"), fullPage: true });
+  // Capture actual editor-rendered pages, not just a viewport showing the last page.
+  for (let index = 0; index < finalSlides.length; index += 1) {
+    const slide = page.locator(`#slide-${index}`).first();
+    if (await slide.count()) {
+      await slide.scrollIntoViewIfNeeded();
+      await slide.screenshot({ path: resolve(outputDir, `slide-${String(index + 1).padStart(2, "0")}.png`) });
+    }
+  }
 } catch (error) {
   exitCode = 1;
   diagnostics.result = { state: "failed" };

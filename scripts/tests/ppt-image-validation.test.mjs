@@ -2,9 +2,41 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   collectEmptyVisualCards,
+  collectClassroomMappingErrors,
   collectUnreadableAudienceText,
   collectUnresolvedImageSlots,
 } from "../lib/ppt-image-validation.mjs";
+
+test("classroom audit catches a correct caption paired with the wrong image prompt", () => {
+  const text = (name, value) => ({ type: "text", name, runs: [{ text: value }] });
+  const slide = {
+    layout: "classroom_cards_2",
+    content: {
+      __content_contract__: { classroom_mapping_version: 1, screen_title: "观察春天",
+        screen_points: ["太阳暖暖的"], screen_instruction: "",
+        asset_contracts: [{ audience_text: "太阳暖暖的", semantic_label: "暖暖太阳" }] },
+      card_0: { visual: { image_prompt: "雨滴落下" } },
+    },
+    ui: { components: [
+      { id: "heading", elements: [text("title", "观察春天")] },
+      { id: "invitation", elements: [text("cue", "")] },
+      { id: "card_0", elements: [text("text", "太阳暖暖的")] },
+    ] },
+  };
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /semantic binding/);
+  slide.content.card_0.visual.image_prompt = "暖暖太阳";
+  assert.deepEqual(collectClassroomMappingErrors(slide, 1), []);
+  slide.ui.components[0].elements[0].runs[0].text = "标题被放错了";
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading/);
+});
+
+test("empty image cards are also detected in component element arrays", () => {
+  const card = { id: "card_0", elements: [
+    { type: "image", data: "/app_data/images/a.png", decorative: false },
+    { type: "text", decorative: false, runs: [] },
+  ] };
+  assert.equal(collectEmptyVisualCards(card, 1).length, 1);
+});
 
 test("one successful image cannot conceal a remaining black placeholder", () => {
   const slots = [

@@ -17,6 +17,7 @@ const EDITOR_BASE =
 const DISPLAY_NAMES: Record<string, string> = {
   general: "自动匹配",
   "ai-visual": "AI 自由视觉",
+  "kindergarten-classroom": "幼教课堂 · 绘本与观察",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",
@@ -144,6 +145,15 @@ export function OutlineEditor({
   const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
   const current = slides[selectedSafe] ?? { content: "" };
   const editableContent = toEditableOutlineContent(current.content);
+  const teacherNote = typeof current.content_contract?.teacher_note === "string"
+    ? current.content_contract.teacher_note : "";
+  const interactionInstruction = typeof current.content_contract?.interaction_instruction === "string"
+    ? current.content_contract.interaction_instruction : "";
+  const updateTeacherField = (key: "teacher_note" | "interaction_instruction", text: string) => {
+    if (streaming || showTemplateStage) return;
+    setOutline((value) => ({ slides: value.slides.map((slide, index) => index === selectedSafe
+      ? { ...slide, content_contract: { ...slide.content_contract, [key]: text } } : slide) }));
+  };
   const title = useMemo(
     () => outlineTitle(slides[0]?.content ?? presentation.title ?? "演示文稿"),
     [slides, presentation.title],
@@ -504,12 +514,26 @@ export function OutlineEditor({
                 : <button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button>}
             </div>
             <textarea
+              aria-label="儿童屏幕内容"
               value={editableContent}
               readOnly={streaming}
               onChange={(event) => updateCurrent(event.target.value)}
               placeholder={streaming ? "内容正在流入…" : "在这里编辑本页大纲"}
             />
           </div>
+          {!streaming && current.content_contract && (
+            <details className="outline-teacher-notes">
+              <summary>教师讲稿与课堂操作（不会投到儿童屏幕）</summary>
+              <label>教师讲稿
+                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={1200}
+                  onChange={(event) => updateTeacherField("teacher_note", event.target.value)} />
+              </label>
+              <label>课堂操作步骤
+                <textarea aria-label="课堂操作步骤" value={interactionInstruction} maxLength={180}
+                  onChange={(event) => updateTeacherField("interaction_instruction", event.target.value)} />
+              </label>
+            </details>
+          )}
           {error && <div className="error-line">{error}</div>}
         </>
       )}

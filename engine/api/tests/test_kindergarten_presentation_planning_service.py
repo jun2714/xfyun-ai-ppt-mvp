@@ -202,7 +202,7 @@ def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     assert reveal.answer_key == "B"
 
 
-def test_invalid_game_contract_is_downgraded_without_discarding_visible_page(monkeypatch):
+def test_invalid_game_contract_cannot_be_hidden_by_downgrading_the_question(monkeypatch):
     calls = []
     plan = _plan(reveal_answer="B")
     bad_question = plan.slides[1].model_copy(update={"game": None})
@@ -220,21 +220,19 @@ def test_invalid_game_contract_is_downgraded_without_discarding_visible_page(mon
         fake_generate,
     )
 
-    result = asyncio.run(
-        planning_service.generate_validated_kindergarten_presentation_outline(
-            topic="认识森林动物",
-            age_group="4-5岁",
-            domain="science",
-            duration_minutes=20,
-            n_slides=3,
-            instructions=None,
-            source_context=None,
+    import pytest
+    with pytest.raises(planning_service.KindergartenPlanningQualityError):
+        asyncio.run(
+            planning_service.generate_validated_kindergarten_presentation_outline(
+                topic="认识森林动物",
+                age_group="4-5岁",
+                domain="science",
+                duration_minutes=20,
+                n_slides=3,
+                instructions=None,
+                source_context=None,
+            )
         )
-    )
 
     assert len(calls) == 1
-    assert result.attempts == 1
-    assert result.quality.passed is True
-    assert "猜猜是谁？" in result.outline.slides[1].content
-    assert result.plan.slides[1].slide_type == "other"
-    assert result.plan.slides[1].game is None
+    assert plan.slides[1].slide_type == "guess-partial"

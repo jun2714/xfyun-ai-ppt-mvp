@@ -198,6 +198,26 @@ def get_allowed_layout_indices_for_outline(
     metadata exists, stronger relationship/media/capacity/readability checks are
     applied on top of that structural guard.
     """
+    from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
+    if presentation_layout.name == CLASSROOM_TEMPLATE_ID:
+        from services.classroom_content_mapping import (
+            preferred_classroom_layout, build_classroom_content,
+        )
+        choices = []
+        for index, slide in enumerate(presentation_outline.slides):
+            try:
+                preferred = preferred_classroom_layout(slide, index)
+                selected = next(i for i, layout in enumerate(presentation_layout.slides)
+                                if layout.id == preferred)
+                build_classroom_content(presentation_layout.slides[selected].json_schema, slide)
+                choices.append([selected])
+            except (ValueError, StopIteration) as error:
+                raise LayoutCompatibilityError(
+                    f"第 {index + 1} 页不适合课堂大字号版式：{error}",
+                    slide_number=index + 1,
+                ) from error
+        return choices
+
     audited_indices = [
         index
         for index, layout in enumerate(presentation_layout.slides)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -30,6 +31,13 @@ _GAME_SLIDE_TYPES = {
     "matching",
     "classification",
     "sequence",
+}
+
+# These concern what children see, not optional machine metadata. They may not
+# be turned into a passing lesson by erasing game/image contracts.
+CLASSROOM_CONTENT_ERRORS = {
+    "question-reveals-answer", "asset-caption-mismatch", "game-contract-missing",
+    "reveal-slide-missing", "reveal-before-question", "question-slide-missing",
 }
 
 
@@ -156,6 +164,11 @@ def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]
 
     seen: set[tuple[str, str]] = set()
     for asset in required_assets:
+        if asset.audience_text and asset.audience_text not in slide.screen_content.points:
+            issues.append(_error(
+                slide, "asset-caption-mismatch",
+                "图片 audience_text 必须逐字对应本页一条屏幕短句，不能自动按位置配图。",
+            ))
         key = (asset.slot.casefold(), asset.semantic_label.casefold())
         if key in seen:
             issues.append(
@@ -175,6 +188,15 @@ def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]
                     "需要质检的图片必须有明确 semantic_label。",
                 )
             )
+
+    if slide.interaction.type == "guess" or slide.slide_type in {"guess-partial", "guess-shadow"}:
+        visible = "\n".join([slide.screen_content.title, *slide.screen_content.points,
+                             slide.screen_content.instruction or ""])
+        if re.search(r"答案[是为：:]|正确[选答]项?[是为：:]|先出现的是|先长出的是", visible):
+            issues.append(_error(
+                slide, "question-reveals-answer",
+                "提问页同时显示了答案结论，请把结论放到独立揭晓页，不能只在备注里写先猜后揭晓。",
+            ))
 
     visible_chars = len(slide.screen_content.title)
     visible_chars += sum(len(point) for point in slide.screen_content.points)

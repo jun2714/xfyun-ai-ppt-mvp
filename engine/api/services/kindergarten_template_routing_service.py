@@ -139,6 +139,7 @@ def resolve_kindergarten_template(
     requested_template: str | None,
     *,
     instructions: str | None = None,
+    allow_classroom: bool = True,
 ) -> KindergartenTemplateRoutingDecision:
     """Resolve `auto` to a stable bundled kindergarten visual family.
 
@@ -153,6 +154,16 @@ def resolve_kindergarten_template(
             template=requested,
             reason="manual-selection",
             scores={},
+        )
+
+    # Use the semantic classroom pack when the lesson has visual assets. Explicit
+    # choices and legacy nonvisual plans retain the existing compatibility path.
+    if allow_classroom and all(any(asset.required for asset in slide.assets) for slide in plan.slides):
+        from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
+        return KindergartenTemplateRoutingDecision(
+            template=CLASSROOM_TEMPLATE_ID,
+            reason="classroom:semantic-copy-and-image-bindings",
+            scores={CLASSROOM_TEMPLATE_ID: 100},
         )
 
     scores = {name: 0 for name in _TEMPLATE_PRIORITY}
