@@ -36,7 +36,7 @@ _GAME_SLIDE_TYPES = {
 # These concern what children see, not optional machine metadata. They may not
 # be turned into a passing lesson by erasing game/image contracts.
 CLASSROOM_CONTENT_ERRORS = {
-    "question-reveals-answer", "asset-caption-mismatch", "game-contract-missing",
+    "question-reveals-answer", "game-contract-missing",
     "reveal-slide-missing", "reveal-before-question", "question-slide-missing",
 }
 

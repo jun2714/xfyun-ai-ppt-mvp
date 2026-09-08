@@ -173,6 +173,16 @@ def _repair_machine_contracts(
             slides[index] = _add_required_asset(slides[index])
         elif issue.code == "asset-semantic-too-vague":
             slides[index] = _repair_asset_semantics(slides[index])
+        elif issue.code == "asset-caption-mismatch":
+            # A provider may supply a paraphrase/title instead of an exact point.
+            # Keep the lesson and visual subject, but remove that unproven pairing.
+            # Classroom routing then uses a whole scene, never an arbitrary card.
+            slide = slides[index]
+            slides[index] = slide.model_copy(update={"assets": [
+                asset.model_copy(update={"audience_text": None})
+                if asset.audience_text not in slide.screen_content.points else asset
+                for asset in slide.assets
+            ]})
 
     repaired = plan.model_copy(update={"slides": slides})
 

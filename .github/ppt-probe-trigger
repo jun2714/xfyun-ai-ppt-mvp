@@ -23,3 +23,5 @@ run: 26
 reason: classroom-font-floor-card-coverage-and-illustration-consistency
 run: 27
 reason: semantic-classroom-pack-and-per-slide-visual-review
+run: 28
+reason: recover-unproven-caption-bindings-without-discarding-lesson

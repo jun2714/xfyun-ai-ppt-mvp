@@ -213,6 +213,22 @@ def test_answer_in_question_cannot_be_hidden_by_removing_game_metadata():
     assert repaired.slides[1].slide_type == "guess-partial"
 
 
+def test_unproven_caption_binding_falls_back_to_scene_without_discarding_lesson():
+    from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
+    from services.classroom_content_mapping import preferred_classroom_layout
+    plan = _plan(reveal_answer="A")
+    plan.slides[1].assets[0].audience_text = "小兔子的耳朵真长呀"
+    original = plan.to_presentation_outline().slides[1].content
+    report = validate_kindergarten_lesson_plan(plan)
+    repaired = planning_service._repair_machine_contracts(plan, report)
+    assert validate_kindergarten_lesson_plan(repaired).passed
+    outline = repaired.to_presentation_outline().slides[1]
+    assert outline.content == original
+    assert outline.content_contract.asset_contracts[0].audience_text is None
+    assert preferred_classroom_layout(outline).startswith("classroom_scene_")
+    assert repaired.slides[2].game.answer_key == "B"
+
+
 def test_invalid_game_contract_cannot_be_hidden_by_downgrading_the_question(monkeypatch):
     calls = []
     plan = _plan(reveal_answer="B")
