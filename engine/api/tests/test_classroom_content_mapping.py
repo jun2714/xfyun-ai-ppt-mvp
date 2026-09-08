@@ -161,15 +161,3 @@ def test_lesson_conversion_retains_screen_and_interaction_roles():
     plan.slides[0].assets[0].audience_text = "另一个页面的内容"
     assert "asset-caption-mismatch" in {e.code for e in validate_kindergarten_lesson_plan(plan).errors}
 
-
-def test_answer_in_question_cannot_be_hidden_by_removing_game_metadata():
-    from tests.test_kindergarten_presentation_planning_service import _plan
-    from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
-    from services.kindergarten_presentation_planning_service import _repair_machine_contracts
-    plan = _plan()
-    plan.slides[1].screen_content.points.append("答案是小兔子")
-    report = validate_kindergarten_lesson_plan(plan)
-    assert "question-reveals-answer" in {issue.code for issue in report.errors}
-    repaired = _repair_machine_contracts(plan, report)
-    assert not validate_kindergarten_lesson_plan(repaired).passed
-    assert repaired.slides[1].slide_type == "guess-partial"

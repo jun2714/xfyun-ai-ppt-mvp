@@ -202,6 +202,17 @@ def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     assert reveal.answer_key == "B"
 
 
+def test_answer_in_question_cannot_be_hidden_by_removing_game_metadata():
+    from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
+    plan = _plan()
+    plan.slides[1].screen_content.points.append("答案是小兔子")
+    report = validate_kindergarten_lesson_plan(plan)
+    assert "question-reveals-answer" in {issue.code for issue in report.errors}
+    repaired = planning_service._repair_machine_contracts(plan, report)
+    assert not validate_kindergarten_lesson_plan(repaired).passed
+    assert repaired.slides[1].slide_type == "guess-partial"
+
+
 def test_invalid_game_contract_cannot_be_hidden_by_downgrading_the_question(monkeypatch):
     calls = []
     plan = _plan(reveal_answer="B")

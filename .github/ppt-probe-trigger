@@ -21,3 +21,5 @@ run: 25
 reason: complete-same-name-image-slot-coverage-and-reject-black-placeholders
 run: 26
 reason: classroom-font-floor-card-coverage-and-illustration-consistency
+run: 27
+reason: semantic-classroom-pack-and-per-slide-visual-review
