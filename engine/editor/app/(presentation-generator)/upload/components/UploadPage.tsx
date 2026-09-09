@@ -46,6 +46,7 @@ import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import UploadTemplateGallery from "./UploadTemplateGallery";
 
 type CreateFlowMode = "topic" | "template";
+type ContentModeChoice = "auto" | KindergartenContentMode;
 
 const CREATE_FLOW_TABS: Array<{ id: CreateFlowMode; label: string; hint: string }> = [
   {
@@ -75,6 +76,15 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "AI 自由视觉",
     description: "使用中性版式骨架，每页生成不同但同一世界观的 16:9 背景，画面更丰富。",
   },
+];
+
+const CONTENT_MODE_OPTIONS: Array<{
+  id: ContentModeChoice;
+  label: string;
+}> = [
+  { id: "auto", label: "自动判断" },
+  { id: "classroom", label: "幼儿园集体教学" },
+  { id: "training", label: "幼儿园园本教研培训" },
 ];
 
 const STOCK_IMAGE_PROVIDERS = new Set(["pexels", "pixabay"]);
@@ -114,8 +124,11 @@ const DOMAIN_TERMS: Array<[KindergartenDomain, string[]]> = [
 const TRAINING_TERMS = [
   "教研",
   "培训",
-  "汇报",
   "园本",
+  "工作汇报",
+  "专题汇报",
+  "成果汇报",
+  "汇报材料",
   "课程推进",
   "现存问题",
   "问题分析",
@@ -262,6 +275,8 @@ const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([]);
   const generationMode = "standard" as const;
   const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
+  const [contentModeChoice, setContentModeChoice] =
+    useState<ContentModeChoice>("auto");
   const [visualMode, setVisualMode] = useState<KindergartenVisualMode>("template");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
     audience: "幼儿",
@@ -270,6 +285,12 @@ const UploadPage = () => {
     style: "明亮童趣",
   });
   const [config, setConfig] = useState<PresentationConfig>(createTeachnovaDefaultConfig);
+
+  const resolveRequestedContentMode = (topic: string): KindergartenContentMode => {
+    if (contentModeChoice !== "auto") return contentModeChoice;
+    const fileNameSignals = files.map((file) => file.name).join("\n");
+    return inferContentMode(`${topic}\n${fileNameSignals}`, teachingContext);
+  };
 
   const continueToOutline = (presentationId: string, templateId?: string | null) => {
     const outlineUrl = new URL(
@@ -350,6 +371,7 @@ const UploadPage = () => {
       web_search: !!config.webSearch,
       generation_mode: generationMode,
       create_flow_mode: createFlowMode,
+      content_mode_choice: contentModeChoice,
       visual_mode: visualMode,
       community_reference_id: null,
       has_prompt: Boolean(trimmedPrompt),
@@ -457,7 +479,7 @@ const UploadPage = () => {
 
   const startKindergartenOutline = async (documentPaths: string[]) => {
     const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
-    const contentMode = inferContentMode(topic, teachingContext);
+    const contentMode = resolveRequestedContentMode(topic);
     const requestContext: TeachingContextState =
       contentMode === "training"
         ? {
@@ -543,9 +565,8 @@ const UploadPage = () => {
     }
     const responses = await Promise.all(promises);
     const documentPaths = getDocumentPaths(responses);
-    const plannedContentMode = inferContentMode(
+    const plannedContentMode = resolveRequestedContentMode(
       config.prompt.trim() || "根据上传资料生成幼教课件",
-      teachingContext,
     );
 
     setLoadingState({
@@ -590,9 +611,8 @@ const UploadPage = () => {
   };
 
   const handleDirectPresentationGeneration = async () => {
-    const plannedContentMode = inferContentMode(
+    const plannedContentMode = resolveRequestedContentMode(
       config.prompt.trim() || "根据主题生成幼教课件",
-      teachingContext,
     );
     setLoadingState({
       isLoading: true,
@@ -697,6 +717,28 @@ const UploadPage = () => {
               );
             })}
           </div>
+        </div>
+
+        <div className="mx-auto mb-4 flex max-w-[760px] flex-wrap justify-center gap-2 px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+          {CONTENT_MODE_OPTIONS.map((option) => {
+            const active = contentModeChoice === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={active}
+                disabled={loadingState.isLoading}
+                onClick={() => setContentModeChoice(option.id)}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  active
+                    ? "border-[#2A6F62] bg-[#EDF7F3] text-[#155E52]"
+                    : "border-[#D0D5DD] bg-white text-[#667085] hover:border-[#9BBDB5]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
 
         {createFlowMode === "topic" ? (

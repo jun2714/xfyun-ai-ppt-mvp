@@ -210,10 +210,13 @@ export function OutlineEditor({
     if (streaming || saving || aiEditing || !current.content) return;
     setAiEditing(mode);
     setError("");
-    const action =
-      mode === "polish"
+    const isCover =
+      current.content_contract?.classroom_role === "cover-scene";
+    const action = isCover
+      ? "润色本页封面：保留主题、目的和使用类型三层结构，不增加正文、案例或互动，不改变核心主题。"
+      : mode === "polish"
         ? "润色并压缩本页：保持原意和事实，标题更明确，正文分层清楚，删除重复表达；可见中文控制在120字以内，并确保适合当前PPT版式。"
-        : "重新生成本页：依据整份演示主题、相邻页面和本页教学目标重写，不偏离用户原始问题；给出具体事实、解决动作或验证指标，可见中文控制在140字以内。";
+        : "重新生成本页：依据整份演示主题、相邻页面和本页教学目标重写，不偏离用户原始问题；保留本页原有核心对象、事实和图片语义；给出具体事实、解决动作或验证指标，可见中文控制在140字以内。";
     try {
       await api("/chat/message", {
         method: "POST",
@@ -242,12 +245,21 @@ export function OutlineEditor({
       const oldAssets = Array.isArray(oldContract.asset_contracts)
         ? oldContract.asset_contracts
         : [];
-      const backgroundAssets = oldAssets.filter(
-        (asset) =>
-          asset &&
-          typeof asset === "object" &&
-          (asset as Record<string, unknown>).role === "background",
-      );
+      const retainedAssets = oldAssets
+        .filter(
+          (asset): asset is Record<string, unknown> =>
+            Boolean(asset) && typeof asset === "object",
+        )
+        .map((record) => {
+          const audienceText = record.audience_text;
+          return {
+            ...record,
+            audience_text:
+              typeof audienceText === "string" && pointLines.includes(audienceText)
+                ? audienceText
+                : null,
+          };
+        });
       const nextContract = {
         ...oldContract,
         preserve_visible_copy: true,
@@ -255,10 +267,10 @@ export function OutlineEditor({
         screen_points: pointLines,
         screen_instruction: null,
         visible_characters: visibleLines.join("").length,
-        required_asset_semantics: backgroundAssets
+        required_asset_semantics: retainedAssets
           .map((asset) => (asset as Record<string, unknown>).semantic_label)
           .filter((value): value is string => typeof value === "string"),
-        asset_contracts: backgroundAssets,
+        asset_contracts: retainedAssets,
       };
       const nextOutline: PresentationOutline = {
         slides: outline.slides.map((slide, index) =>

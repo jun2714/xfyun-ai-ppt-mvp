@@ -311,6 +311,45 @@ def test_classroom_without_cover_gets_cover_without_losing_opening_content():
     assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
 
 
+def test_forty_page_plan_without_cover_fails_instead_of_dropping_content():
+    import pytest
+
+    plan = _plan()
+    source_slide = plan.slides[0].model_copy(
+        update={"slide_type": "other"}
+    )
+    plan = plan.model_copy(
+        update={
+            "slides": [
+                source_slide.model_copy(update={"slide_no": index})
+                for index in range(1, 41)
+            ]
+        }
+    )
+
+    with pytest.raises(ValueError, match="无法在不丢失正文"):
+        planning_service._ensure_cover_contract(plan, "classroom")
+
+
+def test_training_sequence_without_game_keeps_sequence_layout_semantics():
+    plan = _plan()
+    sequence = plan.slides[1].model_copy(
+        update={
+            "slide_type": "sequence",
+            "game": None,
+            "layout_capabilities": ["scene", "sequence"],
+        }
+    )
+    plan = plan.model_copy(
+        update={"slides": [plan.slides[0], sequence, plan.slides[2]]}
+    )
+
+    normalized = planning_service._normalize_training_contracts(plan)
+
+    assert normalized.slides[1].slide_type == "sequence"
+    assert "sequence" in normalized.slides[1].layout_capabilities
+
+
 def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     calls = []
 

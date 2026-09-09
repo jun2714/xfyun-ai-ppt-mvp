@@ -302,8 +302,12 @@ def _ensure_cover_contract(
         }
     )
 
-    if original_first.slide_type == "cover-scene" or len(plan.slides) >= 40:
+    if original_first.slide_type == "cover-scene":
         slides = [cover, *plan.slides[1:]]
+    elif len(plan.slides) >= 40:
+        raise ValueError(
+            "大纲已达到 40 页上限且缺少封面，无法在不丢失正文的情况下补充标题页。"
+        )
     else:
         slides = [cover, *plan.slides]
     renumbered = [
@@ -388,7 +392,10 @@ def _normalize_training_contracts(
                     "layout_capabilities": ["scene", "single-focus"],
                 }
             )
-        if index == 0 or (
+        is_plain_training_sequence = (
+            slide.slide_type == "sequence" and slide.game is None
+        )
+        if index == 0 or is_plain_training_sequence or (
             slide.slide_type not in child_game_types and slide.game is None
         ):
             slides.append(slide.model_copy(update=updates))

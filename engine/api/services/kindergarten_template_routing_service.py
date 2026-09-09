@@ -158,7 +158,14 @@ def resolve_kindergarten_template(
 
     # Use the semantic classroom pack when the lesson has visual assets. Explicit
     # choices and legacy nonvisual plans retain the existing compatibility path.
-    if allow_classroom and all(any(asset.required for asset in slide.assets) for slide in plan.slides):
+    content_slides = [
+        slide for slide in plan.slides if slide.slide_type != "cover-scene"
+    ]
+    if (
+        allow_classroom
+        and content_slides
+        and all(any(asset.required for asset in slide.assets) for slide in content_slides)
+    ):
         from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
         return KindergartenTemplateRoutingDecision(
             template=CLASSROOM_TEMPLATE_ID,
