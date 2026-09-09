@@ -29,6 +29,21 @@ def owner_id_from_session(session: Any) -> uuid.UUID | None:
     return stored if stored is not None else get_current_owner_id()
 
 
+def _owner_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value).replace("-", "").lower()
+
+
+def is_row_owned_by(row: Any, owner_id: uuid.UUID | None) -> bool:
+    """Compare ownership in Python to avoid MySQL CHAR(32) UUID predicates."""
+    row_owner = _owner_key(getattr(row, "owner_id", None) if row is not None else None)
+    current_owner = _owner_key(owner_id)
+    if not row_owner or not current_owner:
+        return False
+    return row_owner == current_owner
+
+
 async def get_by_id_unscoped(
     sql_session: AsyncSession,
     model: type[T],
@@ -44,3 +59,21 @@ async def get_by_id_unscoped(
         select(model).where(model.id == row_id).execution_options(skip_owner_scope=True)
     )
     return result.scalar_one_or_none()
+
+
+async def get_owned_by_id(
+    sql_session: AsyncSession,
+    model: type[T],
+    row_id: uuid.UUID,
+) -> T | None:
+    """Load a row the current user owns, without SQLAlchemy owner-scope filters.
+
+    Dashboard list/get already skip ``with_loader_criteria`` because it can
+    compile to an always-false comparison on MySQL CHAR(32) UUID columns.
+    ``session.get()`` still applies that filter, so listed incomplete decks
+    404 on DELETE even though ``GET /all`` returned them.
+    """
+    row = await get_by_id_unscoped(sql_session, model, row_id)
+    if not is_row_owned_by(row, get_current_owner_id()):
+        return None
+    return row

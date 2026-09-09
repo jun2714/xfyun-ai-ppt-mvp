@@ -72,7 +72,7 @@ from models.sse_response import (
 
 from services.database import get_async_session
 from services.database import async_session_maker
-from services.owner_scope import get_by_id_unscoped
+from services.owner_scope import get_by_id_unscoped, get_owned_by_id
 from services.concurrent_service import CONCURRENT_SERVICE
 from models.sql.presentation import PresentationModel, PresentationVersion
 from models.sql.template_v2 import TemplateV2
@@ -1892,7 +1892,7 @@ async def get_presentation(
 async def delete_presentation(
     id: uuid.UUID, sql_session: AsyncSession = Depends(get_async_session)
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_owned_by_id(sql_session, PresentationModel, id)
     if not presentation:
         raise HTTPException(404, "Presentation not found")
 
@@ -1904,7 +1904,7 @@ async def delete_presentation(
 async def duplicate_presentation(
     id: uuid.UUID, sql_session: AsyncSession = Depends(get_async_session)
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    presentation = await get_owned_by_id(sql_session, PresentationModel, id)
     if not presentation:
         raise HTTPException(404, "Presentation not found")
 
@@ -1913,6 +1913,7 @@ async def duplicate_presentation(
             select(SlideModel)
             .where(SlideModel.presentation == id)
             .order_by(SlideModel.index)
+            .execution_options(skip_owner_scope=True)
         )
     )
     new_presentation = presentation.get_new_presentation()
