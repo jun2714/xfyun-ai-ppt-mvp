@@ -11,6 +11,7 @@ import "./outlineProgress.css";
 
 const DEFAULT_TEMPLATE_ID = "general";
 const AI_VISUAL_TEMPLATE_ID = "ai-visual";
+const CLASSROOM_TEMPLATE_ID = "kindergarten-classroom";
 const EDITOR_BASE =
   import.meta.env.VITE_EDITOR_BASE_URL ?? "http://127.0.0.1:5001";
 
@@ -59,6 +60,15 @@ function assetUrl(value?: string | null) {
 
 function isVisibleTemplate(item: TemplateItem) {
   return item.id !== DEFAULT_TEMPLATE_ID && item.id !== AI_VISUAL_TEMPLATE_ID;
+}
+
+function pickDefaultTemplate(templates: TemplateItem[]) {
+  return (
+    templates.find((item) => item.id === CLASSROOM_TEMPLATE_ID) ??
+    templates.find((item) => item.id === "standard") ??
+    templates.find((item) => isVisibleTemplate(item) && item.is_default !== false) ??
+    templates.find(isVisibleTemplate)
+  );
 }
 
 function splitTemplates(templates: TemplateItem[]) {
@@ -113,30 +123,30 @@ export function OutlineEditor({
   }, [initial, streaming, activeSlideIndex]);
 
   useEffect(() => {
-    if (!preferred) return;
-    if (preferred === AI_VISUAL_TEMPLATE_ID || templates.some((item) => item.id === preferred)) {
+    if (templates.length === 0) return;
+    if (preferred === AI_VISUAL_TEMPLATE_ID || (preferred && templates.some((item) => item.id === preferred))) {
       setTemplate(preferred);
       setTemplateNotice("");
       return;
     }
-    if (templates.length === 0) return;
 
-    const fallback =
-      templates.find((item) => item.id === "standard") ??
-      templates.find((item) => isVisibleTemplate(item) && item.is_default !== false) ??
-      templates.find(isVisibleTemplate);
-    const preferredName = DISPLAY_NAMES[preferred] || preferred;
-    if (fallback) {
-      setTemplate(fallback.id);
-      setTemplateNotice(
-        `自动推荐的“${preferredName}”当前未加载，已切换为“${templateName(fallback)}”。你也可以重新选择模板。`,
-      );
-    } else {
+    const fallback = pickDefaultTemplate(templates);
+    if (!fallback) {
       setTemplate("");
       setTemplateNotice(
-        `自动推荐的“${preferredName}”当前不可用，请先选择一个已加载的模板。`,
+        preferred
+          ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前不可用，请先选择一个已加载的模板。`
+          : "暂无可用模板，请先在模板中心添加。",
       );
+      return;
     }
+
+    setTemplate(fallback.id);
+    setTemplateNotice(
+      preferred
+        ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前未加载，已切换为“${templateName(fallback)}”。你也可以重新选择模板。`
+        : "",
+    );
   }, [preferred, templates]);
 
   useEffect(() => {

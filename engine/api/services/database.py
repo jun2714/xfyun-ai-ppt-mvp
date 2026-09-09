@@ -128,7 +128,7 @@ def _scope_owned_selects(execute_state) -> None:
                 TemplateV2,
                 lambda row, owned_id=owner_id: or_(
                     row.owner_id == owned_id,
-                    (row.owner_id.is_(None) & row.is_default.is_(True)),
+                    row.is_default.is_(True),
                 ),
                 include_aliases=True,
             )
@@ -143,8 +143,15 @@ def _stamp_new_owned_rows(session, _flush_context, _instances) -> None:
         return
     owner_models = _STRICT_OWNER_MODELS + (TemplateV2,)
     for instance in session.new:
-        if isinstance(instance, owner_models):
-            instance.owner_id = owner_id
+        if not isinstance(instance, owner_models):
+            continue
+        # Admin-uploaded official templates must stay unowned so every teacher
+        # can list and generate from them. Stamping the admin UUID would hide
+        # them behind the private-owner filter.
+        if isinstance(instance, TemplateV2) and instance.is_default:
+            instance.owner_id = None
+            continue
+        instance.owner_id = owner_id
 
 
 async def get_async_session(

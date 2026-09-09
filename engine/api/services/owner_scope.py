@@ -29,10 +29,44 @@ def owner_id_from_session(session: Any) -> uuid.UUID | None:
     return stored if stored is not None else get_current_owner_id()
 
 
+def _owner_key(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value).replace("-", "").lower()
+
+
+def is_row_owned_by(row: Any, owner_id: uuid.UUID | None) -> bool:
+    """Compare ownership in Python to avoid MySQL CHAR(32) UUID predicates."""
+    row_owner = _owner_key(getattr(row, "owner_id", None) if row is not None else None)
+    current_owner = _owner_key(owner_id)
+    if not row_owner or not current_owner:
+        return False
+    return row_owner == current_owner
+
+
+def is_shared_official_template(row: Any) -> bool:
+    return bool(getattr(row, "is_default", False)) if row is not None else False
+
+
+def is_template_visible_to(row: Any, owner_id: uuid.UUID | None) -> bool:
+    """Official templates are visible to every signed-in teacher."""
+    if is_shared_official_template(row):
+        return True
+    return is_row_owned_by(row, owner_id)
+
+
+def mark_template_official(template: Any, *, is_admin: bool) -> Any:
+    """Admin uploads become shared official templates, not private copies."""
+    if is_admin:
+        template.is_default = True
+        template.owner_id = None
+    return template
+
+
 async def get_by_id_unscoped(
     sql_session: AsyncSession,
     model: type[T],
-    row_id: uuid.UUID,
+    row_id: Any,
 ) -> T | None:
     """Load a row by primary key, ignoring the current user's owner filter.
 
