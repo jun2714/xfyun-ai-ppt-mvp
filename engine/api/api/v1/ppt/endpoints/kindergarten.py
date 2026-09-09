@@ -178,6 +178,7 @@ async def _generate_validated_plan(
     request: Request,
     *,
     text_chunk_callback=None,
+    stop_on_disconnect: bool = True,
 ) -> ValidatedKindergartenPlanningResult:
     runtime = get_kindergarten_planner_runtime()
     try:
@@ -191,7 +192,9 @@ async def _generate_validated_plan(
                 n_slides=payload.n_slides,
                 instructions=payload.instructions,
                 source_context=await _planning_source_context(payload),
-                disconnect_checker=request.is_disconnected,
+                disconnect_checker=(
+                    request.is_disconnected if stop_on_disconnect else None
+                ),
                 text_chunk_callback=text_chunk_callback,
             )
     except TimeoutError as exc:
@@ -224,7 +227,9 @@ def _layout_count(template: TemplateV2) -> int:
 async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
     """Install or upgrade the internal neutral skeleton used by AI free visual."""
     production = build_production_ai_visual_template()
-    existing = await sql_session.get(TemplateV2, AI_BACKGROUND_TEMPLATE_NAME)
+    existing = await get_by_id_unscoped(
+        sql_session, TemplateV2, AI_BACKGROUND_TEMPLATE_NAME
+    )
     if existing is None:
         sql_session.add(production)
         await sql_session.commit()
@@ -635,21 +640,26 @@ async def stream_kindergarten_presentation_outline(
                 payload,
                 request,
                 text_chunk_callback=on_chunk,
+                stop_on_disconnect=False,
             )
         )
+        disconnected = False
         try:
             while not planning_task.done() or not chunk_queue.empty():
                 try:
                     chunk = await asyncio.wait_for(chunk_queue.get(), timeout=1)
                 except asyncio.TimeoutError:
                     if await request.is_disconnected():
-                        planning_task.cancel()
-                        await _persist_outline_failure(
-                            presentation,
-                            "大纲生成已中断，请重新创建。",
-                            sql_session,
+                        # Nginx/proxy idle timeouts look like a client drop.
+                        # Keep generating so a refresh can load the saved outline
+                        # instead of leaving a failed shell.
+                        disconnected = True
+                        LOGGER.warning(
+                            "[kindergarten.outline] client disconnected; "
+                            "continuing generation presentation_id=%s",
+                            presentation.id,
                         )
-                        return
+                        break
                     continue
                 yield SSEResponse(
                     event="response",
@@ -659,6 +669,8 @@ async def stream_kindergarten_presentation_outline(
                     ),
                 ).to_string()
             result = await planning_task
+            if not disconnected:
+                yield SSEStatusResponse(status="正在校验并保存大纲").to_string()
             result, routing, style_summary = _apply_visual_mode(payload, result)
             if payload.visual_mode == "ai-background":
                 await _ensure_ai_visual_template(sql_session)
@@ -679,6 +691,8 @@ async def stream_kindergarten_presentation_outline(
                 presentation.id,
                 presentation.outlines,
             )
+            if disconnected:
+                return
             yield SSEResponse(
                 event="response",
                 data=json.dumps(

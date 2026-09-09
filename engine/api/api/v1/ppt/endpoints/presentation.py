@@ -239,7 +239,7 @@ async def _resolve_requested_template(
     if not template_id:
         return None
 
-    template = await sql_session.get(TemplateV2, template_id)
+    template = await get_by_id_unscoped(sql_session, TemplateV2, template_id)
     if template:
         return template
     if resolve_default_template_id(template_name):
@@ -293,7 +293,9 @@ async def _resolve_generation_layout(
                 status_code=400,
                 detail="Template not found. Please use a valid template.",
             )
-        template = await sql_session.get(TemplateV2, bundled_template_id)
+        template = await get_by_id_unscoped(
+            sql_session, TemplateV2, bundled_template_id
+        )
         if not template:
             raise HTTPException(
                 status_code=503,
@@ -1762,9 +1764,12 @@ async def _resolve_prepare_layout(
             detail="Template id is required",
         )
 
-    template = await sql_session.get(TemplateV2, template_id)
+    template = await get_by_id_unscoped(sql_session, TemplateV2, template_id)
     if not template:
-        raise HTTPException(status_code=404, detail="Template layout not found")
+        raise HTTPException(
+            status_code=400,
+            detail="Template layout not found",
+        )
 
     layout_payload = _copy_template_layout_payload(template)
 

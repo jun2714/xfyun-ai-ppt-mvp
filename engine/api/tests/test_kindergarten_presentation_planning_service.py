@@ -346,6 +346,26 @@ def test_classroom_without_cover_gets_cover_without_losing_opening_content():
     assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
 
 
+def test_cover_insert_keeps_requested_page_count():
+    plan = _plan()
+    source = plan.model_copy(
+        update={
+            "slides": [
+                slide.model_copy(update={"slide_no": index, "slide_type": "other"})
+                for index, slide in enumerate(plan.slides, start=1)
+            ]
+        }
+    )
+
+    normalized = planning_service._ensure_cover_contract(
+        source, "classroom", target_count=len(source.slides)
+    )
+
+    assert len(normalized.slides) == len(source.slides)
+    assert normalized.slides[0].slide_type == "cover-scene"
+    assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
+
+
 def test_generated_reveal_uses_answer_text_instead_of_option_id():
     plan = _plan()
     plan.slides = plan.slides[:2]

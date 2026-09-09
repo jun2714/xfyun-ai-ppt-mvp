@@ -47,7 +47,7 @@ def is_row_owned_by(row: Any, owner_id: uuid.UUID | None) -> bool:
 async def get_by_id_unscoped(
     sql_session: AsyncSession,
     model: type[T],
-    row_id: uuid.UUID,
+    row_id: Any,
 ) -> T | None:
     """Load a row by primary key, ignoring the current user's owner filter.
 

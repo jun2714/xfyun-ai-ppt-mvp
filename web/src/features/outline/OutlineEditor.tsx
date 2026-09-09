@@ -190,7 +190,8 @@ export function OutlineEditor({
     Boolean(template) &&
     ![DEFAULT_TEMPLATE_ID, "auto"].includes(template) &&
     templateIsActuallyAvailable;
-  const expectedSlides = Math.max(presentation.n_slides || 0, slides.length);
+  const expectedSlides =
+    presentation.n_slides > 0 ? presentation.n_slides : slides.length;
   const activeTitle =
     typeof activeSlideIndex === "number"
       ? outlineTitle(slides[activeSlideIndex]?.content ?? "")

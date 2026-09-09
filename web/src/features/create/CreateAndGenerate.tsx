@@ -149,17 +149,27 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
           }
           if (event.type === "kindergarten_chunk") {
             accumulated += event.chunk;
-            const slides = parsePartialKindergartenSlides(accumulated);
+            const slides = parsePartialKindergartenSlides(
+              accumulated,
+              current.n_slides,
+            );
             if (slides.length) {
               setOutline({ slides });
               setActiveSlideIndex(Math.max(0, slides.length - 1));
-              setStatus(`正在生成第 ${slides.length} 页…`);
+              const expected = current.n_slides || 0;
+              setStatus(
+                expected > 0 && slides.length >= expected
+                  ? "页面已齐，正在收尾校验…"
+                  : `正在生成第 ${slides.length} 页…`,
+              );
             }
             return;
           }
           if (event.type === "outline") {
             setOutline(event.outline);
-            setActiveSlideIndex(Math.max(0, event.outline.slides.length - 1));
+            setActiveSlideIndex(null);
+            setStreaming(false);
+            setStatus("");
             return;
           }
           if (event.type === "complete" && event.presentation) {
@@ -175,6 +185,24 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         setStreaming(false);
         setStatus("");
       } catch (cause) {
+        try {
+          const recovered = await api<PresentationOutline>(
+            `/outlines/${presentationId}`,
+          );
+          if (recovered.slides?.length) {
+            setOutline(recovered);
+            setPresentation(
+              await api<Presentation>(`/presentation/${presentationId}`),
+            );
+            setActiveSlideIndex(null);
+            setStreaming(false);
+            setError("");
+            setStatus("");
+            return;
+          }
+        } catch {
+          // Fall through to the visible stream error.
+        }
         setError(localizeError(cause));
         setStreaming(false);
         setStatus("");

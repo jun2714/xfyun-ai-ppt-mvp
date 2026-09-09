@@ -253,6 +253,8 @@ def _downgrade_contract_slide(slide):
 def _ensure_cover_contract(
     plan: KindergartenLessonPlan,
     content_mode: str,
+    *,
+    target_count: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Guarantee a real first-page cover without discarding opening content."""
     topic_focus = plan.meta.topic
@@ -312,6 +314,8 @@ def _ensure_cover_contract(
         )
     else:
         slides = [cover, *plan.slides]
+        if target_count is not None and target_count > 0 and len(slides) > target_count:
+            slides = slides[:target_count]
     renumbered = [
         slide.model_copy(update={"slide_no": index})
         for index, slide in enumerate(slides, start=1)
@@ -630,7 +634,11 @@ async def generate_validated_kindergarten_presentation_outline(
         disconnect_checker=disconnect_checker,
         text_chunk_callback=text_chunk_callback,
     )
-    plan = _ensure_cover_contract(plan, content_mode)
+    plan = _ensure_cover_contract(
+        plan,
+        content_mode,
+        target_count=n_slides if n_slides is not None else len(plan.slides),
+    )
     if content_mode == "training":
         plan = _normalize_training_contracts(plan)
     report = validate_kindergarten_lesson_plan(plan)
