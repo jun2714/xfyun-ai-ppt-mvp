@@ -84,6 +84,7 @@ from api.v1.auth.context import (
     set_current_owner_id,
     set_current_owner_is_admin,
 )
+from services.owner_scope import mark_template_official
 from templates.default_templates import suppress_bundled_template
 
 
@@ -99,6 +100,12 @@ def can_manage_official_templates() -> bool:
     if get_current_owner_is_admin():
         return True
     return is_disable_auth_enabled() and get_current_owner_id() is None
+
+
+def _mark_official_if_admin(template: TemplateV2) -> TemplateV2:
+    return mark_template_official(
+        template, is_admin=can_manage_official_templates()
+    )
 
 
 class InitTemplateRequest(BaseModel):
@@ -1066,7 +1073,7 @@ async def list_templates(
         query = query.where(
             or_(
                 TemplateV2.owner_id == owner_id,
-                TemplateV2.owner_id.is_(None) & TemplateV2.is_default.is_(True),
+                TemplateV2.is_default.is_(True),
             )
         )
     else:
@@ -1203,7 +1210,7 @@ async def init_template(
         await _prepare_template_source(request, operation="init")
     )
     icon_type = _template_request_icon_type(request)
-    template = TemplateV2(
+    template = _mark_official_if_admin(TemplateV2(
         name=(request.name or "").strip() or _derive_template_name(
             request.pptx_url, pptx_path
         ),
@@ -1220,7 +1227,7 @@ async def init_template(
             "images": _collect_image_urls_from_layouts(raw_layouts_json),
             "layout_indexes": [],
         },
-    )
+    ))
     LOGGER.info(
         "[template.init] persisting template name=%s slides=%d images=%d",
         template.name,
@@ -1252,7 +1259,7 @@ def _build_created_template(
     merged_components: MergedComponents,
 ) -> TemplateV2:
     icon_type = _template_generated_icon_type(request, generated_layouts)
-    return TemplateV2(
+    return _mark_official_if_admin(TemplateV2(
         name=(request.name or "").strip() or _derive_template_name(
             request.pptx_url, pptx_path
         ),
@@ -1270,7 +1277,7 @@ def _build_created_template(
             "slide_image_urls": request.slide_image_urls,
             "images": _collect_image_urls_from_layouts(raw_layouts_json),
         },
-    )
+    ))
 
 
 async def _create_template_sync(
@@ -2066,12 +2073,18 @@ async def delete_template(
     template_id: str = Path(...),
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    template = await sql_session.get(TemplateV2, template_id)
+    from services.owner_scope import get_by_id_unscoped, is_row_owned_by, is_shared_official_template
+
+    template = await get_by_id_unscoped(sql_session, TemplateV2, template_id)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    if template.is_default:
+    if is_shared_official_template(template):
+        _require_private_template(template)
         suppress_bundled_template(template.id)
+    elif not is_row_owned_by(template, get_current_owner_id()):
+        raise HTTPException(status_code=404, detail="Template not found")
+
     await sql_session.delete(template)
     await sql_session.commit()
     return Response(status_code=204)

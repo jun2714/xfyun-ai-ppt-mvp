@@ -44,6 +44,25 @@ def is_row_owned_by(row: Any, owner_id: uuid.UUID | None) -> bool:
     return row_owner == current_owner
 
 
+def is_shared_official_template(row: Any) -> bool:
+    return bool(getattr(row, "is_default", False)) if row is not None else False
+
+
+def is_template_visible_to(row: Any, owner_id: uuid.UUID | None) -> bool:
+    """Official templates are visible to every signed-in teacher."""
+    if is_shared_official_template(row):
+        return True
+    return is_row_owned_by(row, owner_id)
+
+
+def mark_template_official(template: Any, *, is_admin: bool) -> Any:
+    """Admin uploads become shared official templates, not private copies."""
+    if is_admin:
+        template.is_default = True
+        template.owner_id = None
+    return template
+
+
 async def get_by_id_unscoped(
     sql_session: AsyncSession,
     model: type[T],

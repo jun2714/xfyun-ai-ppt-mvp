@@ -158,7 +158,11 @@ const LayoutPreview = () => {
                   template={template}
                   showArrow
                   onClick={() => handleOpenTemplate(template.id, template.name, true)}
-                  onDelete={() => void handleDeleteTemplate(template)}
+                  onDelete={
+                    canManage
+                      ? () => void handleDeleteTemplate(template)
+                      : undefined
+                  }
                 />
               ))}
             </div>
