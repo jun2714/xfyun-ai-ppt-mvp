@@ -174,7 +174,9 @@ def _repair_classroom_activity_contracts(
             or slide.game.activity_id in reveal_activity_ids
         ):
             continue
-        answer = slide.game.answer_key
+        answer = (slide.game.options or {}).get(
+            slide.game.answer_key, slide.game.answer_key,
+        )
         completed.append(
             slide.model_copy(
                 update={

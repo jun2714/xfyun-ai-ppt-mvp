@@ -38,6 +38,23 @@ test("empty image cards are also detected in component element arrays", () => {
   assert.equal(collectEmptyVisualCards(card, 1).length, 1);
 });
 
+test("title present in JSON still fails when its expanded box sits behind an image", () => {
+  const title = { type: "text", name: "title", runs: [{ text: "小种子" }],
+    position: { x: 48, y: 24 }, size: { width: 1184, height: 680 } };
+  const slide = {
+    content: { __content_contract__: { classroom_mapping_version: 1,
+      screen_title: "小种子", screen_points: [] } },
+    ui: { components: [
+      { id: "heading", elements: [title] },
+      { id: "scene", elements: [{ type: "image", name: "visual",
+        position: { x: 48, y: 174 }, size: { width: 772, height: 430 } }] },
+    ] },
+  };
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading overlaps/);
+  title.size.height = 132;
+  assert.deepEqual(collectClassroomMappingErrors(slide, 1), []);
+});
+
 test("one successful image cannot conceal a remaining black placeholder", () => {
   const slots = [
     { type: "image", data: "http://localhost:18000/static/images/placeholder.jpg" },

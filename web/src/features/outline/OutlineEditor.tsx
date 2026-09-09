@@ -155,13 +155,14 @@ export function OutlineEditor({
   const slides = outline.slides;
   const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
   const current = slides[selectedSafe] ?? { content: "" };
+  const editingBlocked = streaming || saving || Boolean(aiEditing);
   const editableContent = toEditableOutlineContent(current.content);
   const teacherNote = typeof current.content_contract?.teacher_note === "string"
     ? current.content_contract.teacher_note : "";
   const interactionInstruction = typeof current.content_contract?.interaction_instruction === "string"
     ? current.content_contract.interaction_instruction : "";
   const updateTeacherField = (key: "teacher_note" | "interaction_instruction", text: string) => {
-    if (streaming || showTemplateStage) return;
+    if (editingBlocked || showTemplateStage) return;
     setOutline((value) => ({ slides: value.slides.map((slide, index) => index === selectedSafe
       ? { ...slide, content_contract: { ...slide.content_contract, [key]: text } } : slide) }));
   };
@@ -196,7 +197,7 @@ export function OutlineEditor({
       : "";
 
   const updateCurrent = (content: string) => {
-    if (streaming || showTemplateStage) return;
+    if (editingBlocked || showTemplateStage) return;
     setOutline((value) => ({
       slides: value.slides.map((slide, index) =>
         index === selectedSafe
@@ -296,14 +297,14 @@ export function OutlineEditor({
   };
 
   const addSlide = () => {
-    if (streaming || showTemplateStage) return;
+    if (editingBlocked || showTemplateStage) return;
     setOutline((value) => ({
       slides: [...value.slides, { content: "## 新页面\n\n在这里填写面向观众的内容。" }],
     }));
   };
 
   const removeSlide = () => {
-    if (streaming || showTemplateStage || outline.slides.length <= 1) return;
+    if (editingBlocked || showTemplateStage || outline.slides.length <= 1) return;
     setOutline((value) => ({
       slides: value.slides.filter((_, index) => index !== selectedSafe),
     }));
@@ -311,7 +312,7 @@ export function OutlineEditor({
   };
 
   const prepareWithLayout = async (layoutId: string) => {
-    if (streaming || saving) return;
+    if (editingBlocked) return;
     if (!layoutId || [DEFAULT_TEMPLATE_ID, "auto"].includes(layoutId)) {
       setError("自动模板匹配尚未完成，请重新选择一个可用模板。");
       return;
@@ -354,7 +355,7 @@ export function OutlineEditor({
   };
 
   const goSelectTemplate = () => {
-    if (streaming || saving) return;
+    if (editingBlocked) return;
     setError("");
     setStage("template");
   };
@@ -411,7 +412,7 @@ export function OutlineEditor({
         )}
       </div>
       {!streaming && !showTemplateStage && (
-        <button className="add-page" onClick={addSlide}><PlusIcon />添加一页</button>
+        <button className="add-page" onClick={addSlide} disabled={editingBlocked}><PlusIcon />添加一页</button>
       )}
     </aside>
     <section className="outline-canvas">
@@ -524,7 +525,7 @@ export function OutlineEditor({
                   </button>
                   <button
                     className="primary"
-                    disabled={saving || streaming || !hasResolvedTemplate}
+                    disabled={editingBlocked || !hasResolvedTemplate}
                     onClick={() => void confirmTopic()}
                   >
                     <SparklesIcon />
@@ -534,7 +535,7 @@ export function OutlineEditor({
               ) : (
                 <button
                   className="primary"
-                  disabled={saving || streaming || slides.length === 0}
+                  disabled={editingBlocked || slides.length === 0}
                   onClick={goSelectTemplate}
                 >
                   <SparklesIcon />
@@ -593,14 +594,14 @@ export function OutlineEditor({
                 {resolvedCreateMode === "topic" ? (
                   <button
                     className="primary"
-                    disabled={saving || !hasResolvedTemplate}
+                    disabled={editingBlocked || !hasResolvedTemplate}
                     onClick={() => void confirmTopic()}
                   >
                     <SparklesIcon />
                     {saving ? "正在准备…" : "确认并生成"}
                   </button>
                 ) : (
-                  <button className="primary" disabled={saving} onClick={goSelectTemplate}>
+                  <button className="primary" disabled={editingBlocked} onClick={goSelectTemplate}>
                     <SparklesIcon />选择模板并生成
                   </button>
                 )}
@@ -637,7 +638,7 @@ export function OutlineEditor({
             <textarea
               aria-label="儿童屏幕内容"
               value={editableContent}
-              readOnly={streaming}
+              readOnly={editingBlocked}
               onChange={(event) => updateCurrent(event.target.value)}
               placeholder={streaming ? "内容正在流入…" : "在这里编辑本页大纲"}
             />
@@ -646,11 +647,11 @@ export function OutlineEditor({
             <details className="outline-teacher-notes">
               <summary>教师讲稿与课堂操作（不会投到儿童屏幕）</summary>
               <label>教师讲稿
-                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={1200}
+                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={1200} readOnly={editingBlocked}
                   onChange={(event) => updateTeacherField("teacher_note", event.target.value)} />
               </label>
               <label>课堂操作步骤
-                <textarea aria-label="课堂操作步骤" value={interactionInstruction} maxLength={180}
+                <textarea aria-label="课堂操作步骤" value={interactionInstruction} maxLength={180} readOnly={editingBlocked}
                   onChange={(event) => updateTeacherField("interaction_instruction", event.target.value)} />
               </label>
             </details>

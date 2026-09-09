@@ -73,7 +73,8 @@ def test_cover_role_uses_dedicated_editable_title_layout():
         key=lambda element: element["position"]["y"],
     )
     assert [box["position"]["y"] for box in text_boxes] == [190, 350, 520]
-    assert [box["size"]["height"] for box in text_boxes] == [110, 100, 54]
+    assert [box["size"]["height"] for box in text_boxes] == [110, 144, 64]
+    assert all(box["font"]["size"] >= 32 for box in text_boxes)
     assert text_boxes[0]["position"]["y"] + text_boxes[0]["size"]["height"] < text_boxes[1]["position"]["y"]
     assert text_boxes[1]["position"]["y"] + text_boxes[1]["size"]["height"] < text_boxes[2]["position"]["y"]
 
@@ -182,6 +183,22 @@ def test_every_choice_is_preflighted_without_any_llm():
     outline.content = "标题\n" + "不能把长篇教案塞进儿童投影画面" * 30
     with pytest.raises(LayoutCompatibilityError, match="大字号"):
         get_allowed_layout_indices_for_outline(PresentationOutlineModel(slides=[outline]), layout)
+
+
+def test_scene_hydration_keeps_title_above_image_and_preserves_fixed_boxes():
+    template, schemas = _pack()
+    outline = _outline(bound=False)
+    key = preferred_classroom_layout(outline)
+    layout = next(x for x in template.layouts["layouts"] if x["id"] == key)
+    ui = _apply_template_content_to_ui(layout, build_classroom_content(schemas[key], outline))
+    for before, after in zip(layout["components"], ui["components"]):
+        for expected, actual in zip(before["elements"], after["elements"]):
+            if expected["type"] != "text":
+                continue
+            assert actual["size"] == expected["size"]
+            assert actual["position"] == expected["position"]
+    heading = ui["components"][1]["elements"][0]
+    assert heading["position"]["y"] + heading["size"]["height"] < 174
 
 
 def test_all_template_elements_stay_inside_slide_bounds():

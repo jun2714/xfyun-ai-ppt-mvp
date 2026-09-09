@@ -15,7 +15,9 @@ const topic = process.env.TEST_TOPIC_B64
   ? Buffer.from(process.env.TEST_TOPIC_B64, "base64").toString("utf8")
   : process.env.TEST_TOPIC || "小种子收到了一封春天的来信";
 const expectedSlides = Number(process.env.EXPECTED_SLIDES || 8);
-const outputDir = resolve(root, ".runtime/full-ppt-probe");
+const contentMode = process.env.TEST_CONTENT_MODE || "classroom";
+if (!["classroom", "training"].includes(contentMode)) throw new Error("Unknown probe content mode");
+const outputDir = resolve(root, ".runtime/full-ppt-probe", contentMode);
 const playwrightRoot = resolve(root, ".runtime/playwright/node_modules/playwright");
 const require = createRequire(import.meta.url);
 const { chromium } = require(playwrightRoot);
@@ -317,6 +319,9 @@ try {
   diagnostics.navigation.push({ step: "upload", url: page.url() });
   const prompt = page.locator('[data-testid="prompt-input"]');
   await prompt.waitFor({ state: "visible", timeout: 45000 });
+  await page.getByRole("button", {
+    name: contentMode === "training" ? "幼儿园园本教研培训" : "幼儿园集体教学", exact: true,
+  }).click();
   await prompt.fill(topic);
   if (expectedSlides > 0) {
     await page.getByTestId("slides-select").click();
@@ -550,12 +555,12 @@ try {
   };
   await page.screenshot({ path: resolve(outputDir, "04-editor-final.png"), fullPage: true });
   // Capture actual editor-rendered pages, not just a viewport showing the last page.
+  const editor = page.frameLocator('iframe[title="PPT 编辑器"]');
   for (let index = 0; index < finalSlides.length; index += 1) {
-    const slide = page.locator(`#slide-${index}`).first();
-    if (await slide.count()) {
-      await slide.scrollIntoViewIfNeeded();
-      await slide.screenshot({ path: resolve(outputDir, `slide-${String(index + 1).padStart(2, "0")}.png`) });
-    }
+    const slide = editor.locator(`#slide-${index}`).first();
+    await slide.waitFor({ state: "visible", timeout: 15000 });
+    await slide.scrollIntoViewIfNeeded();
+    await slide.screenshot({ path: resolve(outputDir, `slide-${String(index + 1).padStart(2, "0")}.png`) });
   }
 } catch (error) {
   exitCode = 1;

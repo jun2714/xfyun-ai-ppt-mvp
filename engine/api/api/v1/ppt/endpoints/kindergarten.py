@@ -261,7 +261,8 @@ def _apply_visual_mode(
             result.plan,
             payload.template,
             instructions=payload.instructions,
-            allow_classroom=payload.image_policy != ImagePolicy.DISABLED,
+            allow_classroom=(payload.content_mode == "classroom"
+                             and payload.image_policy != ImagePolicy.DISABLED),
         )
         return result, routing, None
 

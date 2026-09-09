@@ -44,9 +44,9 @@ def _base():
 def classroom_layouts():
     title = _label("title", 140, 190, 1000, 110, 58)
     title["alignment"]["horizontal"] = "center"
-    purpose = _label("text", 230, 350, 820, 100, 26, color="#51636F")
+    purpose = _label("text", 140, 350, 1000, 144, 32, color="#51636F")
     purpose["alignment"]["horizontal"] = "center"
-    context_label = _label("text", 440, 520, 400, 54, 24, color="#79512D")
+    context_label = _label("text", 440, 520, 400, 64, 32, color="#79512D")
     context_label["alignment"]["horizontal"] = "center"
     layouts = [{
         "id": "classroom_cover",

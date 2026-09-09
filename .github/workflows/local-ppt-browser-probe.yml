@@ -29,15 +29,15 @@ jobs:
       - name: Checkout exact repair branch
         uses: actions/checkout@v5
         with:
-          ref: fix/kindergarten-generation-stability
+          ref: ${{ github.sha }}
 
       - name: Show exact repair revision
         shell: powershell
         run: |
           $revision = git rev-parse HEAD
           Write-Host "Repair revision: $revision"
-          if ((git branch --show-current) -ne "fix/kindergarten-generation-stability") {
-            throw "Runner did not checkout the repair branch."
+          if ($revision -ne "${{ github.sha }}") {
+            throw "Runner did not checkout the triggering revision."
           }
 
       - name: Set up Node 20
@@ -159,8 +159,15 @@ jobs:
             if ($runtime.model -ne "gemini-3.1-flash-lite-image") { throw "Unexpected image model; refusing paid probe." }
             if ($runtime.google_genai_compatible -ne $true) { throw "Google GenAI SDK is incompatible; refusing paid probe." }
 
+            $env:TEST_CONTENT_MODE = "classroom"
+            $env:EXPECT_CLASSROOM_PACK = "true"
             node scripts/local-full-ppt-probe.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Full PPT browser probe failed with exit code $LASTEXITCODE." }
+            if ($LASTEXITCODE -ne 0) { throw "Classroom PPT probe failed with exit code $LASTEXITCODE." }
+            $env:TEST_CONTENT_MODE = "training"
+            $env:EXPECT_CLASSROOM_PACK = "false"
+            $env:TEST_TOPIC_B64 = "5Zut5pys5pWZ56CU77ya5aaC5L2V5oqK5Li76KeC6K+E5Lu35pS55Li65Y+v6KeC5a+f55qE5YS/56ul5ri45oiP6K+B5o2u"
+            node scripts/local-full-ppt-probe.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Training PPT probe failed with exit code $LASTEXITCODE." }
           } finally {
             foreach ($processId in @($engine.Id, $web.Id)) {
               try { taskkill /PID $processId /T /F | Out-Null } catch {}

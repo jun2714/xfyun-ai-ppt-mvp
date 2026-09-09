@@ -68,6 +68,25 @@ export const collectClassroomMappingErrors = (slide, page) => {
     return renderedText(component?.elements?.find((item) => item.name === name));
   };
   if (uiText("heading", "title") !== contract.screen_title) fail("title not in heading");
+  const bounds = (component, element) => {
+    if (!element?.size || !element?.position) return null;
+    const x = Number(component.position?.x || 0) + Number(element.position.x || 0);
+    const y = Number(component.position?.y || 0) + Number(element.position.y || 0);
+    return { x, y, right: x + Number(element.size.width), bottom: y + Number(element.size.height) };
+  };
+  const heading = components.find((item) => item.id === "heading");
+  const titleBox = bounds(heading || {}, heading?.elements?.find((item) => item.name === "title"));
+  if (titleBox) {
+    for (const component of components.filter((item) => !["paper", "heading"].includes(item.id))) {
+      for (const element of component.elements || []) {
+        const box = bounds(component, element);
+        if (box && titleBox.x < box.right && titleBox.right > box.x &&
+            titleBox.y < box.bottom && titleBox.bottom > box.y) {
+          fail(`heading overlaps ${component.id}.${element.name || element.type}`);
+        }
+      }
+    }
+  }
   if (uiText("invitation", "cue") !== (contract.screen_instruction || "")) fail("cue changed");
   const cards = String(slide.layout || "").startsWith("classroom_cards_");
   for (const [index, point] of (contract.screen_points || []).entries()) {

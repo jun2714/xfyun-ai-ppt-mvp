@@ -311,6 +311,32 @@ def test_classroom_without_cover_gets_cover_without_losing_opening_content():
     assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
 
 
+def test_generated_reveal_uses_answer_text_instead_of_option_id():
+    plan = _plan()
+    plan.slides = plan.slides[:2]
+    repaired = planning_service._repair_classroom_activity_contracts(plan)
+    reveal = repaired.slides[2]
+    assert reveal.screen_content.points == ["正确答案：小兔子"]
+    assert reveal.assets[0].semantic_label == "小兔子"
+    assert reveal.game.answer_key == "B"
+
+
+def test_training_template_mode_does_not_use_child_classroom_pack():
+    from api.v1.ppt.endpoints.kindergarten import (
+        KindergartenPresentationCreateRequest, _apply_visual_mode,
+    )
+    plan = _plan()
+    result = planning_service.ValidatedKindergartenPlanningResult(
+        plan=plan, outline=plan.to_presentation_outline(),
+        quality=planning_service.validate_kindergarten_lesson_plan(plan), attempts=1,
+    )
+    payload = KindergartenPresentationCreateRequest(
+        topic="教师观察记录培训", content_mode="training", template="auto",
+    )
+    _, routing, _ = _apply_visual_mode(payload, result)
+    assert routing.template != "kindergarten-classroom"
+
+
 def test_forty_page_plan_without_cover_fails_instead_of_dropping_content():
     import pytest
 

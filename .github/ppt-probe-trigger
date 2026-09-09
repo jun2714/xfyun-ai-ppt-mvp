@@ -27,3 +27,5 @@ run: 28
 reason: recover-unproven-caption-bindings-with-scene-fallback
 run: 29
 reason: windows-safe-image-logging-and-outline-bullet-role-preservation
+run: 30
+reason: integrate-new-training-cover-features-and-verify-every-rendered-slide
