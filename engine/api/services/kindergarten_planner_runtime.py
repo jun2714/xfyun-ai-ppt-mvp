@@ -61,13 +61,22 @@ def _is_deepseek_model(model: str) -> bool:
     return "deepseek" in model.strip().lower()
 
 
+def _is_stale_planner_model(model: str) -> bool:
+    lowered = model.strip().lower()
+    if not lowered:
+        return True
+    if _is_kimi_model(lowered):
+        return True
+    # Outline quality needs Pro. Flash is the shared slide-writing default in
+    # many .env files (DMX_TEXT_MODEL) and must not leak into this path.
+    return "deepseek" in lowered and "flash" in lowered
+
+
 def _normalize_planner_model(model: str | None) -> str:
     candidate = (model or "").strip()
-    # Old deployments may still carry KINDERGARTEN_PLANNER_MODEL=kimi-k3 or a
-    # Kimi fast override in their environment. Treat those as stale settings so
-    # a restart immediately moves this outline path to DeepSeek without requiring
-    # the operator to find and remove every old environment variable first.
-    if not candidate or _is_kimi_model(candidate):
+    # Old deployments may still carry KINDERGARTEN_PLANNER_MODEL=kimi-k3, a
+    # Kimi fast override, or DeepSeek Flash copied from DMX_TEXT_MODEL.
+    if _is_stale_planner_model(candidate):
         return DEFAULT_MODEL
     return candidate
 
@@ -249,7 +258,7 @@ def get_kindergarten_planner_runtime() -> KindergartenPlannerRuntime:
     if not configured_model and not planner_base_url:
         return _build_runtime(
             config=get_llm_config(),
-            model=get_model(),
+            model=_normalize_planner_model(get_model()),
             source="global",
             profile=PREMIUM_PROFILE,
         )

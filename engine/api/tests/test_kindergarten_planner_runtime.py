@@ -212,6 +212,18 @@ def test_stale_kimi_fast_override_is_replaced_by_deepseek(monkeypatch):
     assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
 
 
+def test_stale_deepseek_flash_override_is_replaced_by_pro(monkeypatch):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
+    monkeypatch.setenv("DMX_TEXT_MODEL", "deepseek-v4-flash")
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_FAST_MODEL", "deepseek-v4-flash")
+
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+
+    assert runtime.model == "deepseek-v4-pro-0813"
+    assert runtime.source == "shared-dmx-openai-compatible"
+
+
 def test_planner_runtime_reads_its_own_limits(monkeypatch):
     _clear_planner_env(monkeypatch)
     monkeypatch.setenv("DMX_API_KEY", "shared-dmx-key")
