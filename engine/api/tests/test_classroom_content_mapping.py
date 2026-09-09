@@ -43,6 +43,41 @@ def _pack():
     return template, schemas
 
 
+def test_cover_role_uses_dedicated_editable_title_layout():
+    template, schemas = _pack()
+    points = ["活动目标：观察并认识森林动物", "幼儿园集体教学"]
+    outline = SlideOutlineModel(
+        content="\n".join(["认识森林动物", *points]),
+        content_contract=SlideContentContract(
+            preserve_visible_copy=True,
+            screen_title="认识森林动物",
+            screen_points=points,
+            classroom_role="cover-scene",
+            teacher_note="封面页。",
+        ),
+    )
+
+    assert preferred_classroom_layout(outline) == "classroom_cover"
+    result = build_classroom_content(schemas["classroom_cover"], outline)
+    assert result["heading"]["title"] == "认识森林动物"
+    assert result["point_0"]["text"] == points[0]
+    assert result["point_1"]["text"] == points[1]
+    visible = {key: value for key, value in result.items() if not key.startswith("__")}
+    jsonschema.validate(visible, schemas["classroom_cover"])
+    layout = next(
+        item for item in template.layouts["layouts"] if item["id"] == "classroom_cover"
+    )
+    ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
+    text_boxes = sorted(
+        _collect_non_decorative_text_elements(ui["components"]),
+        key=lambda element: element["position"]["y"],
+    )
+    assert [box["position"]["y"] for box in text_boxes] == [190, 350, 520]
+    assert [box["size"]["height"] for box in text_boxes] == [110, 100, 54]
+    assert text_boxes[0]["position"]["y"] + text_boxes[0]["size"]["height"] < text_boxes[1]["position"]["y"]
+    assert text_boxes[1]["position"]["y"] + text_boxes[1]["size"]["height"] < text_boxes[2]["position"]["y"]
+
+
 def test_reversed_image_assets_still_match_their_exact_captions():
     _, schemas = _pack()
     outline = _outline()
@@ -67,6 +102,13 @@ def test_no_binding_uses_scene_instead_of_guessing_image_pairing():
     assert preferred_classroom_layout(outline) == "classroom_scene_left_3"
     with pytest.raises(ValueError, match="语义绑定"):
         build_classroom_content(schemas["classroom_cards_3"], outline)
+
+
+def test_missing_classroom_contract_returns_validation_error():
+    outline = SlideOutlineModel(content="只有标题")
+
+    with pytest.raises(ValueError, match="已确认的大纲文案"):
+        preferred_classroom_layout(outline)
 
 
 def test_outline_bullets_preserve_roles_and_exact_visual_bindings():

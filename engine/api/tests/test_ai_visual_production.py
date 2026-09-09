@@ -14,6 +14,19 @@ def _walk_images(value):
     return found
 
 
+def _walk_containers(value):
+    found = []
+    if isinstance(value, dict):
+        if value.get("type") == "container":
+            found.append(value)
+        for child in value.values():
+            found.extend(_walk_containers(child))
+    elif isinstance(value, list):
+        for child in value:
+            found.extend(_walk_containers(child))
+    return found
+
+
 def test_ai_visual_skeleton_has_eight_distinct_layouts():
     template = build_production_ai_visual_template()
     layouts = template.layouts["layouts"]
@@ -24,6 +37,7 @@ def test_ai_visual_skeleton_has_eight_distinct_layouts():
     assert len(ids) == len(set(ids))
     assert "ai_compare" in ids
     assert "ai_sequence" in ids
+    assert "ai_problem_solution" in ids
 
 
 def test_every_ai_visual_layout_has_one_full_canvas_background_slot():
@@ -69,3 +83,24 @@ def test_multi_item_layout_uses_one_sprite_group_for_cutouts():
     assert len(cutouts) == 4
     assert {image["asset_mode"] for image in cutouts} == {"sprite-sheet"}
     assert {image["asset_group"] for image in cutouts} == {"game_items"}
+
+
+def test_reading_panels_remain_translucent_over_generated_backgrounds():
+    template = build_production_ai_visual_template()
+    panels = _walk_containers(template.layouts["layouts"])
+
+    assert panels
+    assert all(panel["fill"]["opacity"] <= 0.78 for panel in panels)
+
+
+def test_cover_has_title_purpose_and_context_fields():
+    template = build_production_ai_visual_template()
+    cover = next(
+        layout for layout in template.layouts["layouts"] if layout["id"] == "ai_cover"
+    )
+    serialized = str(cover)
+
+    assert "'title'" in serialized
+    assert "'subtitle'" in serialized
+    assert "'context'" in serialized
+    assert cover["metadata"]["contentShape"]["textBlocks"] == 3

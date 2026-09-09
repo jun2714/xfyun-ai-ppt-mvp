@@ -28,6 +28,8 @@ export type KindergartenDomain =
   | "art"
   | "comprehensive";
 
+export type KindergartenContentMode = "classroom" | "training";
+
 export type KindergartenVisualMode = "template" | "ai-background";
 
 export type KindergartenPresentationCreateResponse = {
@@ -181,6 +183,7 @@ export class PresentationGenerationApi {
     topic,
     age_group = "4-5岁",
     domain = "comprehensive",
+    content_mode = "classroom",
     duration_minutes = 20,
     n_slides,
     instructions,
@@ -197,6 +200,7 @@ export class PresentationGenerationApi {
     topic: string;
     age_group?: string;
     domain?: KindergartenDomain;
+    content_mode?: KindergartenContentMode;
     duration_minutes?: number;
     n_slides: number | null;
     instructions?: string | null;
@@ -224,6 +228,7 @@ export class PresentationGenerationApi {
             topic,
             age_group,
             domain,
+            content_mode,
             duration_minutes,
             n_slides: limitedSlideCount,
             instructions,
@@ -255,6 +260,7 @@ export class PresentationGenerationApi {
     topic,
     age_group = "4-5岁",
     domain = "comprehensive",
+    content_mode = "classroom",
     duration_minutes = 20,
     n_slides,
     instructions,
@@ -271,6 +277,7 @@ export class PresentationGenerationApi {
     topic: string;
     age_group?: string;
     domain?: KindergartenDomain;
+    content_mode?: KindergartenContentMode;
     duration_minutes?: number;
     n_slides: number | null;
     instructions?: string | null;
@@ -297,6 +304,7 @@ export class PresentationGenerationApi {
           topic,
           age_group,
           domain,
+          content_mode,
           duration_minutes,
           n_slides: limitedSlideCount,
           instructions,

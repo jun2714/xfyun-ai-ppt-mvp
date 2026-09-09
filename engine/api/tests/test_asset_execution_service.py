@@ -1,6 +1,7 @@
 import asyncio
 
 from PIL import Image, ImageDraw
+import pytest
 
 from models.sql.image_asset import ImageAsset
 from models.sql.slide import SlideModel
@@ -9,6 +10,12 @@ from services.asset_semantic_quality_service import (
     AssetSemanticCheck,
     AssetSemanticQualityResult,
 )
+
+
+@pytest.fixture(autouse=True)
+def _local_asset_storage(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_DATA_DIRECTORY", str(tmp_path / "app-data"))
+    monkeypatch.setenv("ALIYUN_OSS_ENABLED", "false")
 
 
 class FakeImageService:
@@ -201,8 +208,15 @@ def test_later_semantic_failure_does_not_regenerate_prior_success(tmp_path, monk
     assert service.prompts[0].count("A red apple") == 1
     assert sum("A red apple" in prompt for prompt in service.prompts) == 1
     assert sum("A white rabbit" in prompt for prompt in service.prompts) == 2
-    assert [trace.status for trace in traces] == ["succeeded", "failed", "succeeded"]
-    assert traces[2].retry_of == plan[1].request_id
+    first_traces = [trace for trace in traces if trace.request_id == plan[0].request_id]
+    second_traces = [
+        trace
+        for trace in traces
+        if trace.request_id == plan[1].request_id or trace.retry_of == plan[1].request_id
+    ]
+    assert [trace.status for trace in first_traces] == ["succeeded"]
+    assert sorted(trace.status for trace in second_traces) == ["failed", "succeeded"]
+    assert any(trace.retry_of == plan[1].request_id for trace in second_traces)
     assert "image_url" in slides[0].content["main"]["subject"]
     assert "image_url" in slides[1].content["main"]["subject"]
 

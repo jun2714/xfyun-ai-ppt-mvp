@@ -282,6 +282,22 @@ export function resolveBackendAssetUrl(path?: string): string {
   if (isAbsoluteHttpUrl(trimmedPath)) {
     try {
       const parsed = new URL(trimmedPath);
+      const explicitlyBackendServed =
+        parsed.pathname.includes("/app_data/") ||
+        parsed.pathname.includes("/static/");
+      const configuredOrigin = getConfiguredFastApiUrl();
+      const belongsToAppRuntime =
+        (typeof window !== "undefined" &&
+          parsed.origin === window.location.origin) ||
+        (configuredOrigin !== null &&
+          parsed.origin === normalizeFastApiOrigin(configuredOrigin));
+
+      // OSS/CDN URLs commonly contain `/images/`. They are already public,
+      // immutable assets and must not be rewritten to the local
+      // `/app_data/images/` mount, where the same object does not exist.
+      if (!explicitlyBackendServed && !belongsToAppRuntime) {
+        return trimmedPath;
+      }
       const servedPath = toBackendServedPath(parsed.pathname);
       if (hasBackendAssetPrefix(servedPath)) {
         return resolveAuthenticatedBackendAsset(

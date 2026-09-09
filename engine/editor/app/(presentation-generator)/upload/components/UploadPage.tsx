@@ -16,6 +16,7 @@ import SupportingDoc from "./SupportingDoc";
 import { notify } from "@/components/ui/sonner";
 import {
   PresentationGenerationApi,
+  type KindergartenContentMode,
   type KindergartenDomain,
   type KindergartenVisualMode,
 } from "../../services/api/presentation-generation";
@@ -110,6 +111,31 @@ const DOMAIN_TERMS: Array<[KindergartenDomain, string[]]> = [
   ["social", ["社会", "礼仪", "规则", "情绪", "朋友", "合作", "分享", "交往", "家园", "节日"]],
 ];
 
+const TRAINING_TERMS = [
+  "教研",
+  "培训",
+  "汇报",
+  "园本",
+  "课程推进",
+  "现存问题",
+  "问题分析",
+  "教师成长",
+];
+
+const inferContentMode = (
+  topic: string,
+  context: TeachingContextState,
+): KindergartenContentMode => {
+  const audience = context.audience?.trim();
+  const scene = context.scene?.trim();
+  if (audience === "教师" || audience === "教研团队" || scene === "教研分享") {
+    return "training";
+  }
+  return TRAINING_TERMS.some((term) => topic.includes(term))
+    ? "training"
+    : "classroom";
+};
+
 const normalizeAgeGroup = (age?: string): string => {
   const value = age?.trim() || "";
   if (!value) return "4-5岁";
@@ -138,9 +164,13 @@ const inferKindergartenDomain = (text: string): KindergartenDomain => {
 const buildPlannerInstructions = (
   baseInstructions: string | null | undefined,
   context: TeachingContextState,
+  contentMode: KindergartenContentMode,
 ): string | null => {
   const lines = [
     baseInstructions?.trim() || "",
+    contentMode === "training"
+      ? "内容模式：面向教师的教研培训，不得生成幼儿课堂脚本或儿童口吻。"
+      : "内容模式：面向幼儿的课堂活动。",
     context.audience?.trim() ? `目标观众：${context.audience.trim()}` : "",
     context.scene?.trim() ? `课堂场景：${context.scene.trim()}` : "",
     context.style?.trim() ? `视觉偏好：${context.style.trim()}` : "",
@@ -427,13 +457,34 @@ const UploadPage = () => {
 
   const startKindergartenOutline = async (documentPaths: string[]) => {
     const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
-    const requestContext = teachingContext;
+    const contentMode = inferContentMode(topic, teachingContext);
+    const requestContext: TeachingContextState =
+      contentMode === "training"
+        ? {
+            ...teachingContext,
+            audience: "教师",
+            age: undefined,
+            scene: "教研分享",
+            style:
+              teachingContext.style === "明亮童趣"
+                ? "简洁清晰"
+                : teachingContext.style,
+          }
+        : teachingContext;
     const requestContent = buildTeachnovaPrompt(topic, requestContext);
-    const plannerInstructions = buildPlannerInstructions(config.instructions, requestContext);
+    const plannerInstructions = buildPlannerInstructions(
+      config.instructions,
+      requestContext,
+      contentMode,
+    );
     const createResponse = await PresentationGenerationApi.startKindergartenPresentation({
       topic,
-      age_group: normalizeAgeGroup(requestContext.age),
+      age_group:
+        contentMode === "training"
+          ? "教师教研"
+          : normalizeAgeGroup(requestContext.age),
       domain: inferKindergartenDomain(`${topic}\n${plannerInstructions || ""}`),
+      content_mode: contentMode,
       duration_minutes: 20,
       n_slides: parseLimitedSlideCount(config?.slides),
       instructions: plannerInstructions,
@@ -492,14 +543,25 @@ const UploadPage = () => {
     }
     const responses = await Promise.all(promises);
     const documentPaths = getDocumentPaths(responses);
+    const plannedContentMode = inferContentMode(
+      config.prompt.trim() || "根据上传资料生成幼教课件",
+      teachingContext,
+    );
 
     setLoadingState({
       isLoading: true,
-      message: "AI 正在规划幼教课堂大纲…",
+      message:
+        plannedContentMode === "training"
+          ? "AI 正在规划园本教研培训大纲…"
+          : "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 50,
       extra_info:
-        visualMode === "ai-background"
+        plannedContentMode === "training"
+          ? visualMode === "ai-background"
+            ? "先检查教研逻辑与问题闭环，再规划统一视觉；确认大纲前不会开始付费生图。"
+            : "会先检查问题、证据、策略和验证闭环，再进入大纲确认。"
+          : visualMode === "ai-background"
           ? "先检查教学逻辑，再规划统一视觉世界与逐页背景；确认大纲前不会开始付费生图。"
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
@@ -528,13 +590,24 @@ const UploadPage = () => {
   };
 
   const handleDirectPresentationGeneration = async () => {
+    const plannedContentMode = inferContentMode(
+      config.prompt.trim() || "根据主题生成幼教课件",
+      teachingContext,
+    );
     setLoadingState({
       isLoading: true,
-      message: "AI 正在规划幼教课堂大纲…",
+      message:
+        plannedContentMode === "training"
+          ? "AI 正在规划园本教研培训大纲…"
+          : "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 45,
       extra_info:
-        visualMode === "ai-background"
+        plannedContentMode === "training"
+          ? visualMode === "ai-background"
+            ? "先规划教研内容与整套专业视觉；每页背景会在大纲确认后再生成。"
+            : "会先检查问题、证据、策略和验证闭环，再进入大纲确认。"
+          : visualMode === "ai-background"
           ? "先规划课堂与整套视觉规范；每页背景会在大纲确认后再生成。"
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });

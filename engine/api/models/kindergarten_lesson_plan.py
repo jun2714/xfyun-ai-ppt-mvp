@@ -202,7 +202,12 @@ def _relationship_for_slide(slide: KindergartenSlidePlan):
         return "sequence"
     if slide.slide_type == "compare":
         return "comparison"
-    if slide.slide_type in {"cover-scene", "story-intro", "ending-scene"}:
+    # Cover layouts use a title/subtitle contract rather than a story-body
+    # contract. Keeping the cover as "single" lets the AI visual router choose
+    # the dedicated title composition instead of a normal content page.
+    if slide.slide_type == "cover-scene":
+        return "single"
+    if slide.slide_type in {"story-intro", "ending-scene"}:
         return "story"
     if slide.slide_type == "memory-show":
         return "multi-item"

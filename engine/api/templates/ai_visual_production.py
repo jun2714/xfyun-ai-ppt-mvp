@@ -20,14 +20,21 @@ def _comparison_layout() -> dict:
         "components": [
             _component(
                 "background",
-                "全屏生成比较场景，主体尽量分居左右并保持中央低细节。",
+                "全屏生成比较场景，主体尽量分居左右；背景本身不得绘制卡片、白框或文字框。",
                 [_background(safe="center")],
             ),
             _component(
                 "content",
                 "顶部标题和左右两个比较卡，文字量克制且关系一眼可见。",
                 [
-                    _panel(180, 55, 920, 84, _text("title", 884, 60, 36, 30)),
+                    _panel(
+                        180,
+                        55,
+                        920,
+                        84,
+                        _text("title", 884, 60, 36, 30),
+                        opacity=0.72,
+                    ),
                     _panel(
                         80,
                         410,
@@ -42,6 +49,7 @@ def _comparison_layout() -> dict:
                             color="#2A6F62",
                             align="left",
                         ),
+                        opacity=0.72,
                     ),
                     _panel(
                         680,
@@ -57,6 +65,7 @@ def _comparison_layout() -> dict:
                             color="#355C7D",
                             align="left",
                         ),
+                        opacity=0.72,
                     ),
                 ],
             ),
@@ -65,7 +74,7 @@ def _comparison_layout() -> dict:
             ["scene", "compare", "comparison", "observation", "image-text"],
             "comparison",
             3,
-            max_chars=150,
+            max_chars=180,
         ),
     }
 
@@ -77,14 +86,21 @@ def _sequence_layout() -> dict:
         "components": [
             _component(
                 "background",
-                "全屏生成过程场景，背景具有轻微方向感但不绘制文字或数字。",
+                "全屏生成过程场景，背景具有轻微方向感但不绘制文字、数字、卡片或白色面板。",
                 [_background(safe="center")],
             ),
             _component(
                 "content",
                 "顶部标题和三个横向步骤卡，适合实验、生活技能和课堂动作流程。",
                 [
-                    _panel(180, 55, 920, 84, _text("title", 884, 60, 36, 30)),
+                    _panel(
+                        180,
+                        55,
+                        920,
+                        84,
+                        _text("title", 884, 60, 36, 30),
+                        opacity=0.72,
+                    ),
                     _panel(
                         70,
                         390,
@@ -98,6 +114,7 @@ def _sequence_layout() -> dict:
                             60,
                             color="#2A6F62",
                         ),
+                        opacity=0.72,
                     ),
                     _panel(
                         465,
@@ -112,6 +129,7 @@ def _sequence_layout() -> dict:
                             60,
                             color="#C06B32",
                         ),
+                        opacity=0.72,
                     ),
                     _panel(
                         860,
@@ -126,6 +144,7 @@ def _sequence_layout() -> dict:
                             60,
                             color="#355C7D",
                         ),
+                        opacity=0.72,
                     ),
                 ],
             ),
@@ -134,7 +153,65 @@ def _sequence_layout() -> dict:
             ["scene", "sequence", "process", "move"],
             "sequence",
             4,
-            max_chars=150,
+            max_chars=180,
+        ),
+    }
+
+
+def _problem_solution_layout() -> dict:
+    return {
+        "id": "ai_problem_solution",
+        "description": "AI自由视觉问题解决页，明确呈现问题、解决动作与验证指标。",
+        "components": [
+            _component(
+                "background",
+                "全屏生成真实园所改进场景；人物位于侧后方，不得绘制卡片、白框或文字。",
+                [_background(safe="center")],
+            ),
+            _component(
+                "content",
+                "标题与三个半透明信息条，依次回答遇到什么、怎么做、如何验证。",
+                [
+                    _panel(
+                        180,
+                        55,
+                        920,
+                        84,
+                        _text("title", 884, 60, 36, 30),
+                        opacity=0.70,
+                    ),
+                    _panel(
+                        70,
+                        400,
+                        350,
+                        150,
+                        _text("problem", 314, 126, 25, 52, color="#8A4B42"),
+                        opacity=0.72,
+                    ),
+                    _panel(
+                        465,
+                        400,
+                        350,
+                        150,
+                        _text("action", 314, 126, 25, 52, color="#2A6F62"),
+                        opacity=0.72,
+                    ),
+                    _panel(
+                        860,
+                        400,
+                        350,
+                        150,
+                        _text("metric", 314, 126, 25, 52, color="#355C7D"),
+                        opacity=0.72,
+                    ),
+                ],
+            ),
+        ],
+        "metadata": _metadata(
+            ["scene", "problem-solution", "sequence", "image-text"],
+            "multi-item",
+            4,
+            max_chars=190,
         ),
     }
 
@@ -146,7 +223,12 @@ def build_production_ai_visual_template() -> TemplateV2:
     the art direction; these layouts only guarantee projection-safe hierarchy,
     spacing, interaction structure and text-safe regions.
     """
-    layout_values = [*_layouts(), _comparison_layout(), _sequence_layout()]
+    layout_values = [
+        *_layouts(),
+        _comparison_layout(),
+        _sequence_layout(),
+        _problem_solution_layout(),
+    ]
     layouts = SlideLayouts.model_validate({"layouts": layout_values}).model_dump(
         mode="json",
         by_alias=True,

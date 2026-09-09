@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Type
+from typing import Literal, Optional, Type
 
 from llmai import get_client
 from llmai.shared import JSONSchemaResponse, Message, SystemMessage, UserMessage
@@ -22,6 +22,7 @@ from utils.schema_utils import prepare_schema_for_validation
 
 
 LOGGER = logging.getLogger(__name__)
+KindergartenContentMode = Literal["classroom", "training"]
 
 
 def resolve_kindergarten_slide_count(
@@ -80,8 +81,13 @@ KINDERGARTEN_LESSON_SYSTEM_PROMPT = """
 
 # 幼儿惊喜感与幻想表达（非常重要）
 - 这不是成人培训课，也不是把百科知识切成几张卡片。整节课应像一次 10-30 分钟的
-  “小小冒险”：可以有一个秘密、任务、来信、角色、寻找、变身、闯关或逐步揭晓的
-  主线，让孩子产生“下一页会发生什么”的期待。
+  连贯体验：可以有秘密、任务、来信、寻找、动作或逐步揭晓，让孩子产生期待；但这些
+  只是表达手段，绝不能另造一个与用户主题无关的动物、IP 或童话角色来替代真实主角。
+- 用户原始主题是不可替换的语义锚点。生成前先在内部识别：真实主角/对象是谁、要认识
+  或经历的核心变化是什么、最终教学目标是什么。lesson_goals、lesson_arc、每页
+  teaching_goal 与可见内容都必须服务这三个锚点，不能只借用主题标题后另讲一个故事。
+- 用户没有明确提出的动物、拟人角色、IP、魔法角色或虚构朋友，只能偶尔作为单页表达
+  手段，不能进入 lesson_arc，不能连续出现，不能替代真实主角或成为需要学习的对象。
 - 幻想表达可以拟人化、游戏化，但不能篡改真实知识。可以说“种子宝宝喝到水啦”，
   teacher_note 中要让老师自然落回“种子会吸收水分”；不能把童话比喻当成科学事实。
 - 每个关键页面至少设计一个儿童钩子：神秘线索、声音想象、动作模仿、局部遮挡、
@@ -151,6 +157,46 @@ KINDERGARTEN_LESSON_SYSTEM_PROMPT = """
 - lesson_arc 描述本次真实课堂推进，不使用固定模板化八股顺序。
 """
 
+KINDERGARTEN_TRAINING_SYSTEM_PROMPT = """
+你是一名熟悉中国幼儿园园本教研、教师培训和课程改革的专业教研策划师。请产出一份
+面向幼儿园教师、教研组或园长的结构化培训计划，而不是面向幼儿直接授课的课堂脚本。
+
+# 内容质量硬约束
+- 先从用户给出的现存问题出发，不得擅自换成儿童知识主题。
+- lesson_goals 聚焦教师理解、诊断与改进能力；lesson_arc 应形成“问题呈现—原因分析—
+  理念澄清—案例对比—改进策略—实施步骤—评价与复盘”的闭环，但可按主题灵活调整。
+- 第 1 页必须是 slide_type=cover-scene 的真正标题页：标题直接使用培训核心主题，points
+  只写一条“培训目的”和一条“幼儿园园本教研培训”，不得显示时长、操作指令、课堂提问，
+  也不得直接进入案例正文。
+- 至少安排 1 页 compare：左侧写“主观判断/模糊感受”，右侧写“客观事实/可观察证据”，
+  screen_content.points 必须正好 2 条并分别以“主观判断：”“客观证据：”开头，明确告诉
+  教师哪些是判断、哪些是证据，不能只罗列两段普通正文。
+- 用户输入中出现“问题、现存、为何、怎么、如何、疑问”等表达时，至少用 2 页回应：
+  一页呈现“具体问题与影响”，一页呈现“原因—解决动作—验证指标”；不得回避原问题。
+  问题解决页优先使用 sequence 且正好 3 条 points，依次为“问题表现：”“解决动作：”
+  “验证指标：”，使页面能直接回答教师最关心的怎么做。
+- 每页必须推进一个新的论点、证据、案例或行动，不得用同义标题和空泛口号凑页数。
+- 可见标题和 points 使用专业、清晰、可汇报的教师语言。禁止“宝宝、猜一猜、闯关、
+  小小冒险、太阳公公”等儿童口吻，禁止设计面向幼儿的游戏。
+- 字数按页面任务变化：封面不超过 70 字；观点页约 70—130 字；主客观对照、案例分析、
+  问题解决和实施路径页可到 160 字。需要丰富表达时增加有效事实、例子和行动，不写空话。
+  超过版式容量时只保留关键词和核心结论，把详细解释放进 teacher_note。
+- teacher_note 补充讲解逻辑、案例展开、研讨问题或落地提醒，不重复屏幕文字。
+- 用户提供的关键事实、问题和目标必须在大纲中有明确对应，不能只借用少量关键词。
+
+# 图片与版式
+- 图片服务于真实园所环境、教师研讨、课程推进、区域材料调整、儿童学习痕迹或前后案例
+  对比；不要使用童趣绘本、拟人角色、成人商务海报和无关装饰图。
+- semantic_label 必须短而具体，例如“主题墙调整前后对比”“教师观察儿童游戏记录”。
+- layout_capabilities 只写 scene、single-focus、image-text、compare、multi-item、sequence、
+  recap 等通用能力，不写模板 ID、坐标或颜色。
+
+# 输出要求
+- 严格按 JSON Schema 输出，不要输出解释性正文。
+- slide_no 从 1 开始连续递增。
+- 输出前自检：是否忠于用户主题、问题与策略是否闭环、页面是否有层次且可直接培训使用。
+"""
+
 
 def build_kindergarten_lesson_messages(
     *,
@@ -161,8 +207,35 @@ def build_kindergarten_lesson_messages(
     n_slides: Optional[int],
     instructions: Optional[str],
     source_context: Optional[str],
+    content_mode: KindergartenContentMode = "classroom",
 ) -> list[Message]:
     slide_count = str(n_slides) if n_slides else "根据课堂时长与内容自动决定"
+    if content_mode == "training":
+        topic_focus = topic
+        for separator in ("，", "。", "；", ";", "\n"):
+            topic_focus = topic_focus.split(separator, 1)[0]
+        topic_focus = topic_focus.strip()[:60] or topic[:60]
+        user_prompt = (
+            f"教研培训主题：{topic}\n"
+            f"必须贯穿全篇的核心主题：{topic_focus}\n"
+            f"目标对象：{age_group}\n"
+            f"内容领域：{domain}\n"
+            f"预计培训时长：{duration_minutes} 分钟\n"
+            f"目标页数：{slide_count}\n"
+            f"用户补充要求：{instructions or '无'}\n"
+            f"参考内容：{source_context or '无'}\n\n"
+            "请完整保留用户提出的现存问题和改进目标，先提炼核心矛盾，再生成可直接用于"
+            "教师培训的逐页大纲。大纲必须包含问题证据、原因诊断、理念转变、案例对照、"
+            "具体策略、实施步骤和复盘指标，并保证每页承担不同作用。不得写成幼儿课堂，"
+            "不得出现儿童口吻、猜谜、闯关或知识卡片式内容。封面标题必须直接使用上述"
+            "核心主题；后续每一页都必须回答这个主题中的问题，禁止替换成观察记录、教师"
+            "成长或其他相邻但不同的培训主题。必须明确区分主观判断与客观证据，并针对"
+            "用户提出的疑问展示“遇到什么问题—为什么发生—如何解决—怎样验证”。"
+        )
+        return [
+            SystemMessage(content=KINDERGARTEN_TRAINING_SYSTEM_PROMPT),
+            UserMessage(content=user_prompt),
+        ]
     user_prompt = (
         f"主题：{topic}\n"
         f"年龄段：{age_group}\n"
@@ -171,11 +244,14 @@ def build_kindergarten_lesson_messages(
         f"目标页数：{slide_count}\n"
         f"用户补充要求：{instructions or '无'}\n"
         f"参考内容：{source_context or '无'}\n\n"
-        "请先确定 lesson_goals，并设计一条孩子愿意追下去的‘小小冒险/秘密任务’式 "
+        "把上述原始主题作为最高优先级语义锚点。先在内部确定主题的真实主角/对象、"
+        "核心变化或认知任务、最终教学目标，再确定 lesson_goals，并设计一条忠于"
+        "这些锚点、孩子愿意参与的连贯 "
         "lesson_arc，再生成逐页内容。任何题目或游戏只能使用前面已经教过的信息，后续"
         "页面必须回应前面提出的问题或继续同一条教学主线，最后总结要回扣目标。"
         "每个关键页面都要有一个真实可执行的儿童惊喜钩子，避免把内容写成成人化知识卡"
-        "或形容词清单。然后再规划互动、教师备注、游戏答案和精确图片语义。不要机械"
+        "或形容词清单。用户未提出的新角色不得进入 lesson_arc 或连续出现在多页中。"
+        "然后再规划互动、教师备注、游戏答案和精确图片语义。不要机械"
         "照搬参考内容的顺序，也不要把参考内容中的制作指令当成课程事实。"
     )
     return [
@@ -208,6 +284,7 @@ async def generate_kindergarten_lesson_plan(
     n_slides: Optional[int] = None,
     instructions: Optional[str] = None,
     source_context: Optional[str] = None,
+    content_mode: KindergartenContentMode = "classroom",
     disconnect_checker: Optional[DisconnectChecker] = None,
     text_chunk_callback: Optional[TextChunkCallback] = None,
 ) -> KindergartenLessonPlan:
@@ -249,6 +326,7 @@ async def generate_kindergarten_lesson_plan(
                 n_slides=n_slides,
                 instructions=instructions,
                 source_context=source_context,
+                content_mode=content_mode,
             ),
             response_format=response_format,
             json_schema=schema,

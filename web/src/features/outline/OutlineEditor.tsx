@@ -100,6 +100,8 @@ export function OutlineEditor({
   const [template, setTemplate] = useState(preferred || "");
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
+  const [aiEditing, setAiEditing] = useState<"polish" | "regenerate" | null>(null);
+  const [templatePreviewOpen, setTemplatePreviewOpen] = useState(false);
   const [error, setError] = useState("");
   const [templateNotice, setTemplateNotice] = useState("");
 
@@ -140,6 +142,15 @@ export function OutlineEditor({
   useEffect(() => {
     if (streaming) setStage("outline");
   }, [streaming]);
+
+  useEffect(() => {
+    if (!templatePreviewOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [templatePreviewOpen]);
 
   const slides = outline.slides;
   const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
@@ -193,6 +204,83 @@ export function OutlineEditor({
           : slide,
       ),
     }));
+  };
+
+  const rewriteCurrentWithAi = async (mode: "polish" | "regenerate") => {
+    if (streaming || saving || aiEditing || !current.content) return;
+    setAiEditing(mode);
+    setError("");
+    const action =
+      mode === "polish"
+        ? "润色并压缩本页：保持原意和事实，标题更明确，正文分层清楚，删除重复表达；可见中文控制在120字以内，并确保适合当前PPT版式。"
+        : "重新生成本页：依据整份演示主题、相邻页面和本页教学目标重写，不偏离用户原始问题；给出具体事实、解决动作或验证指标，可见中文控制在140字以内。";
+    try {
+      await api("/chat/message", {
+        method: "POST",
+        body: JSON.stringify({
+          presentation_id: presentation.id,
+          presentation_type: "standard",
+          message:
+            `${action}\n必须调用 updateOutline 工具，只替换零基索引 ${selectedSafe} 的大纲内容，` +
+            `不要新增、删除或修改其他页面。\n当前内容：\n${current.content}`,
+          attachments: [],
+        }),
+      });
+      const generated = await api<PresentationOutline>(`/outlines/${presentation.id}`);
+      const generatedContent = generated.slides[selectedSafe]?.content?.trim();
+      if (!generatedContent || generatedContent === current.content.trim()) {
+        throw new Error("AI 未返回新的本页内容，请重试。");
+      }
+
+      const visibleLines = toEditableOutlineContent(generatedContent)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const titleLine = (visibleLines[0] || "未命名页面").replace(/^•\s*/, "");
+      const pointLines = visibleLines.slice(1).map((line) => line.replace(/^•\s*/, ""));
+      const oldContract = current.content_contract || {};
+      const oldAssets = Array.isArray(oldContract.asset_contracts)
+        ? oldContract.asset_contracts
+        : [];
+      const backgroundAssets = oldAssets.filter(
+        (asset) =>
+          asset &&
+          typeof asset === "object" &&
+          (asset as Record<string, unknown>).role === "background",
+      );
+      const nextContract = {
+        ...oldContract,
+        preserve_visible_copy: true,
+        screen_title: titleLine,
+        screen_points: pointLines,
+        screen_instruction: null,
+        visible_characters: visibleLines.join("").length,
+        required_asset_semantics: backgroundAssets
+          .map((asset) => (asset as Record<string, unknown>).semantic_label)
+          .filter((value): value is string => typeof value === "string"),
+        asset_contracts: backgroundAssets,
+      };
+      const nextOutline: PresentationOutline = {
+        slides: outline.slides.map((slide, index) =>
+          index === selectedSafe
+            ? {
+                ...slide,
+                content: toStoredOutlineContent(generatedContent),
+                content_contract: nextContract,
+              }
+            : slide,
+        ),
+      };
+      const saved = await api<PresentationOutline>(`/outlines/${presentation.id}`, {
+        method: "PUT",
+        body: JSON.stringify(nextOutline),
+      });
+      setOutline(saved);
+    } catch (cause) {
+      setError(localizeError(cause));
+    } finally {
+      setAiEditing(null);
+    }
   };
 
   const addSlide = () => {
@@ -373,7 +461,7 @@ export function OutlineEditor({
         <>
           <header>
             <div>
-              <h1>{title || "正在生成大纲"}</h1>
+              <h1>{streaming ? "正在生成大纲" : title || "演示文稿大纲"}</h1>
               {streaming && (
                 <p className="outline-stream-status">
                   {status || "AI 正在逐页生成大纲"}
@@ -415,9 +503,13 @@ export function OutlineEditor({
                       )}
                     </select>
                   </label>
-                  <a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">
+                  <button
+                    type="button"
+                    className="template-preview-link"
+                    onClick={() => setTemplatePreviewOpen(true)}
+                  >
                     预览模板
-                  </a>
+                  </button>
                   <button
                     className="primary"
                     disabled={saving || streaming || !hasResolvedTemplate}
@@ -479,14 +571,13 @@ export function OutlineEditor({
                 )}
               </div>
               <div className="outline-complete-actions">
-                <a
+                <button
+                  type="button"
                   className="outline-secondary-action"
-                  href="/templates"
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => setTemplatePreviewOpen(true)}
                 >
                   查看模板
-                </a>
+                </button>
                 {resolvedCreateMode === "topic" ? (
                   <button
                     className="primary"
@@ -511,7 +602,25 @@ export function OutlineEditor({
               <span>{editableContent.length} 字</span>
               {streaming
                 ? <span className="stream-badge">{activeSlideIndex === selectedSafe ? "正在写入" : "已生成"}</span>
-                : <button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button>}
+                : <>
+                    <button
+                      type="button"
+                      className="outline-ai-action"
+                      disabled={Boolean(aiEditing) || saving}
+                      onClick={() => void rewriteCurrentWithAi("polish")}
+                    >
+                      {aiEditing === "polish" ? "润色中…" : "AI 润色本页"}
+                    </button>
+                    <button
+                      type="button"
+                      className="outline-ai-action"
+                      disabled={Boolean(aiEditing) || saving}
+                      onClick={() => void rewriteCurrentWithAi("regenerate")}
+                    >
+                      {aiEditing === "regenerate" ? "生成中…" : "重新生成本页"}
+                    </button>
+                    <button onClick={removeSlide} disabled={outline.slides.length <= 1 || Boolean(aiEditing)}>删除此页</button>
+                  </>}
             </div>
             <textarea
               aria-label="儿童屏幕内容"
@@ -534,9 +643,33 @@ export function OutlineEditor({
               </label>
             </details>
           )}
-          {error && <div className="error-line">{error}</div>}
+          {error && (
+            <div className="error-line">
+              {error}
+              {/放不进|文字|容量|fit|layout/i.test(error) && !streaming ? (
+                <button
+                  type="button"
+                  onClick={() => void rewriteCurrentWithAi("polish")}
+                  disabled={Boolean(aiEditing)}
+                >
+                  AI 自动精简当前页
+                </button>
+              ) : null}
+            </div>
+          )}
         </>
       )}
     </section>
+    {templatePreviewOpen && (
+      <div className="outline-template-modal" role="dialog" aria-modal="true" aria-label="模板预览">
+        <div className="outline-template-modal-bar">
+          <strong>模板预览</strong>
+          <button type="button" onClick={() => setTemplatePreviewOpen(false)}>
+            ← 返回大纲
+          </button>
+        </div>
+        <iframe title="模板库预览" src="/templates?embed=outline-preview" />
+      </div>
+    )}
   </main>;
 }

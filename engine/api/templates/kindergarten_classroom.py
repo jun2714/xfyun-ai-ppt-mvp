@@ -42,7 +42,47 @@ def _base():
 
 
 def classroom_layouts():
-    layouts = []
+    title = _label("title", 140, 190, 1000, 110, 58)
+    title["alignment"]["horizontal"] = "center"
+    purpose = _label("text", 230, 350, 820, 100, 26, color="#51636F")
+    purpose["alignment"]["horizontal"] = "center"
+    context_label = _label("text", 440, 520, 400, 54, 24, color="#79512D")
+    context_label["alignment"]["horizontal"] = "center"
+    layouts = [{
+        "id": "classroom_cover",
+        "description": "幼教主题封面，仅呈现活动主题、活动目标与集体教学类型。",
+        "components": [
+            _component("paper", "稳定的奶油白封面底图与柔和装饰色块", [
+                {
+                    "type": "vector", "shape": "polygon", "closed": True,
+                    "points": [{"x": 0, "y": 0}, {"x": 1280, "y": 0},
+                               {"x": 1280, "y": 720}, {"x": 0, "y": 720}],
+                    "fill": {"color": "#FFF9EF", "opacity": 1},
+                },
+                {
+                    "type": "vector", "shape": "polygon", "closed": True,
+                    "points": [{"x": 0, "y": 0}, {"x": 330, "y": 0},
+                               {"x": 170, "y": 160}, {"x": 0, "y": 210}],
+                    "fill": {"color": "#DDF1E7", "opacity": 1},
+                },
+                {
+                    "type": "vector", "shape": "polygon", "closed": True,
+                    "points": [{"x": 1280, "y": 720}, {"x": 930, "y": 720},
+                               {"x": 1080, "y": 565}, {"x": 1280, "y": 520}],
+                    "fill": {"color": "#F7D9A8", "opacity": 1},
+                },
+                {
+                    "type": "vector", "shape": "polygon", "closed": True,
+                    "points": [{"x": 510, "y": 325}, {"x": 770, "y": 325},
+                               {"x": 770, "y": 329}, {"x": 510, "y": 329}],
+                    "fill": {"color": "#9BCDB8", "opacity": 1},
+                },
+            ]),
+            _component("heading", "封面中央呈现唯一醒目的活动主题主标题", [title]),
+            _component("point_0", "主标题下方简洁呈现本次课堂活动目标", [purpose]),
+            _component("point_1", "封面底部标明幼儿园集体教学使用类型", [context_label]),
+        ],
+    }]
     # No empty repeating cards. Geometry is sized for the actual number of points.
     for count in range(7):
         for side in ("left", "right"):

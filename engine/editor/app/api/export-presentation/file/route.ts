@@ -55,6 +55,22 @@ function contentDisposition(filename: string): string {
   return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+function getDownloadName(request: NextRequest, storedFilename: string): string {
+  const requested = request.nextUrl.searchParams.get("downloadName")?.trim();
+  if (
+    !requested ||
+    requested.length > 180 ||
+    requested.includes("/") ||
+    requested.includes("\\") ||
+    path.basename(requested) !== requested ||
+    path.extname(requested).toLowerCase() !==
+      path.extname(storedFilename).toLowerCase()
+  ) {
+    return path.basename(storedFilename);
+  }
+  return requested;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await authStatusForRequest(request);
   if (!auth.authenticated) {
@@ -83,12 +99,13 @@ export async function GET(request: NextRequest) {
     }
 
     const ext = path.extname(resolvedFilePath).toLowerCase();
+    const downloadName = getDownloadName(request, resolvedFilePath);
     const stats = await fsPromises.stat(resolvedFilePath);
     const stream = Readable.toWeb(fs.createReadStream(resolvedFilePath));
     return new NextResponse(stream as unknown as BodyInit, {
       headers: {
         "Content-Type": CONTENT_TYPES[ext] ?? "application/octet-stream",
-        "Content-Disposition": contentDisposition(path.basename(filename)),
+        "Content-Disposition": contentDisposition(downloadName),
         "Content-Length": String(stats.size),
         "Cache-Control": "no-store",
       },

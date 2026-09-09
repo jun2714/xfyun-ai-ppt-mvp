@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
 
@@ -31,7 +32,7 @@ async function readExportRequestBody(req: NextRequest): Promise<{
   return parsed as { format?: unknown; id?: unknown; title?: unknown };
 }
 
-function buildExportDownloadUrl(outPath: string): string {
+function buildExportDownloadUrl(outPath: string, downloadName: string): string {
   const appDataDirectory = process.env.APP_DATA_DIRECTORY?.trim();
   if (!appDataDirectory) {
     throw new Error("APP_DATA_DIRECTORY is required to download exported files.");
@@ -47,7 +48,11 @@ function buildExportDownloadUrl(outPath: string): string {
     throw new Error("Export finished outside the configured exports directory.");
   }
 
-  return `/api/export-presentation/file?name=${encodeURIComponent(relativePath)}`;
+  const query = new URLSearchParams({
+    name: relativePath,
+    downloadName,
+  });
+  return `/api/export-presentation/file?${query.toString()}`;
 }
 
 function fastApiBase(): string {
@@ -60,6 +65,7 @@ function fastApiBase(): string {
 
 async function persistExportToOss(
   outPath: string,
+  downloadName: string,
   cookie: string | null
 ): Promise<string | null> {
   try {
@@ -69,7 +75,7 @@ async function persistExportToOss(
         "Content-Type": "application/json",
         ...(cookie ? { cookie } : {}),
       },
-      body: JSON.stringify({ path: outPath }),
+      body: JSON.stringify({ path: outPath, download_name: downloadName }),
       cache: "no-store",
     });
     if (!response.ok) {
@@ -113,9 +119,29 @@ async function moveExportIntoOwnerDirectory(
     throw new Error("Export finished outside the current user's export directory.");
   }
 
-  const destination = path.join(ownerDirectory, path.basename(sourcePath));
+  const parsed = path.parse(sourcePath);
+  const destination = path.join(
+    ownerDirectory,
+    `${parsed.name}-${randomUUID()}${parsed.ext}`
+  );
   await fs.rename(sourcePath, destination);
   return destination;
+}
+
+function exportDownloadName(
+  title: unknown,
+  presentationId: string,
+  format: BundledPresentationExportFormat
+): string {
+  const raw = typeof title === "string" ? title.trim() : "";
+  const withoutExtension = (raw || presentationId).replace(/\.(pdf|pptx)$/i, "");
+  const safeBase = withoutExtension
+    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, "-")
+    .replace(/\.+$/g, "")
+    .trim()
+    .slice(0, 80)
+    .replace(/[-_. ]+$/g, "") || presentationId;
+  return `${safeBase}.${format}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -164,6 +190,7 @@ export async function POST(req: NextRequest) {
     }
 
     const presentationId = id.trim();
+    const downloadName = exportDownloadName(title, presentationId, format);
 
     const { path: unscopedOutPath } = await runBundledPresentationExport({
       format,
@@ -176,10 +203,14 @@ export async function POST(req: NextRequest) {
       auth.user_id
     );
 
-    const ossUrl = await persistExportToOss(outPath, req.headers.get("cookie"));
+    const ossUrl = await persistExportToOss(
+      outPath,
+      downloadName,
+      req.headers.get("cookie")
+    );
     return NextResponse.json({
       success: true,
-      path: ossUrl || buildExportDownloadUrl(outPath),
+      path: ossUrl || buildExportDownloadUrl(outPath, downloadName),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

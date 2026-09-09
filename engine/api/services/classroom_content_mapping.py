@@ -10,7 +10,9 @@ def _lines(content):
     lines = []
     for raw in content.splitlines():
         line = re.sub(r"^\s*(?:#{1,6}\s*|[-*+•]\s+|\d+[.)]\s+)", "", raw).strip()
-        line = line.replace("**", "").replace("__", "")
+        # Preserve intentional underscore placeholders instead of treating every
+        # "__" pair as Markdown emphasis.
+        line = line.replace("**", "")
         if line:
             lines.append(line)
     return lines
@@ -48,6 +50,11 @@ def _bound_assets(contract, points):
 
 
 def preferred_classroom_layout(outline, slide_index=0):
+    if (
+        outline.content_contract
+        and outline.content_contract.classroom_role == "cover-scene"
+    ):
+        return "classroom_cover"
     _, points, _, unchanged = screen_roles(outline)
     if unchanged and len(points) in (2, 3, 4) and _bound_assets(outline.content_contract, points):
         return f"classroom_cards_{len(points)}"
@@ -87,7 +94,9 @@ def build_classroom_content(schema, outline):
         raise ValueError("图文卡缺少明确的一对一语义绑定，不能按图片顺序猜测配对。")
     if cards and not unchanged:
         raise ValueError("大纲已修改，请重新匹配课堂版式，不能沿用旧图文卡绑定。")
-    if int(layout_id.rsplit("_", 1)[-1]) != len(points):
+    if layout_id == "classroom_cover" and len(points) != 2:
+        raise ValueError("课堂封面必须包含活动目标和使用类型两项信息。")
+    if layout_id != "classroom_cover" and int(layout_id.rsplit("_", 1)[-1]) != len(points):
         raise ValueError("课堂版式的内容单元数与已确认文案不一致。")
     result = {}
     for component, component_schema in schema.get("properties", {}).items():

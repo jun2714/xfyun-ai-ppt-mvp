@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from models.presentation_outline_model import (
@@ -10,6 +11,7 @@ from models.presentation_outline_model import (
 
 
 KindergartenVisualMode = Literal["template", "ai-background"]
+KindergartenContentMode = Literal["classroom", "training"]
 AI_BACKGROUND_TEMPLATE_NAME = "ai-visual"
 
 
@@ -44,13 +46,23 @@ _DOMAIN_STYLE_BIBLES: dict[str, str] = {
     ),
 }
 
+_TRAINING_STYLE_BIBLE = (
+    "专业清晰的幼儿园教研培训视觉，浅米白、松石绿、雾蓝与少量暖灰，"
+    "层次明确、留白充足，适合教师分享和会议投影，避免童趣卡通与成人商务海报感"
+)
+
 
 def get_kindergarten_visual_style_summary(
     *,
     domain: str,
     visual_style_hint: str | None = None,
+    content_mode: KindergartenContentMode = "classroom",
 ) -> str:
-    base = _DOMAIN_STYLE_BIBLES.get(domain, _DOMAIN_STYLE_BIBLES["comprehensive"])
+    base = (
+        _TRAINING_STYLE_BIBLE
+        if content_mode == "training"
+        else _DOMAIN_STYLE_BIBLES.get(domain, _DOMAIN_STYLE_BIBLES["comprehensive"])
+    )
     hint = " ".join((visual_style_hint or "").strip().split())
     if not hint:
         return base
@@ -74,7 +86,22 @@ def _background_scene_description(
     relationship: str,
     interaction_type: str,
     slide_index: int,
+    content_mode: KindergartenContentMode = "classroom",
 ) -> str:
+    if content_mode == "training":
+        if slide_index == 0:
+            scene = (
+                "简洁教研封面插画，用主题墙、积木、图书、成长线索等小型教育元素"
+                "环绕画面边缘，中央大面积干净留白用于标题；不做照片拼贴、前后对比、"
+                "会议人物合影或复杂教室全景"
+            )
+        elif relationship in {"comparison", "classification", "matching"}:
+            scene = "真实案例对照场景，清楚呈现现状与改进后的环境差异"
+        elif relationship == "sequence" or interaction_type == "sequence":
+            scene = "策略实施路径场景，步骤关系清楚并保留文字安全区"
+        else:
+            scene = "中国幼儿园教师观察、研讨或调整课程环境的真实工作场景"
+        return f"围绕《{topic}》与“{slide_title}”设计{scene}"
     if slide_index == 0:
         scene = "开场全景，主题核心对象自然出现，具有邀请孩子进入课堂的故事感"
     elif relationship == "question" or interaction_type in {"choose", "guess"}:
@@ -92,6 +119,14 @@ def _background_scene_description(
     else:
         scene = "课堂观察场景，核心对象突出，环境信息用于帮助理解而不喧宾夺主"
     return f"围绕《{topic}》与“{slide_title}”设计{scene}"
+
+
+def _background_semantic_label(*, topic: str, slide_title: str, slide_index: int) -> str:
+    """Keep exact-match asset semantics concise for reliable image preflight."""
+    base = slide_title.strip() or topic.strip() or f"第{slide_index + 1}页"
+    base = re.sub(r"[\s#*_`]+", "", base)
+    base = re.sub(r"[，。！？、：:；;（）()【】《》“”‘’\"'·/\\\\-]+", "", base)
+    return f"{(base or f'第{slide_index + 1}页')[:24]}第{slide_index + 1}页背景"
 
 
 def _safe_area_for_slide(index: int, relationship: str) -> str:
@@ -118,6 +153,7 @@ def apply_ai_background_visual_plan(
     topic: str,
     domain: str,
     visual_style_hint: str | None = None,
+    content_mode: KindergartenContentMode = "classroom",
 ) -> PresentationOutlineModel:
     """Add one generated full-canvas background contract to every slide.
 
@@ -131,6 +167,7 @@ def apply_ai_background_visual_plan(
     style_bible = get_kindergarten_visual_style_summary(
         domain=domain,
         visual_style_hint=visual_style_hint,
+        content_mode=content_mode,
     )
 
     for index, slide in enumerate(planned.slides):
@@ -143,18 +180,26 @@ def apply_ai_background_visual_plan(
         interaction_type = contract.interaction_type or "none"
         title = _visible_slide_title(slide.content, index)
         safe_area = _safe_area_for_slide(index, relationship)
-        semantic_label = f"{topic}第{index + 1}页统一视觉背景"[:160]
+        semantic_label = _background_semantic_label(
+            topic=topic,
+            slide_title=title,
+            slide_index=index,
+        )[:160]
         scene = _background_scene_description(
             topic=topic,
             slide_title=title,
             relationship=relationship,
             interaction_type=interaction_type,
             slide_index=index,
+            content_mode=content_mode,
         )
         description = (
-            f"16:9幼儿园课堂全屏背景。统一视觉规范：{style_bible}。"
+            f"16:9{'幼儿园教研培训' if content_mode == 'training' else '幼儿园课堂'}全屏背景。"
+            f"统一视觉规范：{style_bible}。"
             f"本页场景：{scene}。文字安全区位于{safe_area}侧/区域，安全区必须低细节、"
-            "低对比且不得放置关键主体；画面不得出现任何文字、字母、数字、Logo、"
+            "低对比且不得放置关键主体；背景只生成与本页主题一致的场景、人物或物体，不得自行绘制"
+            "白色矩形、信息卡、边框、表格、标题栏、文本框或留白占位框；"
+            "画面不得出现任何文字、字母、数字、Logo、"
             "水印、签名或伪文字；不得出现知名IP角色或品牌元素。"
         )[:800]
 

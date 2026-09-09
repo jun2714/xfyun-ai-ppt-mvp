@@ -396,7 +396,11 @@ async def persist_generated_image(local_path: str) -> str:
     return url
 
 
-async def persist_export_file(local_path: str) -> str:
+async def persist_export_file(
+    local_path: str,
+    *,
+    download_name: str | None = None,
+) -> str:
     from api.v1.auth.context import get_current_owner_id
 
     owner = get_current_owner_id() or "shared"
@@ -404,7 +408,7 @@ async def persist_export_file(local_path: str) -> str:
     return await persist_local_path(
         local_path,
         build_object_key(OSS_AREA_EXPORTS, str(owner), name),
-        download_name=name,
+        download_name=download_name or name,
         delete_local=True,
     )
 

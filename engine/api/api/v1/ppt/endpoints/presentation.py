@@ -688,6 +688,10 @@ def _apply_template_content_to_ui(
         else None
         for component in hydrated_components
     ]
+    distinct_component_y_positions = {
+        value for value in component_y_positions if value is not None
+    }
+    has_vertical_component_flow = len(distinct_component_y_positions) > 1
 
     for index, component in enumerate(hydrated_components):
         if not isinstance(component, dict):
@@ -698,7 +702,7 @@ def _apply_template_content_to_ui(
         # Synthetic/minimal UIs without component positions describe fixed boxes;
         # treating their missing y as zero would incorrectly expand them to a full
         # slide and disable the normal font-fitting safeguard.
-        if component_y is not None:
+        if component_y is not None and has_vertical_component_flow:
             following_y = [
                 value
                 for value in component_y_positions

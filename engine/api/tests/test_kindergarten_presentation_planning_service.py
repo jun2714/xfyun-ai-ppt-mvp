@@ -39,8 +39,131 @@ def test_lesson_prompt_requires_cross_slide_coherence():
     assert "前面提出的问题必须在后面得到明确回应" in system_prompt
     assert "结尾回顾必须回扣 lesson_goals" in system_prompt
     assert "幼儿惊喜感与幻想表达" in system_prompt
-    assert "小小冒险/秘密任务" in user_prompt
+    assert "忠于这些锚点、孩子愿意参与" in user_prompt
     assert "儿童惊喜钩子" in user_prompt
+
+
+def test_classroom_prompt_uses_generic_topic_semantic_anchors():
+    messages = build_kindergarten_lesson_messages(
+        topic="我长大了",
+        age_group="4-5岁",
+        domain="comprehensive",
+        duration_minutes=20,
+        n_slides=6,
+        instructions=None,
+        source_context=None,
+    )
+
+    system_prompt = messages[0].content
+    user_prompt = messages[1].content
+    assert "用户原始主题是不可替换的语义锚点" in system_prompt
+    assert "真实主角/对象、核心变化或认知任务、最终教学目标" in user_prompt
+    assert "用户未提出的新角色不得进入 lesson_arc" in user_prompt
+    assert "过去的我—看得见的变化" not in user_prompt
+
+
+def test_training_prompt_stays_teacher_facing_and_problem_driven():
+    messages = build_kindergarten_lesson_messages(
+        topic="主题环境创设追随班本课程推进",
+        age_group="教师教研",
+        domain="comprehensive",
+        duration_minutes=40,
+        n_slides=10,
+        instructions="分析环境一学期不变、区域创设指导性过强的问题",
+        source_context=None,
+        content_mode="training",
+    )
+
+    system_prompt = messages[0].content
+    user_prompt = messages[1].content
+    assert "园本教研" in system_prompt
+    assert "不得擅自换成儿童知识主题" in system_prompt
+    assert "问题呈现—原因分析" in system_prompt
+    assert "不得写成幼儿课堂" in user_prompt
+    assert "不得出现儿童口吻" in user_prompt
+    assert "主观判断：" in system_prompt
+    assert "客观证据：" in system_prompt
+    assert "问题表现：" in system_prompt
+    assert "解决动作：" in system_prompt
+
+
+def test_training_normalization_forces_real_cover_slide():
+    source = _plan().model_copy(
+        update={
+            "meta": _plan().meta.model_copy(
+                update={"topic": "主题环境创设追随班本课程推进，解决环境长期不变"}
+            )
+        }
+    )
+
+    normalized = planning_service._normalize_training_contracts(source)
+    first = normalized.slides[0]
+    outline = normalized.to_presentation_outline()
+
+    assert first.slide_type == "cover-scene"
+    assert first.screen_content.title == "主题环境创设追随班本课程推进"
+    assert first.screen_content.points[0].startswith("培训目的：")
+    assert first.screen_content.points[1] == "幼儿园园本教研培训"
+    assert first.screen_content.instruction is None
+    assert first.interaction.type == "none"
+    assert first.layout_capabilities == ["scene", "single-focus"]
+    assert outline.slides[0].content_contract.relationship == "single"
+
+
+def test_training_normalization_structures_evidence_and_problem_solution():
+    def slide(no, title, points):
+        return {
+            "slide_no": no,
+            "slide_type": "other",
+            "teaching_goal": title,
+            "screen_content": {"title": title, "points": points},
+            "teacher_note": f"讲解{title}",
+            "assets": [],
+        }
+
+    source = KindergartenLessonPlan.model_validate(
+        {
+            "meta": {
+                "topic": "主题环境创设追随班本课程推进",
+                "age_group": "教师教研",
+                "domain": "comprehensive",
+                "duration_minutes": 40,
+            },
+            "lesson_goals": ["形成环境调整方案"],
+            "lesson_arc": ["问题", "证据", "行动", "验证"],
+            "slides": [
+                slide(1, "直接进入内容", ["培训说明"]),
+                slide(
+                    2,
+                    "先看事实",
+                    [
+                        "客观证据：主题墙连续八周没有变化",
+                        "主观判断：教师认为环境已经够丰富",
+                        "补充解释",
+                    ],
+                ),
+                slide(3, "环境为什么一学期不变", ["缺少调整触发机制"]),
+                slide(4, "三阶段调整环境", ["识别事件", "小步调整", "记录反馈"]),
+                slide(5, "用什么指标验证", ["每周记录一次环境变化"]),
+                slide(6, "带回班级", ["确定下周行动"]),
+            ],
+        }
+    )
+
+    normalized = planning_service._normalize_training_contracts(source)
+    evidence = normalized.slides[1]
+    solution = normalized.slides[4]
+
+    assert evidence.slide_type == "compare"
+    assert evidence.screen_content.points[0].startswith("主观判断：")
+    assert evidence.screen_content.points[1].startswith("客观证据：")
+    assert solution.screen_content.title == "问题如何解决并验证"
+    assert [point.split("：", 1)[0] for point in solution.screen_content.points] == [
+        "问题表现",
+        "解决动作",
+        "验证指标",
+    ]
+    assert "problem-solution" in solution.layout_capabilities
 
 
 def test_start_endpoint_persists_project_before_planning(monkeypatch):
@@ -165,6 +288,29 @@ def _plan(*, reveal_answer: str = "B") -> KindergartenLessonPlan:
     )
 
 
+def test_classroom_without_cover_gets_cover_without_losing_opening_content():
+    plan = _plan()
+    original_content = plan.slides[1].screen_content.title
+    source = plan.model_copy(
+        update={
+            "slides": [
+                slide.model_copy(update={"slide_no": index})
+                for index, slide in enumerate(plan.slides[1:], start=1)
+            ]
+        }
+    )
+
+    normalized = planning_service._ensure_cover_contract(source, "classroom")
+
+    assert len(normalized.slides) == len(source.slides) + 1
+    assert normalized.slides[0].slide_type == "cover-scene"
+    assert normalized.slides[0].screen_content.title == "认识森林动物"
+    assert normalized.slides[0].screen_content.points[0].startswith("活动目标：")
+    assert normalized.slides[0].screen_content.points[1] == "幼儿园集体教学"
+    assert normalized.slides[1].screen_content.title == original_content
+    assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
+
+
 def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     calls = []
 
@@ -200,6 +346,39 @@ def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     assert question.activity_id == "forest-rabbit-1"
     assert question.answer_key == "B"
     assert reveal.answer_key == "B"
+
+
+def test_missing_reveal_and_unlisted_answer_are_completed_locally():
+    from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
+
+    plan = _plan()
+    question = plan.slides[1]
+    broken_question = question.model_copy(
+        update={
+            "game": question.game.model_copy(
+                update={"answer_key": "小松鼠"}
+            )
+        }
+    )
+    plan = plan.model_copy(
+        update={"slides": [plan.slides[0], broken_question]}
+    )
+    report = validate_kindergarten_lesson_plan(plan)
+
+    assert {
+        "answer-not-in-options",
+        "reveal-slide-missing",
+    }.issubset({issue.code for issue in report.errors})
+
+    repaired = planning_service._repair_machine_contracts(plan, report)
+    repaired_report = validate_kindergarten_lesson_plan(repaired)
+
+    assert repaired_report.passed
+    assert len(repaired.slides) == 3
+    assert repaired.slides[1].game.options["答案"] == "小松鼠"
+    assert repaired.slides[2].slide_type == "answer-reveal"
+    assert repaired.slides[2].game.activity_id == repaired.slides[1].game.activity_id
+    assert repaired.slides[2].screen_content.points == ["正确答案：小松鼠"]
 
 
 def test_answer_in_question_cannot_be_hidden_by_removing_game_metadata():

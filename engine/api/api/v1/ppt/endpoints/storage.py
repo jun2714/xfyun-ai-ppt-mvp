@@ -13,6 +13,7 @@ STORAGE_ROUTER = APIRouter(prefix="/oss", tags=["OSS Storage"])
 
 class PersistExportRequest(BaseModel):
     path: str
+    download_name: str | None = None
 
 
 class PersistExportResponse(BaseModel):
@@ -43,5 +44,5 @@ async def persist_export_to_oss(body: PersistExportRequest):
         raise HTTPException(status_code=404, detail="导出文件不存在")
     if not _is_under_exports(body.path):
         raise HTTPException(status_code=400, detail="只能转存导出目录中的文件")
-    url = await persist_export_file(body.path)
+    url = await persist_export_file(body.path, download_name=body.download_name)
     return PersistExportResponse(enabled=True, url=url)
