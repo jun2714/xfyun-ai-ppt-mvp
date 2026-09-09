@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from models.presentation_outline_model import (
     PresentationOutlineModel,
@@ -74,6 +74,19 @@ class LessonInteraction(BaseModel):
     type: KindergartenInteractionType = "none"
     instruction: Optional[str] = Field(default=None, max_length=180)
 
+    @field_validator(
+        "type", mode="before",
+        json_schema_input_type=Union[
+            KindergartenInteractionType, Literal["observation", "compare", "reveal"],
+        ],
+    )
+    @classmethod
+    def normalize_observation_action(cls, value):
+        # The slide role still records compare/reveal; its child action is observe.
+        if isinstance(value, str) and value in {"observation", "compare", "reveal"}:
+            return "observe"
+        return value
+
 
 class LessonAssetSpec(BaseModel):
     slot: str = Field(min_length=1, max_length=80)
@@ -105,6 +118,22 @@ class LessonGameSpec(BaseModel):
     answer_map: Dict[str, str] = Field(default_factory=dict)
     sequence_order: List[str] = Field(default_factory=list, max_length=12)
 
+    @field_validator(
+        "options", "answer_map", mode="before",
+        json_schema_input_type=Optional[Dict[str, str]],
+    )
+    @classmethod
+    def normalize_optional_map(cls, value):
+        return {} if value is None else value
+
+    @field_validator(
+        "sequence_order", mode="before",
+        json_schema_input_type=Optional[List[str]],
+    )
+    @classmethod
+    def normalize_optional_order(cls, value):
+        return [] if value is None else value
+
 
 class KindergartenSlidePlan(BaseModel):
     slide_no: int = Field(ge=1, le=100)
@@ -116,6 +145,14 @@ class KindergartenSlidePlan(BaseModel):
     assets: List[LessonAssetSpec] = Field(default_factory=list, max_length=12)
     game: Optional[LessonGameSpec] = None
     layout_capabilities: List[str] = Field(default_factory=list, max_length=8)
+
+    @field_validator(
+        "slide_type", mode="before",
+        json_schema_input_type=Union[KindergartenSlideType, Literal["observation"]],
+    )
+    @classmethod
+    def normalize_observation_role(cls, value):
+        return "image-observation" if value == "observation" else value
 
 
 class KindergartenLessonPlan(BaseModel):
