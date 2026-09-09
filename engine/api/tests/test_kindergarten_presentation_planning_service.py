@@ -346,7 +346,8 @@ def test_classroom_without_cover_gets_cover_without_losing_opening_content():
     assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
 
 
-def test_cover_insert_keeps_requested_page_count():
+def test_cover_insert_never_discards_closing_to_keep_requested_page_count():
+    import pytest
     plan = _plan()
     source = plan.model_copy(
         update={
@@ -357,13 +358,10 @@ def test_cover_insert_keeps_requested_page_count():
         }
     )
 
-    normalized = planning_service._ensure_cover_contract(
-        source, "classroom", target_count=len(source.slides)
-    )
-
-    assert len(normalized.slides) == len(source.slides)
-    assert normalized.slides[0].slide_type == "cover-scene"
-    assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
+    with pytest.raises(ValueError, match="不能自动删除末页正文"):
+        planning_service._ensure_cover_contract(
+            source, "classroom", target_count=len(source.slides)
+        )
 
 
 def test_generated_reveal_uses_answer_text_instead_of_option_id():
@@ -389,7 +387,21 @@ def test_training_template_mode_does_not_use_child_classroom_pack():
         topic="教师观察记录培训", content_mode="training", template="auto",
     )
     _, routing, _ = _apply_visual_mode(payload, result)
-    assert routing.template != "kindergarten-classroom"
+    assert routing.template == "teacher-training"
+
+
+def test_missing_reveal_does_not_expand_requested_deck_or_drop_closing():
+    plan = _plan()
+    plan.slides = plan.slides[:2]
+    closing = plan.slides[-1].model_copy(update={
+        "slide_no": 3, "slide_type": "recap", "game": None,
+    })
+    plan.slides.append(closing)
+    repaired = planning_service._repair_classroom_activity_contracts(plan, max_slides=3)
+    assert len(repaired.slides) == 3
+    assert repaired.slides[-1] == closing
+    report = planning_service.validate_kindergarten_lesson_plan(repaired)
+    assert any(issue.code == "reveal-slide-missing" for issue in report.errors)
 
 
 def test_forty_page_plan_without_cover_fails_instead_of_dropping_content():

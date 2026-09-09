@@ -130,9 +130,10 @@ def build_classroom_template():
     )
     return TemplateV2(
         id=CLASSROOM_TEMPLATE_ID, name="幼教课堂 · 绘本与观察",
-        description="大场景、观察短句及语义绑定图卡；教师讲稿独立保留。候选版本，待课堂成品验收。",
+        description="适合科学观察、绘本讲述与生活活动；大场景、观察短句及成对图卡，教师讲稿独立保留。",
         layouts=layouts, is_default=True,
         assets={"template_id": CLASSROOM_TEMPLATE_ID, "images": [], "fonts": {},
+                "thumbnail": "/static/templates/kindergarten-classroom.svg",
                 "template_metadata": {"audiences": ["child"], "allow_charts": False,
                                       "auto_match": True, "quality_status": "candidate"}},
     )

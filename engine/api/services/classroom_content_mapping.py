@@ -72,18 +72,26 @@ def _image_value(schema, prompt):
     return result
 
 
-def _prompt(assets, title, points):
+def _prompt(assets, title, points, *, training=False):
     subjects = "；".join(f"{a.semantic_label}：{a.description or ''}" for a in assets)
+    style = (
+        "专业清晰的教育编辑插画，浅米白、松石绿、雾蓝；中国幼儿园真实工作场景，"
+        "围绕教师观察、讨论与改进活动；不要拟人角色、童话、商务海报或儿童猜谜。"
+        if training else
+        "统一二维儿童绘本，柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色；"
+    )
     return (
         f"本页教学主题：{title}。对应屏幕内容：{'；'.join(points)}。"
         f"必须看到的教学对象与动作：{subjects or title}。"
-        "统一二维儿童绘本，柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色；"
+        f"{style}"
         "主体完整、特征准确、背景简洁；不要摄影、3D、文字、字母、数字、标签或水印。"
     )
 
 
 def build_classroom_content(schema, outline):
     layout_id = str(schema.get("title") or "")
+    training = layout_id.startswith("classroom_training_")
+    layout_id = layout_id.replace("classroom_training_", "classroom_", 1)
     if not layout_id.startswith(CLASSROOM_LAYOUT_PREFIX):
         raise ValueError("不是课堂专用版式。")
     title, points, cue, unchanged = screen_roles(outline)
@@ -112,11 +120,11 @@ def build_classroom_content(schema, outline):
             elif component.startswith("card_"):
                 index = int(component.split("_")[-1])
                 value = (points[index] if key == "text" else
-                         _image_value(field, _prompt([bound[index]], title, [points[index]])))
+                         _image_value(field, _prompt([bound[index]], title, [points[index]], training=training)))
             elif component == "scene" and key == "visual":
                 # Edited content supersedes stale asset instructions in scene mode.
                 value = _image_value(field, _prompt(
-                    contract.asset_contracts if unchanged else [], title, points))
+                    contract.asset_contracts if unchanged else [], title, points, training=training))
             else:
                 raise ValueError(f"未知课堂字段 {component}.{key}")
             if isinstance(value, str) and not locked_text_fits_field(value, field):
