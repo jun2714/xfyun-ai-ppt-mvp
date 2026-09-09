@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,22 @@ _GAME_SLIDE_TYPES = {
     "sequence",
 }
 
+# These concern what children see, not optional machine metadata. They may not
+# be turned into a passing lesson by erasing game/image contracts.
+CLASSROOM_CONTENT_ERRORS = {
+    "question-reveals-answer", "game-contract-missing",
+    "reveal-slide-missing", "reveal-before-question", "question-slide-missing",
+    "topic-replaced-by-unrequested-storyline",
+}
+
+_ANIMAL_STORY_ROLES = (
+    "小熊", "熊宝宝", "小兔", "兔宝宝", "小猫", "猫咪", "小狗", "狗狗",
+    "小狐狸", "小松鼠", "小猴", "小猪", "动物朋友",
+)
+_FANTASY_STORY_ROLES = (
+    "小精灵", "魔法师", "公主", "王子", "外星人", "机器人朋友", "神秘朋友",
+)
+
 
 def validate_kindergarten_lesson_plan(
     plan: KindergartenLessonPlan,
@@ -51,6 +68,7 @@ def validate_kindergarten_lesson_plan(
         issues.extend(_validate_slide(slide))
 
     issues.extend(_validate_activity_pairs(plan))
+    issues.extend(_validate_unrequested_storyline(plan))
 
     errors = [issue for issue in issues if issue.severity == "error"]
     warnings = [issue for issue in issues if issue.severity == "warning"]
@@ -59,6 +77,68 @@ def validate_kindergarten_lesson_plan(
         errors=errors,
         warnings=warnings,
     )
+
+
+def _validate_unrequested_storyline(
+    plan: KindergartenLessonPlan,
+) -> list[KindergartenPlanIssue]:
+    topic = plan.meta.topic
+    allowed_roles = {
+        term
+        for term in (*_ANIMAL_STORY_ROLES, *_FANTASY_STORY_ROLES)
+        if term in topic
+    }
+    if re.search(r"动物|昆虫|森林朋友|生肖", topic):
+        allowed_roles.update(_ANIMAL_STORY_ROLES)
+    if re.search(r"童话|魔法|奇幻|幻想", topic):
+        allowed_roles.update(_FANTASY_STORY_ROLES)
+    unrequested_roles = [
+        term
+        for term in (*_ANIMAL_STORY_ROLES, *_FANTASY_STORY_ROLES)
+        if term not in allowed_roles
+    ]
+
+    role_slides: dict[str, list[KindergartenSlidePlan]] = {
+        term: [] for term in unrequested_roles
+    }
+    for slide in plan.slides:
+        visible_and_notes = "\n".join(
+            [
+                slide.screen_content.title,
+                *slide.screen_content.points,
+                slide.teaching_goal,
+                slide.teacher_note,
+                *(asset.semantic_label for asset in slide.assets),
+            ]
+        )
+        for term in unrequested_roles:
+            if term in visible_and_notes:
+                role_slides[term].append(slide)
+
+    arc_text = "\n".join(plan.lesson_arc)
+    violating_role = next(
+        (
+            term
+            for term in unrequested_roles
+            if len(role_slides[term]) >= 2 or term in arc_text
+        ),
+        None,
+    )
+    if not violating_role:
+        return []
+
+    affected = role_slides[violating_role]
+    first = affected[0] if affected else plan.slides[0]
+    return [
+        _error(
+            first,
+            "topic-replaced-by-unrequested-storyline",
+            (
+                f"用户未要求的角色“{violating_role}”进入课程主线并替代原主题；"
+                "必须围绕用户指定的真实主角、核心变化和教学目标展开。"
+            ),
+        )
+    ]
 
 
 def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]:
@@ -156,6 +236,11 @@ def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]
 
     seen: set[tuple[str, str]] = set()
     for asset in required_assets:
+        if asset.audience_text and asset.audience_text not in slide.screen_content.points:
+            issues.append(_error(
+                slide, "asset-caption-mismatch",
+                "图片 audience_text 必须逐字对应本页一条屏幕短句，不能自动按位置配图。",
+            ))
         key = (asset.slot.casefold(), asset.semantic_label.casefold())
         if key in seen:
             issues.append(
@@ -175,6 +260,15 @@ def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]
                     "需要质检的图片必须有明确 semantic_label。",
                 )
             )
+
+    if slide.interaction.type == "guess" or slide.slide_type in {"guess-partial", "guess-shadow"}:
+        visible = "\n".join([slide.screen_content.title, *slide.screen_content.points,
+                             slide.screen_content.instruction or ""])
+        if re.search(r"答案[是为：:]|正确[选答]项?[是为：:]|先出现的是|先长出的是", visible):
+            issues.append(_error(
+                slide, "question-reveals-answer",
+                "提问页同时显示了答案结论，请把结论放到独立揭晓页，不能只在备注里写先猜后揭晓。",
+            ))
 
     visible_chars = len(slide.screen_content.title)
     visible_chars += sum(len(point) for point in slide.screen_content.points)

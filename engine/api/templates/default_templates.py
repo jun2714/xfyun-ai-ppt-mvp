@@ -11,6 +11,7 @@ from sqlmodel import select
 from models.sql.template_v2 import TemplateV2
 from services.database import async_session_maker
 from templates.ai_visual_production import build_production_ai_visual_template
+from templates.kindergarten_classroom import build_classroom_template
 from templates.v2.models.layouts import MergedComponents, SlideLayouts
 from utils.get_env import get_app_data_directory_env
 from utils.icon_weights import extract_icon_type_from_settings
@@ -72,6 +73,17 @@ async def import_default_templates_on_startup(
             else:
                 session.add(ai_visual_template)
                 LOGGER.info("Imported internal AI visual template: %s", ai_visual_template.id)
+            await session.commit()
+
+        classroom_template = build_classroom_template()
+        if classroom_template.id not in disabled_ids:
+            imported_template_ids.add(classroom_template.id)
+            existing = await session.get(TemplateV2, classroom_template.id)
+            if existing:
+                _update_template_from_default(existing, classroom_template)
+                session.add(existing)
+            else:
+                session.add(classroom_template)
             await session.commit()
 
         await _remove_stale_default_templates(

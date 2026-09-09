@@ -46,10 +46,13 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
     if not any(slot.semantic_expectations for slot in item.slots):
         return ""
     return (
-        " Premium preschool picture-book visual for children age 3-6: warm, bright, "
-        "imaginative and story-like, with a large clearly recognizable subject, friendly "
-        "emotion and one delightful visual surprise. Keep factual features accurate. "
-        "Avoid black abstract textures, corporate stock-photo styling, horror, dense "
+        " Use one consistent 2D children's picture-book illustration style across the "
+        "whole deck: soft hand-painted gouache and colored-pencil texture, warm cream, "
+        "mint and coral palette, rounded friendly Chinese child characters, bright and "
+        "imaginative for ages 3-6, with a large clearly recognizable subject and one "
+        "delightful visual surprise. This must be an illustration, never photography, "
+        "photorealism, a camera image, 3D render, corporate stock art or mixed media. "
+        "Keep factual features accurate. Avoid black abstract textures, horror, dense "
         "background clutter, text, letters, numbers, logos, watermarks or pseudo-text."
     )
 

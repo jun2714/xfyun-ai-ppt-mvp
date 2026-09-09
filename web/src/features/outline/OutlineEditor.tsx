@@ -17,6 +17,7 @@ const EDITOR_BASE =
 const DISPLAY_NAMES: Record<string, string> = {
   general: "自动匹配",
   "ai-visual": "AI 自由视觉",
+  "kindergarten-classroom": "幼教课堂 · 绘本与观察",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",
@@ -99,6 +100,8 @@ export function OutlineEditor({
   const [template, setTemplate] = useState(preferred || "");
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
+  const [aiEditing, setAiEditing] = useState<"polish" | "regenerate" | null>(null);
+  const [templatePreviewOpen, setTemplatePreviewOpen] = useState(false);
   const [error, setError] = useState("");
   const [templateNotice, setTemplateNotice] = useState("");
 
@@ -140,10 +143,29 @@ export function OutlineEditor({
     if (streaming) setStage("outline");
   }, [streaming]);
 
+  useEffect(() => {
+    if (!templatePreviewOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [templatePreviewOpen]);
+
   const slides = outline.slides;
   const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
   const current = slides[selectedSafe] ?? { content: "" };
+  const editingBlocked = streaming || saving || Boolean(aiEditing);
   const editableContent = toEditableOutlineContent(current.content);
+  const teacherNote = typeof current.content_contract?.teacher_note === "string"
+    ? current.content_contract.teacher_note : "";
+  const interactionInstruction = typeof current.content_contract?.interaction_instruction === "string"
+    ? current.content_contract.interaction_instruction : "";
+  const updateTeacherField = (key: "teacher_note" | "interaction_instruction", text: string) => {
+    if (editingBlocked || showTemplateStage) return;
+    setOutline((value) => ({ slides: value.slides.map((slide, index) => index === selectedSafe
+      ? { ...slide, content_contract: { ...slide.content_contract, [key]: text } } : slide) }));
+  };
   const title = useMemo(
     () => outlineTitle(slides[0]?.content ?? presentation.title ?? "演示文稿"),
     [slides, presentation.title],
@@ -175,7 +197,7 @@ export function OutlineEditor({
       : "";
 
   const updateCurrent = (content: string) => {
-    if (streaming || showTemplateStage) return;
+    if (editingBlocked || showTemplateStage) return;
     setOutline((value) => ({
       slides: value.slides.map((slide, index) =>
         index === selectedSafe
@@ -185,15 +207,104 @@ export function OutlineEditor({
     }));
   };
 
+  const rewriteCurrentWithAi = async (mode: "polish" | "regenerate") => {
+    if (streaming || saving || aiEditing || !current.content) return;
+    setAiEditing(mode);
+    setError("");
+    const isCover =
+      current.content_contract?.classroom_role === "cover-scene";
+    const action = isCover
+      ? "润色本页封面：保留主题、目的和使用类型三层结构，不增加正文、案例或互动，不改变核心主题。"
+      : mode === "polish"
+        ? "润色并压缩本页：保持原意和事实，标题更明确，正文分层清楚，删除重复表达；可见中文控制在120字以内，并确保适合当前PPT版式。"
+        : "重新生成本页：依据整份演示主题、相邻页面和本页教学目标重写，不偏离用户原始问题；保留本页原有核心对象、事实和图片语义；给出具体事实、解决动作或验证指标，可见中文控制在140字以内。";
+    try {
+      await api("/chat/message", {
+        method: "POST",
+        body: JSON.stringify({
+          presentation_id: presentation.id,
+          presentation_type: "standard",
+          message:
+            `${action}\n必须调用 updateOutline 工具，只替换零基索引 ${selectedSafe} 的大纲内容，` +
+            `不要新增、删除或修改其他页面。\n当前内容：\n${current.content}`,
+          attachments: [],
+        }),
+      });
+      const generated = await api<PresentationOutline>(`/outlines/${presentation.id}`);
+      const generatedContent = generated.slides[selectedSafe]?.content?.trim();
+      if (!generatedContent || generatedContent === current.content.trim()) {
+        throw new Error("AI 未返回新的本页内容，请重试。");
+      }
+
+      const visibleLines = toEditableOutlineContent(generatedContent)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const titleLine = (visibleLines[0] || "未命名页面").replace(/^•\s*/, "");
+      const pointLines = visibleLines.slice(1).map((line) => line.replace(/^•\s*/, ""));
+      const oldContract = current.content_contract || {};
+      const oldAssets = Array.isArray(oldContract.asset_contracts)
+        ? oldContract.asset_contracts
+        : [];
+      const retainedAssets = oldAssets
+        .filter(
+          (asset): asset is Record<string, unknown> =>
+            Boolean(asset) && typeof asset === "object",
+        )
+        .map((record) => {
+          const audienceText = record.audience_text;
+          return {
+            ...record,
+            audience_text:
+              typeof audienceText === "string" && pointLines.includes(audienceText)
+                ? audienceText
+                : null,
+          };
+        });
+      const nextContract = {
+        ...oldContract,
+        preserve_visible_copy: true,
+        screen_title: titleLine,
+        screen_points: pointLines,
+        screen_instruction: null,
+        visible_characters: visibleLines.join("").length,
+        required_asset_semantics: retainedAssets
+          .map((asset) => (asset as Record<string, unknown>).semantic_label)
+          .filter((value): value is string => typeof value === "string"),
+        asset_contracts: retainedAssets,
+      };
+      const nextOutline: PresentationOutline = {
+        slides: outline.slides.map((slide, index) =>
+          index === selectedSafe
+            ? {
+                ...slide,
+                content: toStoredOutlineContent(generatedContent),
+                content_contract: nextContract,
+              }
+            : slide,
+        ),
+      };
+      const saved = await api<PresentationOutline>(`/outlines/${presentation.id}`, {
+        method: "PUT",
+        body: JSON.stringify(nextOutline),
+      });
+      setOutline(saved);
+    } catch (cause) {
+      setError(localizeError(cause));
+    } finally {
+      setAiEditing(null);
+    }
+  };
+
   const addSlide = () => {
-    if (streaming || showTemplateStage) return;
+    if (editingBlocked || showTemplateStage) return;
     setOutline((value) => ({
       slides: [...value.slides, { content: "## 新页面\n\n在这里填写面向观众的内容。" }],
     }));
   };
 
   const removeSlide = () => {
-    if (streaming || showTemplateStage || outline.slides.length <= 1) return;
+    if (editingBlocked || showTemplateStage || outline.slides.length <= 1) return;
     setOutline((value) => ({
       slides: value.slides.filter((_, index) => index !== selectedSafe),
     }));
@@ -201,7 +312,7 @@ export function OutlineEditor({
   };
 
   const prepareWithLayout = async (layoutId: string) => {
-    if (streaming || saving) return;
+    if (editingBlocked) return;
     if (!layoutId || [DEFAULT_TEMPLATE_ID, "auto"].includes(layoutId)) {
       setError("自动模板匹配尚未完成，请重新选择一个可用模板。");
       return;
@@ -244,7 +355,7 @@ export function OutlineEditor({
   };
 
   const goSelectTemplate = () => {
-    if (streaming || saving) return;
+    if (editingBlocked) return;
     setError("");
     setStage("template");
   };
@@ -301,7 +412,7 @@ export function OutlineEditor({
         )}
       </div>
       {!streaming && !showTemplateStage && (
-        <button className="add-page" onClick={addSlide}><PlusIcon />添加一页</button>
+        <button className="add-page" onClick={addSlide} disabled={editingBlocked}><PlusIcon />添加一页</button>
       )}
     </aside>
     <section className="outline-canvas">
@@ -363,7 +474,7 @@ export function OutlineEditor({
         <>
           <header>
             <div>
-              <h1>{title || "正在生成大纲"}</h1>
+              <h1>{streaming ? "正在生成大纲" : title || "演示文稿大纲"}</h1>
               {streaming && (
                 <p className="outline-stream-status">
                   {status || "AI 正在逐页生成大纲"}
@@ -405,12 +516,16 @@ export function OutlineEditor({
                       )}
                     </select>
                   </label>
-                  <a className="template-preview-link" href="/templates" target="_blank" rel="noreferrer">
+                  <button
+                    type="button"
+                    className="template-preview-link"
+                    onClick={() => setTemplatePreviewOpen(true)}
+                  >
                     预览模板
-                  </a>
+                  </button>
                   <button
                     className="primary"
-                    disabled={saving || streaming || !hasResolvedTemplate}
+                    disabled={editingBlocked || !hasResolvedTemplate}
                     onClick={() => void confirmTopic()}
                   >
                     <SparklesIcon />
@@ -420,7 +535,7 @@ export function OutlineEditor({
               ) : (
                 <button
                   className="primary"
-                  disabled={saving || streaming || slides.length === 0}
+                  disabled={editingBlocked || slides.length === 0}
                   onClick={goSelectTemplate}
                 >
                   <SparklesIcon />
@@ -469,25 +584,24 @@ export function OutlineEditor({
                 )}
               </div>
               <div className="outline-complete-actions">
-                <a
+                <button
+                  type="button"
                   className="outline-secondary-action"
-                  href="/templates"
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => setTemplatePreviewOpen(true)}
                 >
                   查看模板
-                </a>
+                </button>
                 {resolvedCreateMode === "topic" ? (
                   <button
                     className="primary"
-                    disabled={saving || !hasResolvedTemplate}
+                    disabled={editingBlocked || !hasResolvedTemplate}
                     onClick={() => void confirmTopic()}
                   >
                     <SparklesIcon />
                     {saving ? "正在准备…" : "确认并生成"}
                   </button>
                 ) : (
-                  <button className="primary" disabled={saving} onClick={goSelectTemplate}>
+                  <button className="primary" disabled={editingBlocked} onClick={goSelectTemplate}>
                     <SparklesIcon />选择模板并生成
                   </button>
                 )}
@@ -501,18 +615,74 @@ export function OutlineEditor({
               <span>{editableContent.length} 字</span>
               {streaming
                 ? <span className="stream-badge">{activeSlideIndex === selectedSafe ? "正在写入" : "已生成"}</span>
-                : <button onClick={removeSlide} disabled={outline.slides.length <= 1}>删除此页</button>}
+                : <>
+                    <button
+                      type="button"
+                      className="outline-ai-action"
+                      disabled={Boolean(aiEditing) || saving}
+                      onClick={() => void rewriteCurrentWithAi("polish")}
+                    >
+                      {aiEditing === "polish" ? "润色中…" : "AI 润色本页"}
+                    </button>
+                    <button
+                      type="button"
+                      className="outline-ai-action"
+                      disabled={Boolean(aiEditing) || saving}
+                      onClick={() => void rewriteCurrentWithAi("regenerate")}
+                    >
+                      {aiEditing === "regenerate" ? "生成中…" : "重新生成本页"}
+                    </button>
+                    <button onClick={removeSlide} disabled={outline.slides.length <= 1 || Boolean(aiEditing)}>删除此页</button>
+                  </>}
             </div>
             <textarea
+              aria-label="儿童屏幕内容"
               value={editableContent}
-              readOnly={streaming}
+              readOnly={editingBlocked}
               onChange={(event) => updateCurrent(event.target.value)}
               placeholder={streaming ? "内容正在流入…" : "在这里编辑本页大纲"}
             />
           </div>
-          {error && <div className="error-line">{error}</div>}
+          {!streaming && current.content_contract && (
+            <details className="outline-teacher-notes">
+              <summary>教师讲稿与课堂操作（不会投到儿童屏幕）</summary>
+              <label>教师讲稿
+                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={1200} readOnly={editingBlocked}
+                  onChange={(event) => updateTeacherField("teacher_note", event.target.value)} />
+              </label>
+              <label>课堂操作步骤
+                <textarea aria-label="课堂操作步骤" value={interactionInstruction} maxLength={180} readOnly={editingBlocked}
+                  onChange={(event) => updateTeacherField("interaction_instruction", event.target.value)} />
+              </label>
+            </details>
+          )}
+          {error && (
+            <div className="error-line">
+              {error}
+              {/放不进|文字|容量|fit|layout/i.test(error) && !streaming ? (
+                <button
+                  type="button"
+                  onClick={() => void rewriteCurrentWithAi("polish")}
+                  disabled={Boolean(aiEditing)}
+                >
+                  AI 自动精简当前页
+                </button>
+              ) : null}
+            </div>
+          )}
         </>
       )}
     </section>
+    {templatePreviewOpen && (
+      <div className="outline-template-modal" role="dialog" aria-modal="true" aria-label="模板预览">
+        <div className="outline-template-modal-bar">
+          <strong>模板预览</strong>
+          <button type="button" onClick={() => setTemplatePreviewOpen(false)}>
+            ← 返回大纲
+          </button>
+        </div>
+        <iframe title="模板库预览" src="/templates?embed=outline-preview" />
+      </div>
+    )}
   </main>;
 }

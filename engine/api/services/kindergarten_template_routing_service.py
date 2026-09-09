@@ -17,8 +17,14 @@ _TEMPLATE_PRIORITY = {
     "standard": 60,
 }
 
+# The current bundled dynamic pack renders as a dark black/orange business deck
+# despite its legacy routing metadata claiming a bright child-friendly style.
+# Keep manual selection available, but never auto-route preschool lessons to it
+# until that visual pack is replaced or re-audited.
+_AUTO_EXCLUDED_TEMPLATES = {"dynamic"}
+
 _DOMAIN_WEIGHTS: dict[str, dict[str, int]] = {
-    "science": {"dynamic": 9, "standard": 1},
+    "science": {"dynamic": 9, "standard": 9},
     "math": {"dynamic": 5, "standard": 3},
     "language": {"modern": 7, "standard": 2},
     "social": {"modern": 4, "momentum": 2, "standard": 3},
@@ -133,6 +139,7 @@ def resolve_kindergarten_template(
     requested_template: str | None,
     *,
     instructions: str | None = None,
+    allow_classroom: bool = True,
 ) -> KindergartenTemplateRoutingDecision:
     """Resolve `auto` to a stable bundled kindergarten visual family.
 
@@ -147,6 +154,23 @@ def resolve_kindergarten_template(
             template=requested,
             reason="manual-selection",
             scores={},
+        )
+
+    # Use the semantic classroom pack when the lesson has visual assets. Explicit
+    # choices and legacy nonvisual plans retain the existing compatibility path.
+    content_slides = [
+        slide for slide in plan.slides if slide.slide_type != "cover-scene"
+    ]
+    if (
+        allow_classroom
+        and content_slides
+        and all(any(asset.required for asset in slide.assets) for slide in content_slides)
+    ):
+        from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
+        return KindergartenTemplateRoutingDecision(
+            template=CLASSROOM_TEMPLATE_ID,
+            reason="classroom:semantic-copy-and-image-bindings",
+            scores={CLASSROOM_TEMPLATE_ID: 100},
         )
 
     scores = {name: 0 for name in _TEMPLATE_PRIORITY}
@@ -198,7 +222,10 @@ def resolve_kindergarten_template(
             f"terms:{','.join(matched[:4])}+{weight}"
         )
 
-    best_score = max(scores.values()) if scores else 0
+    eligible_templates = [
+        name for name in _TEMPLATE_PRIORITY if name not in _AUTO_EXCLUDED_TEMPLATES
+    ]
+    best_score = max((scores[name] for name in eligible_templates), default=0)
     if best_score <= 0:
         return KindergartenTemplateRoutingDecision(
             template=KINDERGARTEN_TEMPLATE_FALLBACK,
@@ -207,7 +234,7 @@ def resolve_kindergarten_template(
         )
 
     selected = min(
-        (name for name, score in scores.items() if score == best_score),
+        (name for name in eligible_templates if scores[name] == best_score),
         key=lambda name: (_TEMPLATE_PRIORITY[name], name),
     )
     reason_parts = reasons[selected] or ["highest-routing-score"]

@@ -65,8 +65,10 @@ const buildSafeExportFileName = (
   const titleWithoutExtension = normalizedTitle.replace(/\.(pdf|pptx)$/i, "");
 
   let safeBase = titleWithoutExtension
-    // Replace all punctuation/special chars (including dots) with dashes
-    .replace(/[^a-zA-Z0-9\s_-]+/g, "-")
+    // Keep Chinese and other Unicode letters; remove only characters forbidden
+    // by Windows/macOS download file names.
+    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, "-")
+    .replace(/\.+$/g, "")
     // Replace whitespace with single dashes
     .replace(/\s+/g, "-")
     // Collapse repeated separators

@@ -89,6 +89,7 @@ describe("<UploadPage /> kindergarten creation", () => {
       .should("include", {
         topic: "洗手好习惯",
         age_group: "4-5岁",
+        content_mode: "classroom",
         visual_mode: "template",
         template: "auto",
         language: "Chinese",
@@ -98,6 +99,28 @@ describe("<UploadPage /> kindergarten creation", () => {
       "be.calledWithMatch",
       /\/presentations\/test-id\/outline\?mode=topic/,
     );
+  });
+
+  it("lets users explicitly select teacher training mode", () => {
+    cy.contains("button", "幼儿园园本教研培训").click();
+    cy.get('[data-testid="prompt-input"]').type("教师观察记录改进");
+    clickGenerate();
+
+    cy.wait("@startKindergartenPresentation")
+      .its("request.body")
+      .should("include", {
+        content_mode: "training",
+        age_group: "教师教研",
+      });
+  });
+
+  it("does not classify an ordinary child presentation as teacher training", () => {
+    cy.get('[data-testid="prompt-input"]').type("我的六一汇报演出");
+    clickGenerate();
+
+    cy.wait("@startKindergartenPresentation")
+      .its("request.body.content_mode")
+      .should("equal", "classroom");
   });
 
   it("sends AI free visual mode and carries the visual preference", () => {

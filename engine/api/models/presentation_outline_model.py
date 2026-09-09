@@ -19,6 +19,8 @@ class SlideAssetContract(BaseModel):
     expected_count: int = Field(default=1, ge=1, le=12)
     role: Literal["background", "framed-image", "cutout"] = "framed-image"
     qa_required: bool = True
+    # Explicit semantic binding, not an ordinal image-slot assignment.
+    audience_text: Optional[str] = Field(default=None, max_length=160)
 
     @field_validator("planning_slot", "semantic_label", mode="before")
     @classmethod
@@ -48,6 +50,17 @@ class SlideContentContract(BaseModel):
         "none", "background", "framed-image", "cutout", "mixed"
     ] = "none"
     visible_characters: int = Field(default=0, ge=0)
+
+    # When true, the reviewed outline is final audience-facing copy. The slide
+    # model may map that copy into template fields and may still author image
+    # prompts/speaker notes, but it must not rewrite, summarize or embellish the
+    # visible wording. Kindergarten planning enables this after teacher review.
+    preserve_visible_copy: bool = False
+    screen_title: Optional[str] = Field(default=None, max_length=80)
+    screen_points: List[str] = Field(default_factory=list, max_length=6)
+    screen_instruction: Optional[str] = Field(default=None, max_length=120)
+    interaction_instruction: Optional[str] = Field(default=None, max_length=180)
+    classroom_role: Optional[str] = Field(default=None, max_length=40)
 
     # Optional teaching metadata. These fields never become audience-facing text;
     # they travel with the outline so later layout, asset and quality stages can

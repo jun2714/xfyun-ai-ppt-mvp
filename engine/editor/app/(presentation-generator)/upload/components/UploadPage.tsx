@@ -16,6 +16,7 @@ import SupportingDoc from "./SupportingDoc";
 import { notify } from "@/components/ui/sonner";
 import {
   PresentationGenerationApi,
+  type KindergartenContentMode,
   type KindergartenDomain,
   type KindergartenVisualMode,
 } from "../../services/api/presentation-generation";
@@ -45,6 +46,7 @@ import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
 import UploadTemplateGallery from "./UploadTemplateGallery";
 
 type CreateFlowMode = "topic" | "template";
+type ContentModeChoice = "auto" | KindergartenContentMode;
 
 const CREATE_FLOW_TABS: Array<{ id: CreateFlowMode; label: string; hint: string }> = [
   {
@@ -74,6 +76,15 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "AI 自由视觉",
     description: "使用中性版式骨架，每页生成不同但同一世界观的 16:9 背景，画面更丰富。",
   },
+];
+
+const CONTENT_MODE_OPTIONS: Array<{
+  id: ContentModeChoice;
+  label: string;
+}> = [
+  { id: "auto", label: "自动判断" },
+  { id: "classroom", label: "幼儿园集体教学" },
+  { id: "training", label: "幼儿园园本教研培训" },
 ];
 
 const STOCK_IMAGE_PROVIDERS = new Set(["pexels", "pixabay"]);
@@ -110,6 +121,34 @@ const DOMAIN_TERMS: Array<[KindergartenDomain, string[]]> = [
   ["social", ["社会", "礼仪", "规则", "情绪", "朋友", "合作", "分享", "交往", "家园", "节日"]],
 ];
 
+const TRAINING_TERMS = [
+  "教研",
+  "培训",
+  "园本",
+  "工作汇报",
+  "专题汇报",
+  "成果汇报",
+  "汇报材料",
+  "课程推进",
+  "现存问题",
+  "问题分析",
+  "教师成长",
+];
+
+const inferContentMode = (
+  topic: string,
+  context: TeachingContextState,
+): KindergartenContentMode => {
+  const audience = context.audience?.trim();
+  const scene = context.scene?.trim();
+  if (audience === "教师" || audience === "教研团队" || scene === "教研分享") {
+    return "training";
+  }
+  return TRAINING_TERMS.some((term) => topic.includes(term))
+    ? "training"
+    : "classroom";
+};
+
 const normalizeAgeGroup = (age?: string): string => {
   const value = age?.trim() || "";
   if (!value) return "4-5岁";
@@ -138,9 +177,13 @@ const inferKindergartenDomain = (text: string): KindergartenDomain => {
 const buildPlannerInstructions = (
   baseInstructions: string | null | undefined,
   context: TeachingContextState,
+  contentMode: KindergartenContentMode,
 ): string | null => {
   const lines = [
     baseInstructions?.trim() || "",
+    contentMode === "training"
+      ? "内容模式：面向教师的教研培训，不得生成幼儿课堂脚本或儿童口吻。"
+      : "内容模式：面向幼儿的课堂活动。",
     context.audience?.trim() ? `目标观众：${context.audience.trim()}` : "",
     context.scene?.trim() ? `课堂场景：${context.scene.trim()}` : "",
     context.style?.trim() ? `视觉偏好：${context.style.trim()}` : "",
@@ -232,6 +275,8 @@ const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([]);
   const generationMode = "standard" as const;
   const [createFlowMode, setCreateFlowMode] = useState<CreateFlowMode>("topic");
+  const [contentModeChoice, setContentModeChoice] =
+    useState<ContentModeChoice>("auto");
   const [visualMode, setVisualMode] = useState<KindergartenVisualMode>("template");
   const [teachingContext, setTeachingContext] = useState<TeachingContextState>({
     audience: "幼儿",
@@ -240,6 +285,12 @@ const UploadPage = () => {
     style: "明亮童趣",
   });
   const [config, setConfig] = useState<PresentationConfig>(createTeachnovaDefaultConfig);
+
+  const resolveRequestedContentMode = (topic: string): KindergartenContentMode => {
+    if (contentModeChoice !== "auto") return contentModeChoice;
+    const fileNameSignals = files.map((file) => file.name).join("\n");
+    return inferContentMode(`${topic}\n${fileNameSignals}`, teachingContext);
+  };
 
   const continueToOutline = (presentationId: string, templateId?: string | null) => {
     const outlineUrl = new URL(
@@ -320,6 +371,7 @@ const UploadPage = () => {
       web_search: !!config.webSearch,
       generation_mode: generationMode,
       create_flow_mode: createFlowMode,
+      content_mode_choice: contentModeChoice,
       visual_mode: visualMode,
       community_reference_id: null,
       has_prompt: Boolean(trimmedPrompt),
@@ -427,13 +479,34 @@ const UploadPage = () => {
 
   const startKindergartenOutline = async (documentPaths: string[]) => {
     const topic = config.prompt.trim() || "根据上传资料生成幼教课件";
-    const requestContext = teachingContext;
+    const contentMode = resolveRequestedContentMode(topic);
+    const requestContext: TeachingContextState =
+      contentMode === "training"
+        ? {
+            ...teachingContext,
+            audience: "教师",
+            age: undefined,
+            scene: "教研分享",
+            style:
+              teachingContext.style === "明亮童趣"
+                ? "简洁清晰"
+                : teachingContext.style,
+          }
+        : teachingContext;
     const requestContent = buildTeachnovaPrompt(topic, requestContext);
-    const plannerInstructions = buildPlannerInstructions(config.instructions, requestContext);
+    const plannerInstructions = buildPlannerInstructions(
+      config.instructions,
+      requestContext,
+      contentMode,
+    );
     const createResponse = await PresentationGenerationApi.startKindergartenPresentation({
       topic,
-      age_group: normalizeAgeGroup(requestContext.age),
+      age_group:
+        contentMode === "training"
+          ? "教师教研"
+          : normalizeAgeGroup(requestContext.age),
       domain: inferKindergartenDomain(`${topic}\n${plannerInstructions || ""}`),
+      content_mode: contentMode,
       duration_minutes: 20,
       n_slides: parseLimitedSlideCount(config?.slides),
       instructions: plannerInstructions,
@@ -492,14 +565,24 @@ const UploadPage = () => {
     }
     const responses = await Promise.all(promises);
     const documentPaths = getDocumentPaths(responses);
+    const plannedContentMode = resolveRequestedContentMode(
+      config.prompt.trim() || "根据上传资料生成幼教课件",
+    );
 
     setLoadingState({
       isLoading: true,
-      message: "AI 正在规划幼教课堂大纲…",
+      message:
+        plannedContentMode === "training"
+          ? "AI 正在规划园本教研培训大纲…"
+          : "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 50,
       extra_info:
-        visualMode === "ai-background"
+        plannedContentMode === "training"
+          ? visualMode === "ai-background"
+            ? "先检查教研逻辑与问题闭环，再规划统一视觉；确认大纲前不会开始付费生图。"
+            : "会先检查问题、证据、策略和验证闭环，再进入大纲确认。"
+          : visualMode === "ai-background"
           ? "先检查教学逻辑，再规划统一视觉世界与逐页背景；确认大纲前不会开始付费生图。"
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
@@ -528,13 +611,23 @@ const UploadPage = () => {
   };
 
   const handleDirectPresentationGeneration = async () => {
+    const plannedContentMode = resolveRequestedContentMode(
+      config.prompt.trim() || "根据主题生成幼教课件",
+    );
     setLoadingState({
       isLoading: true,
-      message: "AI 正在规划幼教课堂大纲…",
+      message:
+        plannedContentMode === "training"
+          ? "AI 正在规划园本教研培训大纲…"
+          : "AI 正在规划幼教课堂大纲…",
       showProgress: true,
       duration: 45,
       extra_info:
-        visualMode === "ai-background"
+        plannedContentMode === "training"
+          ? visualMode === "ai-background"
+            ? "先规划教研内容与整套专业视觉；每页背景会在大纲确认后再生成。"
+            : "会先检查问题、证据、策略和验证闭环，再进入大纲确认。"
+          : visualMode === "ai-background"
           ? "先规划课堂与整套视觉规范；每页背景会在大纲确认后再生成。"
           : "会先检查教学逻辑、互动答案和图片语义，再进入大纲确认。",
     });
@@ -624,6 +717,28 @@ const UploadPage = () => {
               );
             })}
           </div>
+        </div>
+
+        <div className="mx-auto mb-4 flex max-w-[760px] flex-wrap justify-center gap-2 px-4 lg:max-w-[780px] xl:max-w-[900px] min-[1600px]:max-w-[1050px] min-[1920px]:max-w-[1280px]">
+          {CONTENT_MODE_OPTIONS.map((option) => {
+            const active = contentModeChoice === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={active}
+                disabled={loadingState.isLoading}
+                onClick={() => setContentModeChoice(option.id)}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  active
+                    ? "border-[#2A6F62] bg-[#EDF7F3] text-[#155E52]"
+                    : "border-[#D0D5DD] bg-white text-[#667085] hover:border-[#9BBDB5]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
 
         {createFlowMode === "topic" ? (

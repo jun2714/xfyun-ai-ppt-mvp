@@ -1,6 +1,7 @@
 import asyncio
 
 from PIL import Image, ImageDraw
+import pytest
 
 from models.sql.image_asset import ImageAsset
 from models.sql.slide import SlideModel
@@ -9,6 +10,12 @@ from services.asset_semantic_quality_service import (
     AssetSemanticCheck,
     AssetSemanticQualityResult,
 )
+
+
+@pytest.fixture(autouse=True)
+def _local_asset_storage(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_DATA_DIRECTORY", str(tmp_path / "app-data"))
+    monkeypatch.setenv("ALIYUN_OSS_ENABLED", "false")
 
 
 class FakeImageService:
@@ -201,8 +208,15 @@ def test_later_semantic_failure_does_not_regenerate_prior_success(tmp_path, monk
     assert service.prompts[0].count("A red apple") == 1
     assert sum("A red apple" in prompt for prompt in service.prompts) == 1
     assert sum("A white rabbit" in prompt for prompt in service.prompts) == 2
-    assert [trace.status for trace in traces] == ["succeeded", "failed", "succeeded"]
-    assert traces[2].retry_of == plan[1].request_id
+    first_traces = [trace for trace in traces if trace.request_id == plan[0].request_id]
+    second_traces = [
+        trace
+        for trace in traces
+        if trace.request_id == plan[1].request_id or trace.retry_of == plan[1].request_id
+    ]
+    assert [trace.status for trace in first_traces] == ["succeeded"]
+    assert sorted(trace.status for trace in second_traces) == ["failed", "succeeded"]
+    assert any(trace.retry_of == plan[1].request_id for trace in second_traces)
     assert "image_url" in slides[0].content["main"]["subject"]
     assert "image_url" in slides[1].content["main"]["subject"]
 
@@ -363,3 +377,13 @@ def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
     assert service.calls == 1
     assert slide.content["main"]["subject"]["image_url"]
     assert traces[-1].status == "succeeded_with_warning"
+
+
+def test_kindergarten_asset_prompt_requires_one_illustration_medium():
+    slide = _cutout_slide(with_semantic_contract=True)
+    item = asset_execution_service.build_asset_plan([slide])[0]
+    prompt = asset_execution_service._request_prompt(item)
+    assert "consistent 2D children's picture-book illustration style" in prompt
+    assert "never photography" in prompt
+    assert "photorealism" in prompt
+    assert "mixed media" in prompt

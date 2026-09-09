@@ -1,2 +1,33 @@
-triggered_at=2026-09-01T12:46:00+08:00
-reason=rerun-after-editor-hydration-wait
+triggered_at=2026-09-03T02:22:00Z
+reason=real-gemini-full-ppt-probe
+expected_revision=asset-v2-text-fit-v1
+run: 17
+reason: slide-fallback-and-exact-eight-pages
+run: 18
+reason: exact-eight-page-option
+run: 19
+reason: clear-placeholders-expand-text-enforce-image-semantics
+run: 20
+reason: rebalance-card-text-and-verify-images
+run: 21
+reason: persist-json-assets-clear-placeholders-child-safe-template
+run: 22
+reason: schema-ordered-copy-capacity-and-editor-image-proxy
+run: 23
+reason: keep-model-layout-choice-within-hard-compatible-candidates
+run: 24
+reason: physical-text-capacity-filter-and-reviewed-chinese-line-height
+run: 25
+reason: complete-same-name-image-slot-coverage-and-reject-black-placeholders
+run: 26
+reason: classroom-font-floor-card-coverage-and-illustration-consistency
+run: 27
+reason: semantic-classroom-rendering
+run: 28
+reason: recover-unproven-caption-bindings-with-scene-fallback
+run: 29
+reason: windows-safe-image-logging-and-outline-bullet-role-preservation
+run: 30
+reason: integrate-new-training-cover-features-and-verify-every-rendered-slide
+run: 31
+reason: normalize-observed-planner-enum-aliases-before-schema-retry

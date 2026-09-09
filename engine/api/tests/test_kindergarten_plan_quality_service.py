@@ -135,6 +135,32 @@ def test_reveal_answer_mismatch_is_blocked():
     assert any(issue.code == "reveal-answer-mismatch" for issue in report.errors)
 
 
+def test_any_topic_cannot_be_replaced_by_unrequested_animal_story():
+    plan = _valid_plan()
+    plan.meta.topic = "认识红绿灯"
+    plan.lesson_arc = ["小熊来传声", "寻找小熊朋友", "揭晓小熊"]
+
+    report = validate_kindergarten_lesson_plan(plan)
+
+    assert report.passed is False
+    assert any(
+        issue.code == "topic-replaced-by-unrequested-storyline"
+        for issue in report.errors
+    )
+
+
+def test_explicit_animal_growth_topic_can_keep_its_animal_subject():
+    plan = _valid_plan()
+    plan.meta.topic = "小兔子的成长故事"
+
+    report = validate_kindergarten_lesson_plan(plan)
+
+    assert not any(
+        issue.code == "topic-replaced-by-unrequested-storyline"
+        for issue in report.errors
+    )
+
+
 def test_plan_to_outline_preserves_teacher_and_asset_semantics():
     outline = _valid_plan().to_presentation_outline()
     contract = outline.slides[1].content_contract

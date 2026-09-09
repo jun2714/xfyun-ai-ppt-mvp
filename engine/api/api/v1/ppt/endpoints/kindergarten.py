@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -70,12 +70,14 @@ from utils.sse import safe_sse_stream
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
 MAX_KINDERGARTEN_SOURCE_CONTEXT_CHARS = 30000
 LOGGER = logging.getLogger(__name__)
+KindergartenContentMode = Literal["classroom", "training"]
 
 
 class KindergartenLessonPlanRequest(BaseModel):
     topic: str = Field(min_length=1, max_length=200)
     age_group: str = Field(default="4-5岁", min_length=1, max_length=40)
     domain: KindergartenDomain = "comprehensive"
+    content_mode: KindergartenContentMode = "classroom"
     duration_minutes: int = Field(default=20, ge=5, le=90)
     n_slides: Optional[int] = Field(default=None, ge=3, le=40)
     # PresentationModel currently stores instructions in VARCHAR(1024). Keep this
@@ -184,6 +186,7 @@ async def _generate_validated_plan(
                 topic=payload.topic,
                 age_group=payload.age_group,
                 domain=payload.domain,
+                content_mode=payload.content_mode,
                 duration_minutes=payload.duration_minutes,
                 n_slides=payload.n_slides,
                 instructions=payload.instructions,
@@ -258,6 +261,8 @@ def _apply_visual_mode(
             result.plan,
             payload.template,
             instructions=payload.instructions,
+            allow_classroom=(payload.content_mode == "classroom"
+                             and payload.image_policy != ImagePolicy.DISABLED),
         )
         return result, routing, None
 
@@ -275,6 +280,7 @@ def _apply_visual_mode(
         topic=payload.topic,
         domain=payload.domain,
         visual_style_hint=payload.visual_style,
+        content_mode=payload.content_mode,
     )
     visual_result = ValidatedKindergartenPlanningResult(
         plan=result.plan,
@@ -290,6 +296,7 @@ def _apply_visual_mode(
     style_summary = get_kindergarten_visual_style_summary(
         domain=payload.domain,
         visual_style_hint=payload.visual_style,
+        content_mode=payload.content_mode,
     )
     return visual_result, routing, style_summary
 
@@ -589,7 +596,13 @@ async def stream_kindergarten_presentation_outline(
             ).to_string()
             return
 
-        yield SSEStatusResponse(status="正在生成幼教课堂大纲").to_string()
+        yield SSEStatusResponse(
+            status=(
+                "正在生成教研培训大纲"
+                if payload.content_mode == "training"
+                else "正在生成幼教课堂大纲"
+            )
+        ).to_string()
         chunk_queue: asyncio.Queue[str] = asyncio.Queue()
 
         async def on_chunk(chunk: str) -> None:

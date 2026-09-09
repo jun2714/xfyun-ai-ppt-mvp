@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from models.presentation_outline_model import (
     PresentationOutlineModel,
@@ -74,6 +74,19 @@ class LessonInteraction(BaseModel):
     type: KindergartenInteractionType = "none"
     instruction: Optional[str] = Field(default=None, max_length=180)
 
+    @field_validator(
+        "type", mode="before",
+        json_schema_input_type=Union[
+            KindergartenInteractionType, Literal["observation", "compare", "reveal"],
+        ],
+    )
+    @classmethod
+    def normalize_observation_action(cls, value):
+        # The slide role still records compare/reveal; its child action is observe.
+        if isinstance(value, str) and value in {"observation", "compare", "reveal"}:
+            return "observe"
+        return value
+
 
 class LessonAssetSpec(BaseModel):
     slot: str = Field(min_length=1, max_length=80)
@@ -83,6 +96,10 @@ class LessonAssetSpec(BaseModel):
     expected_count: int = Field(default=1, ge=1, le=12)
     role: Literal["background", "framed-image", "cutout"] = "framed-image"
     qa_required: bool = True
+    audience_text: Optional[str] = Field(
+        default=None, max_length=160,
+        description="Exact screen_content.points phrase illustrated by this asset. Never use list position to guess the binding. Omit for a whole-scene image.",
+    )
 
 
 class LessonGameSpec(BaseModel):
@@ -101,6 +118,22 @@ class LessonGameSpec(BaseModel):
     answer_map: Dict[str, str] = Field(default_factory=dict)
     sequence_order: List[str] = Field(default_factory=list, max_length=12)
 
+    @field_validator(
+        "options", "answer_map", mode="before",
+        json_schema_input_type=Optional[Dict[str, str]],
+    )
+    @classmethod
+    def normalize_optional_map(cls, value):
+        return {} if value is None else value
+
+    @field_validator(
+        "sequence_order", mode="before",
+        json_schema_input_type=Optional[List[str]],
+    )
+    @classmethod
+    def normalize_optional_order(cls, value):
+        return [] if value is None else value
+
 
 class KindergartenSlidePlan(BaseModel):
     slide_no: int = Field(ge=1, le=100)
@@ -112,6 +145,14 @@ class KindergartenSlidePlan(BaseModel):
     assets: List[LessonAssetSpec] = Field(default_factory=list, max_length=12)
     game: Optional[LessonGameSpec] = None
     layout_capabilities: List[str] = Field(default_factory=list, max_length=8)
+
+    @field_validator(
+        "slide_type", mode="before",
+        json_schema_input_type=Union[KindergartenSlideType, Literal["observation"]],
+    )
+    @classmethod
+    def normalize_observation_role(cls, value):
+        return "image-observation" if value == "observation" else value
 
 
 class KindergartenLessonPlan(BaseModel):
@@ -154,6 +195,12 @@ class KindergartenLessonPlan(BaseModel):
                         requires_images=bool(required_semantics),
                         media_role=_media_role_for_assets(slide.assets),
                         visible_characters=len("".join(visible_lines)),
+                        preserve_visible_copy=True,
+                        screen_title=slide.screen_content.title,
+                        screen_points=list(slide.screen_content.points),
+                        screen_instruction=slide.screen_content.instruction,
+                        interaction_instruction=slide.interaction.instruction,
+                        classroom_role=slide.slide_type,
                         teaching_goal=slide.teaching_goal,
                         teacher_note=slide.teacher_note,
                         interaction_type=slide.interaction.type,
@@ -168,6 +215,7 @@ class KindergartenLessonPlan(BaseModel):
                                 expected_count=asset.expected_count,
                                 role=asset.role,
                                 qa_required=asset.qa_required,
+                                audience_text=asset.audience_text,
                             )
                             for asset in required_assets
                         ],
@@ -191,7 +239,12 @@ def _relationship_for_slide(slide: KindergartenSlidePlan):
         return "sequence"
     if slide.slide_type == "compare":
         return "comparison"
-    if slide.slide_type in {"cover-scene", "story-intro", "ending-scene"}:
+    # Cover layouts use a title/subtitle contract rather than a story-body
+    # contract. Keeping the cover as "single" lets the AI visual router choose
+    # the dedicated title composition instead of a normal content page.
+    if slide.slide_type == "cover-scene":
+        return "single"
+    if slide.slide_type in {"story-intro", "ending-scene"}:
         return "story"
     if slide.slide_type == "memory-show":
         return "multi-item"

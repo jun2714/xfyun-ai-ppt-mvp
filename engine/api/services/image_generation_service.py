@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 import secrets
 from weakref import WeakKeyDictionary
@@ -42,6 +43,7 @@ from utils.asset_directory_utils import absolute_fastapi_asset_url
 from utils.image_generation_error import normalize_image_generation_error
 import uuid
 
+logger = logging.getLogger(__name__)
 
 COMFYUI_MAX_SEED = 0xFFFFFFFFFFFFFFFF
 COMFYUI_SEED_SOURCE_VALUE_KEYS = {"value", "int", "integer", "number"}
@@ -133,7 +135,9 @@ class ImageGenerationService:
         image_prompt = prompt.get_image_prompt(
             with_theme=not self.is_stock_provider_selected()
         )
-        print(f"Request - Generating Image for {image_prompt}")
+        # Windows runners may redirect stdout using GBK. Logging prompt text can
+        # fail before the provider is called (bullets/emoji are not encodable).
+        logger.info("Generating image")
 
         try:
             try:
@@ -171,7 +175,7 @@ class ImageGenerationService:
             raise Exception(f"Image not found at {image_path}")
 
         except Exception as e:
-            print(f"Error generating image: {e}")
+            logger.warning("Image generation failed (%s)", type(e).__name__)
             normalized_error = normalize_image_generation_error(e)
             if normalized_error is e:
                 raise

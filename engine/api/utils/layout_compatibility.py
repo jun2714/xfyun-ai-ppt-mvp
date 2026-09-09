@@ -109,7 +109,8 @@ def _normalized_capabilities(values: list[str]) -> set[str]:
 
 def _is_teaching_contract(contract: SlideContentContract) -> bool:
     return bool(
-        contract.teaching_goal
+        contract.preserve_visible_copy
+        or contract.teaching_goal
         or contract.teacher_note
         or contract.activity_id
         or contract.required_asset_semantics
@@ -197,6 +198,26 @@ def get_allowed_layout_indices_for_outline(
     metadata exists, stronger relationship/media/capacity/readability checks are
     applied on top of that structural guard.
     """
+    from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
+    if presentation_layout.name == CLASSROOM_TEMPLATE_ID:
+        from services.classroom_content_mapping import (
+            preferred_classroom_layout, build_classroom_content,
+        )
+        choices = []
+        for index, slide in enumerate(presentation_outline.slides):
+            try:
+                preferred = preferred_classroom_layout(slide, index)
+                selected = next(i for i, layout in enumerate(presentation_layout.slides)
+                                if layout.id == preferred)
+                build_classroom_content(presentation_layout.slides[selected].json_schema, slide)
+                choices.append([selected])
+            except (ValueError, StopIteration) as error:
+                raise LayoutCompatibilityError(
+                    f"第 {index + 1} 页不适合课堂大字号版式：{error}",
+                    slide_number=index + 1,
+                ) from error
+        return choices
+
     audited_indices = [
         index
         for index, layout in enumerate(presentation_layout.slides)
@@ -233,6 +254,24 @@ def get_allowed_layout_indices_for_outline(
                 slide_number=slide_number,
                 contract=contract.model_dump(mode="json"),
             )
+
+        if contract.preserve_visible_copy:
+            # Local import avoids coupling model/schema initialization to the
+            # generation module. This helper makes no model or network request.
+            from utils.llm_calls.generate_slide_content import reviewed_outline_fits_schema
+
+            structural = [
+                index for index in structural
+                if reviewed_outline_fits_schema(
+                    presentation_layout.slides[index].json_schema, outline_slide.content
+                )
+            ]
+            if not structural:
+                raise LayoutCompatibilityError(
+                    f"Slide {slide_number} reviewed text does not fit any compatible layout; choose a roomier template",
+                    slide_number=slide_number,
+                    contract=contract.model_dump(mode="json"),
+                )
 
         if audited_indices:
             compatible = [

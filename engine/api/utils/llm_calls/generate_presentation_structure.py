@@ -1,4 +1,5 @@
 from typing import Optional
+import logging
 
 from llmai import get_client
 from llmai.shared import JSONSchemaResponse, Message, SystemMessage, UserMessage
@@ -15,6 +16,8 @@ from utils.layout_compatibility import (
 )
 from utils.schema_utils import prepare_schema_for_validation
 from models.presentation_structure_model import PresentationStructureModel
+
+logger = logging.getLogger(__name__)
 
 
 STRUCTURE_FROM_SLIDES_MARKDOWN_SYSTEM_PROMPT = """
@@ -347,7 +350,38 @@ async def generate_presentation_structure(
     except Exception as e:
         raise handle_llm_client_exceptions(e)
 
+    return _repair_generated_structure(structure, allowed_layout_indices)
+
+
+def _repair_generated_structure(
+    structure: PresentationStructureModel,
+    allowed_layout_indices: Optional[list[list[int]]],
+) -> PresentationStructureModel:
+    """Repair only invalid model choices without weakening hard layout guards.
+
+    This is local selection, not a second paid content/outline request. Valid
+    model choices remain unchanged. Empty choices and wrong page counts still
+    fail; we never fabricate or remove an approved page.
+    """
+    if allowed_layout_indices is None:
+        return structure
+    if len(structure.slides) != len(allowed_layout_indices):
+        return _validate_structure_against_allowed_layouts(structure, allowed_layout_indices)
+    selected = list(structure.slides)
+    for index, allowed in enumerate(allowed_layout_indices):
+        if selected[index] in allowed:
+            continue
+        if not allowed:
+            raise LayoutCompatibilityError(
+                f"Slide {index + 1} has no allowed layout choices", slide_number=index + 1
+            )
+        # Among already-approved alternatives, prefer a composition not used by
+        # either adjacent page, then the least-used one. Index order breaks ties.
+        neighbors = selected[max(0, index - 1):index] + selected[index + 1:index + 2]
+        replacement = min(allowed, key=lambda item: (item in neighbors, selected.count(item), item))
+        logger.warning("Slide %s model selected disallowed layout %s; using compatible layout %s",
+                       index + 1, selected[index], replacement)
+        selected[index] = replacement
     return _validate_structure_against_allowed_layouts(
-        structure,
-        allowed_layout_indices,
+        PresentationStructureModel(slides=selected), allowed_layout_indices
     )

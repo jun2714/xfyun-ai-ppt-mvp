@@ -53,7 +53,11 @@ class AssetSlotRequest:
 
     @property
     def consumer_id(self) -> str:
-        return f"slide-{self.slide_index + 1}.{self.slot_name}"
+        # Imported templates commonly repeat the same leaf name in several
+        # cards. A reuse group must consume only its exact paths, not every
+        # image on the page that happens to share a display name. Structured
+        # guides also distinguish array indices and keys containing dots.
+        return f"slide-{self.slide_index + 1}.{self.content_path.model_dump_json()}"
 
     @property
     def requires_semantic_qa(self) -> bool:

@@ -49,7 +49,14 @@ def is_app_data_path_authorized(
     user_id: uuid.UUID,
     is_admin: bool,
 ) -> bool:
-    """Authorize a browser-visible app_data path for one authenticated user."""
+    """Authorize a browser-visible app_data path for one authenticated user.
+
+    Current assets are stored as ``/<root>/users/<user-id>/...``. Older builds
+    briefly wrote tenant assets as ``/<root>/<user-id>/...``. Those direct-owner
+    paths are still private: accept them only when the directory UUID exactly
+    matches the authenticated user. This keeps already-generated TeachNova images
+    usable without making the whole images tree public.
+    """
     parts = normalized_app_data_parts(path_or_uri)
     if not parts:
         return False
@@ -67,6 +74,11 @@ def is_app_data_path_authorized(
             and relative_parts[1] == str(user_id)
         )
 
-    # Pre-multi-user assets remain in the legacy root and belong only to the
-    # migrated primary administrator.
+    # Compatibility for the short-lived direct owner layout:
+    # /app_data/images/<user-id>/file.png. Do not accept arbitrary UUID folders.
+    if len(relative_parts) >= 2 and relative_parts[0] == str(user_id):
+        return True
+
+    # Truly pre-multi-user assets remain in the legacy root and belong only to
+    # the migrated primary administrator.
     return is_admin

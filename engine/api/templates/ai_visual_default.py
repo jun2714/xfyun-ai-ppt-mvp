@@ -47,12 +47,16 @@ def _panel(
     width: int,
     height: int,
     child: dict[str, Any],
+    *,
+    opacity: float = 0.78,
 ) -> dict[str, Any]:
     return {
         "type": "container",
         "position": {"x": x, "y": y},
         "size": {"width": width, "height": height},
-        "fill": {"color": "#FFFDF7", "opacity": 0.92},
+        # A translucent reading surface keeps text legible without turning the
+        # generated illustration into a hidden wallpaper behind white boxes.
+        "fill": {"color": "#FFFDF7", "opacity": opacity},
         "padding": {"top": 12, "right": 18, "bottom": 12, "left": 18},
         "child": child,
     }
@@ -140,7 +144,7 @@ def _layouts() -> list[dict[str, Any]]:
     return [
         {
             "id": "ai_cover",
-            "description": "AI自由视觉封面，中央标题和副标题叠加在统一生成背景上。",
+            "description": "AI自由视觉标题页，说明培训主题、对象和预期成果。",
             "components": [
                 _component(
                     "background",
@@ -154,23 +158,40 @@ def _layouts() -> list[dict[str, Any]]:
                         _panel(230, 240, 820, 110, _text("title", 784, 86, 52, 28)),
                         _panel(
                             330,
-                            370,
+                            365,
                             620,
-                            70,
+                            82,
                             _text(
                                 "subtitle",
                                 584,
-                                46,
-                                26,
-                                40,
+                                58,
+                                25,
+                                64,
                                 color="#51636F",
                                 bold=False,
                             ),
+                            opacity=0.70,
+                        ),
+                        _panel(
+                            440,
+                            470,
+                            400,
+                            58,
+                            _text(
+                                "context",
+                                364,
+                                34,
+                                22,
+                                24,
+                                color="#51636F",
+                                bold=False,
+                            ),
+                            opacity=0.66,
                         ),
                     ],
                 ),
             ],
-            "metadata": _metadata(["scene", "single-focus"], "single", 2, max_chars=80),
+            "metadata": _metadata(["scene", "single-focus"], "single", 3, max_chars=110),
         },
         {
             "id": "ai_left",

@@ -450,6 +450,9 @@ def get_aliyun_oss_key_prefix() -> str:
 
 
 def is_aliyun_oss_enabled() -> bool:
+    configured = (os.getenv("ALIYUN_OSS_ENABLED") or "").strip().lower()
+    if configured in {"0", "false", "no", "off"}:
+        return False
     return bool(
         get_aliyun_oss_access_key_id()
         and get_aliyun_oss_access_key_secret()

@@ -1,4 +1,4 @@
-from models.kindergarten_lesson_plan import KindergartenLessonPlan
+from models.kindergarten_lesson_plan import KindergartenLessonPlan, LessonAssetSpec
 from services.kindergarten_template_routing_service import (
     resolve_kindergarten_template,
 )
@@ -42,7 +42,7 @@ def _plan(
     )
 
 
-def test_science_exploration_routes_to_dynamic():
+def test_science_exploration_avoids_dark_dynamic_auto_template():
     decision = resolve_kindergarten_template(
         _plan(
             topic="春天里的种子",
@@ -52,8 +52,28 @@ def test_science_exploration_routes_to_dynamic():
         "auto",
     )
 
-    assert decision.template == "dynamic"
+    assert decision.template == "standard"
     assert decision.scores["dynamic"] > decision.scores["standard"]
+
+
+def test_asset_free_cover_does_not_disable_semantic_classroom_template():
+    plan = _plan(
+        topic="春天里的种子",
+        domain="science",
+        slide_types=["cover-scene", "image-observation", "knowledge-single"],
+    )
+    for slide in plan.slides[1:]:
+        slide.assets = [
+            LessonAssetSpec(
+                slot="scene",
+                semantic_label=slide.screen_content.title,
+                description="与本页教学目标直接对应的完整课堂观察画面",
+            )
+        ]
+
+    decision = resolve_kindergarten_template(plan, "auto")
+
+    assert decision.template == "kindergarten-classroom"
 
 
 def test_game_heavy_lesson_routes_to_swift():
@@ -127,3 +147,17 @@ def test_manual_template_selection_is_never_rewritten():
     assert decision.template == "general"
     assert decision.reason == "manual-selection"
     assert decision.scores == {}
+
+
+def test_manual_dynamic_template_selection_remains_available():
+    decision = resolve_kindergarten_template(
+        _plan(
+            topic="春天里的种子",
+            domain="science",
+            slide_types=["cover-scene", "image-observation"],
+        ),
+        "dynamic",
+    )
+
+    assert decision.template == "dynamic"
+    assert decision.reason == "manual-selection"

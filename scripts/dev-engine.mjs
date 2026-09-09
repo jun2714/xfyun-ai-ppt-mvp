@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { resolveGeminiImageModel } from "./image-model-config.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const parseEnv = (file) => Object.fromEntries(
   existsSync(file)
@@ -12,6 +14,11 @@ const parseEnv = (file) => Object.fromEntries(
     : []
 );
 const source = { ...parseEnv(resolve(root, ".env")), ...process.env };
+const apiPort = String(source.PPT_API_PORT || "8000");
+const editorPort = String(source.PPT_EDITOR_PORT || "5001");
+const webAppUrl = source.PPT_WEB_URL || source.NEXT_PUBLIC_WEB_APP_URL || "http://127.0.0.1:5173";
+const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
+const editorBaseUrl = `http://127.0.0.1:${editorPort}`;
 const dataDirectory = resolve(root, source.ENGINE_DATA_DIRECTORY || ".data/engine");
 const tempDirectory = resolve(root, source.ENGINE_TEMP_DIRECTORY || ".runtime/temp");
 const localBrowser = [
@@ -41,7 +48,7 @@ const shared = {
   IMAGE_PROVIDER: source.DMX_IMAGE_API_STYLE === "gemini" ? "gemini_flash" : "openai_compatible",
   GOOGLE_API_KEY: source.DMX_API_KEY || "",
   GEMINI_IMAGE_BASE_URL: source.DMX_GEMINI_BASE_URL || "https://www.dmxapi.cn",
-  GEMINI_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "gemini-2.5-flash-image",
+  GEMINI_IMAGE_MODEL: resolveGeminiImageModel(source),
   OPENAI_COMPAT_IMAGE_BASE_URL: source.DMX_API_BASE_URL || "https://www.dmxapi.cn/v1",
   OPENAI_COMPAT_IMAGE_API_KEY: source.DMX_API_KEY || "",
   OPENAI_COMPAT_IMAGE_MODEL: source.DMX_IMAGE_MODEL || "",
@@ -51,9 +58,10 @@ const shared = {
   // schema contract and avoid losing a paid response after HTTP 200.
   ENGINE_FORCE_NON_STREAM_STRUCTURED: source.ENGINE_FORCE_NON_STREAM_STRUCTURED || "true",
   MIGRATE_DATABASE_ON_STARTUP: source.MIGRATE_DATABASE_ON_STARTUP || "true",
-  NEXT_PUBLIC_FAST_API: "http://127.0.0.1:8000",
-  FAST_API_INTERNAL_URL: "http://127.0.0.1:8000",
-  NEXT_PUBLIC_URL: "http://127.0.0.1:5001",
+  NEXT_PUBLIC_FAST_API: apiBaseUrl,
+  FAST_API_INTERNAL_URL: apiBaseUrl,
+  NEXT_PUBLIC_URL: editorBaseUrl,
+  NEXT_PUBLIC_WEB_APP_URL: webAppUrl,
   PRESENTON_APP_ROOT: root,
   EXPORT_PACKAGE_ROOT: resolve(root, "engine/export/runtime"),
   NODE_PATH: resolve(root, "engine/editor/node_modules"),
@@ -74,9 +82,14 @@ if (localBrowser) {
   shared.PUPPETEER_SKIP_DOWNLOAD = "true";
 }
 
+const apiPython = process.platform === "win32"
+  ? resolve(root, "engine/api/.venv/Scripts/python.exe")
+  : resolve(root, "engine/api/.venv/bin/python");
+shared.PYTHON_EXECUTABLE = apiPython;
+
 const children = [
-  spawn("python", ["-m", "uv", "run", "python", "server.py", "--port", "8000", "--reload", "true"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: process.platform === "win32" }),
-  spawn("npm", ["run", "dev", "--", "-p", "5001"], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
+  spawn(apiPython, ["server.py", "--port", apiPort, "--reload", "true"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: false }),
+  spawn("npm", ["run", "dev", "--", "-p", editorPort], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
 ];
 
 const stop = () => children.forEach((child) => child.kill());
