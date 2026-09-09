@@ -407,6 +407,28 @@ async def _persist_start_metadata(
     await sql_session.commit()
 
 
+async def _persist_outline_failure(
+    presentation,
+    detail: str,
+    sql_session: AsyncSession,
+) -> None:
+    """Mark incomplete records so the project list can identify failed generation."""
+    await sql_session.rollback()
+    theme = dict(presentation.theme or {})
+    existing = theme.get("kindergarten_generation")
+    generation = dict(existing) if isinstance(existing, dict) else {}
+    generation.update(
+        {
+            "outline_status": "failed",
+            "outline_error": detail[:500],
+        }
+    )
+    theme["kindergarten_generation"] = generation
+    presentation.theme = theme
+    sql_session.add(presentation)
+    await sql_session.commit()
+
+
 def _stream_presentation_payload(presentation) -> dict:
     return {
         **presentation.model_dump(exclude={"layout", "structure", "theme"}, mode="json"),
@@ -622,6 +644,11 @@ async def stream_kindergarten_presentation_outline(
                 except asyncio.TimeoutError:
                     if await request.is_disconnected():
                         planning_task.cancel()
+                        await _persist_outline_failure(
+                            presentation,
+                            "大纲生成已中断，请重新创建。",
+                            sql_session,
+                        )
                         return
                     continue
                 yield SSEResponse(
@@ -671,11 +698,21 @@ async def stream_kindergarten_presentation_outline(
                     if isinstance(detail, dict)
                     else None
                 ) or json.dumps(detail, ensure_ascii=False)
+            await _persist_outline_failure(presentation, detail, sql_session)
             yield SSEErrorResponse(detail=detail).to_string()
         except KindergartenPlanningQualityError as exc:
+            detail = f"幼教课堂大纲质检失败：{exc}"
+            await _persist_outline_failure(presentation, detail, sql_session)
             yield SSEErrorResponse(
-                detail=f"幼教课堂大纲质检失败：{exc}"
+                detail=detail
             ).to_string()
+        except Exception as exc:
+            await _persist_outline_failure(
+                presentation,
+                "幼教大纲生成失败，请重试。",
+                sql_session,
+            )
+            raise
         finally:
             if not planning_task.done():
                 planning_task.cancel()

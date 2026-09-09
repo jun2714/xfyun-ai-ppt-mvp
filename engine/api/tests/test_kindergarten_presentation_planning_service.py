@@ -210,6 +210,41 @@ def test_start_endpoint_persists_project_before_planning(monkeypatch):
     assert presentation.theme["kindergarten_generation"]["request"]["n_slides"] == 10
 
 
+def test_failed_outline_is_marked_for_dashboard_cleanup():
+    presentation = SimpleNamespace(
+        id=uuid.uuid4(),
+        theme={"kindergarten_generation": {"outline_status": "pending"}},
+    )
+
+    class FakeSession:
+        rolled_back = False
+        committed = False
+
+        async def rollback(self):
+            self.rolled_back = True
+
+        def add(self, _value):
+            return None
+
+        async def commit(self):
+            self.committed = True
+
+    session = FakeSession()
+    asyncio.run(
+        kindergarten_endpoint._persist_outline_failure(
+            presentation,
+            "模型生成失败",
+            session,
+        )
+    )
+
+    generation = presentation.theme["kindergarten_generation"]
+    assert session.rolled_back is True
+    assert session.committed is True
+    assert generation["outline_status"] == "failed"
+    assert generation["outline_error"] == "模型生成失败"
+
+
 def _plan(*, reveal_answer: str = "B") -> KindergartenLessonPlan:
     return KindergartenLessonPlan.model_validate(
         {

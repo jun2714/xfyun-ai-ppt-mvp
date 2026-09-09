@@ -1,5 +1,6 @@
 'use client'
 import React from "react";
+import { createPortal } from "react-dom";
 
 import { Card } from "@/components/ui/card";
 import { DashboardApi } from "@/app/(presentation-generator)/services/api/dashboard";
@@ -110,6 +111,15 @@ export const PresentationCard = ({
     }
   };
   const firstSlide = presentation?.slides?.[0];
+  const hasRenderableFirstSlide =
+    Boolean(firstSlide?.html_content) ||
+    (Array.isArray(firstSlide?.ui?.components) &&
+      firstSlide.ui.components.length > 0);
+  const isIncomplete = !hasRenderableFirstSlide;
+  const displayTitle =
+    (title || "").replace(/[\s?？�]/g, "").length > 0
+      ? title
+      : "未完成的演示文稿";
   const useTemplateV2HtmlPreview = shouldRenderTemplateV2HtmlPreview(
     firstSlide,
     presentation?.version
@@ -143,7 +153,23 @@ export const PresentationCard = ({
           : `relative aspect-video overflow-hidden bg-white ${viewMode === "list" ? "m-3 w-[170px] shrink-0 rounded-lg border border-[#EDEEEF]" : "w-full border-b border-[#EDEEEF]"}`
         }>
 
-          {isUnsupported ? (
+          {isIncomplete ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#FAFAFA] px-5 text-center text-[#667085]">
+              <AlertTriangle className="h-8 w-8 text-[#F79009]" aria-hidden="true" />
+              <p className="text-sm font-semibold">生成未完成</p>
+              <button
+                type="button"
+                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowDeleteDialog(true);
+                }}
+              >
+                删除记录
+              </button>
+            </div>
+          ) : isUnsupported ? (
             <div className="flex flex-col items-center gap-2 px-5 text-center text-[#666666]">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F4F3FF] text-[#7A5AF8]">
                 <Archive className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -180,7 +206,7 @@ export const PresentationCard = ({
           <div className="flex items-center justify-between gap-7 w-full">
             <div className="flex flex-col items-start gap-1">
               <div className="text-sm text-[#191919] font-semibold  overflow-hidden line-clamp-1">
-                <MarkdownRenderer content={title || "未命名课件"} className="text-sm mb-0  font-syne text-[#191919] font-semibold  overflow-hidden line-clamp-1" />
+                <MarkdownRenderer content={displayTitle} className="text-sm mb-0  font-syne text-[#191919] font-semibold  overflow-hidden line-clamp-1" />
               </div>
               <p className="text-[#808080] text-sm font-syne">
                 {new Date(presentation?.created_at).toLocaleDateString()}
@@ -227,7 +253,7 @@ export const PresentationCard = ({
 
         </div>
       </div>
-      {showDeleteDialog && (
+      {showDeleteDialog && typeof document !== "undefined" && createPortal((
         <div
           className="fixed inset-0 z-50 flex items-center justify-center animate-[fadeIn_150ms_ease-out]"
           onClick={(e) => {
@@ -254,7 +280,7 @@ export const PresentationCard = ({
               </h3>
               <p className="text-sm leading-relaxed text-gray-500">
                 即将删除{" "}
-                <span className="font-medium text-gray-700">&quot;{title}&quot;</span>.
+                <span className="font-medium text-gray-700">&quot;{displayTitle}&quot;</span>.
                 此操作无法撤销。
               </p>
             </div>
@@ -283,7 +309,7 @@ export const PresentationCard = ({
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </Card>
   );
 };
