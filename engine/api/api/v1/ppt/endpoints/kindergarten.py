@@ -427,6 +427,9 @@ async def _persist_outline_failure(
 ) -> None:
     """Mark incomplete records so the project list can identify failed generation."""
     await sql_session.rollback()
+    # Rollback expires ORM attributes even with expire_on_commit=False. Reload
+    # explicitly so reading theme does not trigger synchronous IO in async code.
+    await sql_session.refresh(presentation)
     theme = dict(presentation.theme or {})
     existing = theme.get("kindergarten_generation")
     generation = dict(existing) if isinstance(existing, dict) else {}

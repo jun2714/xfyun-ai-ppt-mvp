@@ -223,6 +223,9 @@ def test_failed_outline_is_marked_for_dashboard_cleanup():
         async def rollback(self):
             self.rolled_back = True
 
+        async def refresh(self, _value):
+            return None
+
         def add(self, _value):
             return None
 
