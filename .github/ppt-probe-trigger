@@ -33,3 +33,5 @@ run: 31
 reason: normalize-observed-planner-enum-aliases-before-schema-retry
 run: 32
 reason: teacher-workshop-template-and-preview-with-bounded-page-contracts
+run: 33
+reason: distinguish-teacher-process-pages-from-child-games-and-recheck-real-decks

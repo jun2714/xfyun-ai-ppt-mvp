@@ -546,10 +546,11 @@ def _repair_machine_contracts(
     plan: KindergartenLessonPlan,
     report: KindergartenPlanQualityReport,
     *, max_slides: Optional[int] = None,
+    content_mode: str = "classroom",
 ) -> KindergartenLessonPlan:
     """Repair recoverable hidden contracts without a second paid model call."""
     repaired = _repair_classroom_activity_contracts(plan, max_slides=max_slides)
-    report = validate_kindergarten_lesson_plan(repaired)
+    report = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
     if report.passed:
         return repaired
     if any(issue.code in CLASSROOM_CONTENT_ERRORS for issue in report.errors):
@@ -587,7 +588,7 @@ def _repair_machine_contracts(
     # Two bounded passes handle pair dependencies such as reveal-before-question
     # becoming reveal-slide-missing on the corresponding question page.
     for _ in range(2):
-        remaining = validate_kindergarten_lesson_plan(repaired)
+        remaining = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
         if remaining.passed:
             return repaired
         bad_slide_numbers = {
@@ -653,7 +654,7 @@ async def generate_validated_kindergarten_presentation_outline(
     )
     if content_mode == "training":
         plan = _normalize_training_contracts(plan)
-    report = validate_kindergarten_lesson_plan(plan)
+    report = validate_kindergarten_lesson_plan(plan, content_mode=content_mode)
     if report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=plan,
@@ -667,9 +668,9 @@ async def generate_validated_kindergarten_presentation_outline(
         ", ".join(issue.code for issue in report.errors),
     )
     repaired_plan = _repair_machine_contracts(
-        plan, report, max_slides=n_slides or len(plan.slides),
+        plan, report, max_slides=n_slides or len(plan.slides), content_mode=content_mode,
     )
-    repaired_report = validate_kindergarten_lesson_plan(repaired_plan)
+    repaired_report = validate_kindergarten_lesson_plan(repaired_plan, content_mode=content_mode)
     if repaired_report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=repaired_plan,

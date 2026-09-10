@@ -443,6 +443,64 @@ def test_training_sequence_without_game_keeps_sequence_layout_semantics():
     assert "sequence" in normalized.slides[1].layout_capabilities
 
 
+def _training_steps_plan():
+    plan = _plan()
+    plan.meta.topic = "如何记录儿童游戏证据"
+    plan.lesson_goals = ["区分主观判断与可观察的证据"]
+    plan.lesson_arc = ["提出问题", "练习记录", "复盘验证"]
+    for index, slide in enumerate(plan.slides):
+        slide.slide_type = ["cover-scene", "sequence", "recap"][index]
+        slide.screen_content.title = [plan.meta.topic, "三步记录证据", "复盘本周记录"][index]
+        slide.screen_content.points = ["记录时间和儿童原话", "描述动作，再讨论支持策略"]
+        slide.screen_content.instruction = None
+        slide.game = None
+        slide.teacher_note = "组织教师讨论真实记录。"
+        slide.teaching_goal = "用可观察证据讨论支持策略"
+        slide.assets = []
+        slide.layout_capabilities = ["scene", "sequence"] if index == 1 else ["scene"]
+    return plan
+
+
+def test_training_steps_are_not_a_child_sorting_game():
+    plan = _training_steps_plan()
+    assert planning_service.validate_kindergarten_lesson_plan(plan, content_mode="training").passed
+    classroom_report = planning_service.validate_kindergarten_lesson_plan(plan)
+    assert "game-contract-missing" in {issue.code for issue in classroom_report.errors}
+
+
+def test_training_still_validates_explicit_sorting_game_answers():
+    from models.kindergarten_lesson_plan import LessonGameSpec
+    plan = _training_steps_plan()
+    plan.slides[1].game = LessonGameSpec(type="sequence", activity_id="record-steps")
+    report = planning_service.validate_kindergarten_lesson_plan(plan, content_mode="training")
+    assert "sequence-order-missing" in {issue.code for issue in report.errors}
+
+
+def test_training_steps_and_stale_caption_are_repaired_without_regenerating(monkeypatch):
+    from models.kindergarten_lesson_plan import LessonAssetSpec
+    plan = _training_steps_plan()
+    plan.slides[1].assets = [LessonAssetSpec(
+        slot="evidence", semantic_label="教师观察记录",
+        description="教师在游戏现场记录儿童原话与动作，不包含文字。",
+        audience_text="这是正文整理前的旧句子",
+    )]
+    calls = []
+    async def fake_generate(**kwargs):
+        calls.append(kwargs)
+        return plan
+    monkeypatch.setattr(planning_service, "generate_kindergarten_lesson_plan", fake_generate)
+    result = asyncio.run(planning_service.generate_validated_kindergarten_presentation_outline(
+        topic=plan.meta.topic, age_group="教师", domain="comprehensive", duration_minutes=20,
+        n_slides=3, instructions=None, source_context=None, content_mode="training",
+    ))
+    assert result.quality.passed
+    assert len(calls) == 1
+    assert result.plan.slides[1].slide_type == "sequence"
+    assert result.plan.slides[1].screen_content.points == plan.slides[1].screen_content.points
+    assert result.plan.slides[1].assets[0].audience_text is None
+    assert result.plan.slides[1].assets[0].semantic_label == "教师观察记录"
+
+
 def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     calls = []
 

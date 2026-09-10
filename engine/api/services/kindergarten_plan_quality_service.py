@@ -52,6 +52,7 @@ _FANTASY_STORY_ROLES = (
 
 def validate_kindergarten_lesson_plan(
     plan: KindergartenLessonPlan,
+    *, content_mode: Literal["classroom", "training"] = "classroom",
 ) -> KindergartenPlanQualityReport:
     issues: list[KindergartenPlanIssue] = []
 
@@ -65,7 +66,7 @@ def validate_kindergarten_lesson_plan(
         )
 
     for slide in plan.slides:
-        issues.extend(_validate_slide(slide))
+        issues.extend(_validate_slide(slide, content_mode=content_mode))
 
     issues.extend(_validate_activity_pairs(plan))
     issues.extend(_validate_unrequested_storyline(plan))
@@ -141,10 +142,13 @@ def _validate_unrequested_storyline(
     ]
 
 
-def _validate_slide(slide: KindergartenSlidePlan) -> list[KindergartenPlanIssue]:
+def _validate_slide(
+    slide: KindergartenSlidePlan, *, content_mode: str = "classroom",
+) -> list[KindergartenPlanIssue]:
     issues: list[KindergartenPlanIssue] = []
 
-    if slide.slide_type in _GAME_SLIDE_TYPES and slide.game is None:
+    training_steps = content_mode == "training" and slide.slide_type == "sequence"
+    if slide.slide_type in _GAME_SLIDE_TYPES and slide.game is None and not training_steps:
         issues.append(
             _error(
                 slide,

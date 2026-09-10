@@ -809,5 +809,6 @@ async def prepare_kindergarten_presentation(
 )
 async def validate_kindergarten_plan(
     plan: KindergartenLessonPlan,
+    content_mode: Literal["classroom", "training"] = "classroom",
 ):
-    return validate_kindergarten_lesson_plan(plan)
+    return validate_kindergarten_lesson_plan(plan, content_mode=content_mode)
