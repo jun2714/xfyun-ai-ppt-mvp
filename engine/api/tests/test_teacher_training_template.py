@@ -13,6 +13,32 @@ from templates.teacher_training import build_training_template
 from templates.v2.schema import get_template_schema
 
 
+@pytest.mark.parametrize("count", [2, 3, 4])
+def test_training_evidence_cards_fit_full_captions_without_changing_pairing(count):
+    template = build_training_template()
+    layout_id = f"classroom_training_cards_{count}"
+    schema = next(entry["schema"] for entry in get_template_schema(template.layouts)["layouts"]
+                  if entry["layout_id"] == layout_id)
+    points = [f"证据{index}：记录孩子原话和具体动作，区分主观推断，再讨论支持策略。"
+              for index in range(count)]
+    contract = SlideContentContract(
+        preserve_visible_copy=True, screen_title="把主观判断改为客观证据", screen_points=points,
+        asset_contracts=[dict(planning_slot=str(index), semantic_label=f"证据画面{index}",
+                             description="教师在游戏现场进行观察记录", audience_text=point)
+                         for index, point in reversed(list(enumerate(points)))],
+    )
+    outline = SlideOutlineModel(content="\n".join([contract.screen_title, *points]), content_contract=contract)
+    result = build_classroom_content(schema, outline)
+    layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
+    ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
+    for index, point in enumerate(points):
+        assert result[f"card_{index}"]["text"] == point
+        assert f"证据画面{index}" in result[f"card_{index}"]["visual"]["image_prompt"]
+    for box in _collect_non_decorative_text_elements(ui["components"]):
+        assert box["font"]["size"] >= 32
+        assert _template_text_required_height(box) <= box["size"]["height"] + 1
+
+
 @pytest.mark.parametrize("count", range(1, 7))
 def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
     template = build_training_template()

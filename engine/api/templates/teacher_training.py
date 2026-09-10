@@ -31,6 +31,18 @@ def build_training_template():
         layout["id"] = layout["id"].replace("classroom_", "classroom_training_", 1)
         layout["description"] = "园本教研：" + layout["description"]
         recolor(layout)
+        if "_cards_" in layout["id"]:
+            # Evidence captions need more room than child-facing picture labels.
+            for component in layout["components"]:
+                if not component["id"].startswith("card_"):
+                    continue
+                for element in component["elements"]:
+                    if element["type"] == "image":
+                        element["size"]["height"] = 208
+                    elif element["type"] == "text":
+                        element["position"]["y"] = 396
+                        element["size"]["height"] = 218
+                        element["font"]["bold"] = False
         if "_scene_" not in layout["id"]:
             continue
         count = int(layout["id"].rsplit("_", 1)[-1])
