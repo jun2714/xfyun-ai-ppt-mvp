@@ -50,6 +50,7 @@ class AssetSlotRequest:
     width: float
     height: float
     semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
+    visual_audience: Literal["child", "teacher"] = "child"
 
     @property
     def consumer_id(self) -> str:
@@ -318,6 +319,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     text_safe_area=str(element.get("text_safe_area") or "none"),
                     width=width,
                     height=height,
+                    visual_audience=("teacher" if _hidden_slide_contract(slide).get("visual_audience") == "teacher" else "child"),
                     semantic_expectations=_expectations_for_prompt(
                         prompt, semantic_expectations
                     ),
@@ -341,10 +343,10 @@ def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
     consumed: set[str] = set()
 
     # Identical prompts are generated once and mapped to every compatible slot.
-    reuse_groups: dict[tuple[str, AssetRole, str], list[AssetSlotRequest]] = {}
+    reuse_groups: dict[tuple[str, AssetRole, str, str], list[AssetSlotRequest]] = {}
     for slot in slots:
         reuse_groups.setdefault(
-            (_normalized_prompt(slot.prompt), slot.role, slot.aspect_ratio), []
+            (_normalized_prompt(slot.prompt), slot.role, slot.aspect_ratio, slot.visual_audience), []
         ).append(slot)
     for group in reuse_groups.values():
         if len(group) < 2:
@@ -358,13 +360,13 @@ def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
         )
         consumed.update(slot.consumer_id for slot in group)
 
-    explicit_groups: dict[tuple[str, str], list[AssetSlotRequest]] = {}
+    explicit_groups: dict[tuple[str, str, str], list[AssetSlotRequest]] = {}
     for slot in slots:
         if slot.consumer_id in consumed or not slot.asset_group:
             continue
-        explicit_groups.setdefault((slot.requested_mode, slot.asset_group), []).append(slot)
+        explicit_groups.setdefault((slot.requested_mode, slot.asset_group, slot.visual_audience), []).append(slot)
 
-    for (requested_mode, _group_name), group in explicit_groups.items():
+    for (requested_mode, _group_name, _audience), group in explicit_groups.items():
         if requested_mode == "sprite-sheet":
             if not all(slot.role == "cutout" for slot in group):
                 raise ValueError("sprite-sheet groups may contain cutout slots only")

@@ -132,6 +132,7 @@ def build_classroom_content(schema, outline):
             values[key] = value
         result[component] = values
     metadata = contract.model_dump(mode="json")
+    metadata["visual_audience"] = "teacher" if training else "child"
     if contract.classroom_role in {"guess-shadow", "guess-partial"}:
         concealment = ("只展示主体剪影，不显示内部纹理或完整彩色答案。"
                        if contract.classroom_role == "guess-shadow" else

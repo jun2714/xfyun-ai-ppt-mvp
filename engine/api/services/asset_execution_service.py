@@ -43,6 +43,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
+    if all(slot.visual_audience == "teacher" for slot in item.slots):
+        return (
+            " Use a consistent professional educational editorial illustration style, "
+            "cream, muted teal and blue, realistic Chinese kindergarten work situations. "
+            "Show clear observation evidence and teacher actions. No child fantasy, "
+            "anthropomorphic objects, corporate stock photography, 3D, text or watermarks."
+        )
     if not any(slot.semantic_expectations for slot in item.slots):
         return ""
     return (

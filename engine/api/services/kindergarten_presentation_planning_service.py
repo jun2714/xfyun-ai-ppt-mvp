@@ -609,6 +609,14 @@ def _repair_machine_contracts(
     return repaired
 
 
+def _outline_for_audience(plan: KindergartenLessonPlan, content_mode: str):
+    outline = plan.to_presentation_outline()
+    for slide in outline.slides:
+        if slide.content_contract is not None:
+            slide.content_contract.visual_audience = "teacher" if content_mode == "training" else "child"
+    return outline
+
+
 async def generate_validated_kindergarten_presentation_outline(
     *,
     topic: str,
@@ -658,7 +666,7 @@ async def generate_validated_kindergarten_presentation_outline(
     if report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=plan,
-            outline=plan.to_presentation_outline(),
+            outline=_outline_for_audience(plan, content_mode),
             quality=report,
             attempts=1,
         )
@@ -674,7 +682,7 @@ async def generate_validated_kindergarten_presentation_outline(
     if repaired_report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=repaired_plan,
-            outline=repaired_plan.to_presentation_outline(),
+            outline=_outline_for_audience(repaired_plan, content_mode),
             quality=repaired_report,
             attempts=1,
         )

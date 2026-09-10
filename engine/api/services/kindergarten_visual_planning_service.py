@@ -177,6 +177,7 @@ def apply_ai_background_visual_plan(
             else SlideContentContract()
         )
         relationship = contract.relationship or "unknown"
+        contract.visual_audience = "teacher" if content_mode == "training" else "child"
         interaction_type = contract.interaction_type or "none"
         title = _visible_slide_title(slide.content, index)
         safe_area = _safe_area_for_slide(index, relationship)

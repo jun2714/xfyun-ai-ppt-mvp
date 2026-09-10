@@ -31,6 +31,7 @@ class SlideAssetContract(BaseModel):
 
 
 class SlideContentContract(BaseModel):
+    visual_audience: Literal["child", "teacher"] = "child"
     relationship: Literal[
         "single",
         "multi-item",

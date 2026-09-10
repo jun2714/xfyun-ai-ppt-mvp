@@ -499,6 +499,7 @@ def test_training_steps_and_stale_caption_are_repaired_without_regenerating(monk
     assert result.plan.slides[1].screen_content.points == plan.slides[1].screen_content.points
     assert result.plan.slides[1].assets[0].audience_text is None
     assert result.plan.slides[1].assets[0].semantic_label == "教师观察记录"
+    assert result.outline.slides[1].content_contract.visual_audience == "teacher"
 
 
 def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
