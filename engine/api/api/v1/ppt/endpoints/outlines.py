@@ -26,6 +26,7 @@ from services.mem0_presentation_memory_service import (
 )
 from utils.llm_utils import message_content_to_text
 from utils.outline_utils import (
+    get_saved_outline_failure,
     get_no_of_outlines_to_generate_for_n_slides,
     get_presentation_title_from_presentation_outline,
 )
@@ -92,6 +93,10 @@ async def stream_outlines(
 
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
+
+    failure = get_saved_outline_failure(presentation.theme)
+    if not presentation.outlines and failure:
+        raise HTTPException(status_code=409, detail=failure)
 
     search_route, actual_search_provider = get_web_search_route()
     LOGGER.info(

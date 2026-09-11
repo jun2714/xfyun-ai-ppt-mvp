@@ -199,7 +199,8 @@ def get_allowed_layout_indices_for_outline(
     applied on top of that structural guard.
     """
     from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
-    if presentation_layout.name == CLASSROOM_TEMPLATE_ID:
+    from templates.teacher_training import TRAINING_TEMPLATE_ID
+    if presentation_layout.name in {CLASSROOM_TEMPLATE_ID, TRAINING_TEMPLATE_ID}:
         from services.classroom_content_mapping import (
             preferred_classroom_layout, build_classroom_content,
         )
@@ -207,6 +208,8 @@ def get_allowed_layout_indices_for_outline(
         for index, slide in enumerate(presentation_outline.slides):
             try:
                 preferred = preferred_classroom_layout(slide, index)
+                if presentation_layout.name == TRAINING_TEMPLATE_ID:
+                    preferred = preferred.replace("classroom_", "classroom_training_", 1)
                 selected = next(i for i, layout in enumerate(presentation_layout.slides)
                                 if layout.id == preferred)
                 build_classroom_content(presentation_layout.slides[selected].json_schema, slide)

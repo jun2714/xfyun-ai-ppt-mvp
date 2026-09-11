@@ -353,6 +353,9 @@ try {
   }
   diagnostics.outline = outlineResponse.body;
   await page.screenshot({ path: resolve(outputDir, "02-outline-ready.png"), fullPage: true });
+  if (expectedSlides > 0 && outlineResponse.body.slides.length !== expectedSlides) {
+    throw new Error(`Expected ${expectedSlides} outline slides before paid rendering, received ${outlineResponse.body.slides.length}.`);
+  }
 
   const confirm = page.getByRole("button", { name: "确认生成" });
   await confirm.waitFor({ state: "visible", timeout: 30000 });
@@ -445,6 +448,10 @@ try {
   if (process.env.EXPECT_CLASSROOM_PACK !== "false" &&
       finalSlides.some((slide) => slide?.content?.__content_contract__?.classroom_mapping_version !== 1)) {
     diagnostics.validationErrors.push("Automatic lesson did not use the new classroom semantic pack.");
+  }
+  if (contentMode === "training" && finalSlides.some((slide) =>
+    !String(slide?.ui?.id || "").startsWith("classroom_training_"))) {
+    diagnostics.validationErrors.push("Automatic training did not use the teacher workshop template.");
   }
 
   diagnostics.emptyVisualCards = finalSlides.flatMap((slide, index) =>

@@ -1,4 +1,13 @@
 import os
+import math
+
+
+def get_image_generation_timeout_seconds() -> float:
+    try:
+        value = float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "150"))
+        return max(10.0, value) if math.isfinite(value) else 150.0
+    except ValueError:
+        return 150.0
 
 
 def _is_truthy(value: str | None) -> bool:

@@ -65,6 +65,7 @@ from services.mem0_presentation_memory_service import (
 from services.owner_scope import get_by_id_unscoped
 from templates.ai_visual_production import build_production_ai_visual_template
 from utils.sse import safe_sse_stream
+from utils.outline_utils import get_saved_outline_failure
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
@@ -262,6 +263,14 @@ def _apply_visual_mode(
     Optional[str],
 ]:
     if payload.visual_mode == "template":
+        if (payload.content_mode == "training" and payload.template == AUTO_TEMPLATE_NAME
+                and payload.image_policy != ImagePolicy.DISABLED):
+            from templates.teacher_training import TRAINING_TEMPLATE_ID
+            return result, KindergartenTemplateRoutingDecision(
+                template=TRAINING_TEMPLATE_ID,
+                reason="training-mode:teacher-workshop-layouts",
+                scores={TRAINING_TEMPLATE_ID: 100},
+            ), None
         routing = resolve_kindergarten_template(
             result.plan,
             payload.template,
@@ -419,6 +428,9 @@ async def _persist_outline_failure(
 ) -> None:
     """Mark incomplete records so the project list can identify failed generation."""
     await sql_session.rollback()
+    # Rollback expires ORM attributes even with expire_on_commit=False. Reload
+    # explicitly so reading theme does not trigger synchronous IO in async code.
+    await sql_session.refresh(presentation)
     theme = dict(presentation.theme or {})
     existing = theme.get("kindergarten_generation")
     generation = dict(existing) if isinstance(existing, dict) else {}
@@ -587,6 +599,10 @@ async def stream_kindergarten_presentation_outline(
     )
     if presentation is None:
         raise HTTPException(status_code=404, detail="Presentation not found")
+
+    failure = get_saved_outline_failure(presentation.theme)
+    if not presentation.outlines and failure:
+        raise HTTPException(status_code=409, detail=failure)
 
     async def inner():
         if presentation.outlines:
@@ -801,5 +817,6 @@ async def prepare_kindergarten_presentation(
 )
 async def validate_kindergarten_plan(
     plan: KindergartenLessonPlan,
+    content_mode: Literal["classroom", "training"] = "classroom",
 ):
-    return validate_kindergarten_lesson_plan(plan)
+    return validate_kindergarten_lesson_plan(plan, content_mode=content_mode)

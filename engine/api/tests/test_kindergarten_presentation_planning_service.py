@@ -223,6 +223,9 @@ def test_failed_outline_is_marked_for_dashboard_cleanup():
         async def rollback(self):
             self.rolled_back = True
 
+        async def refresh(self, _value):
+            return None
+
         def add(self, _value):
             return None
 
@@ -346,7 +349,8 @@ def test_classroom_without_cover_gets_cover_without_losing_opening_content():
     assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
 
 
-def test_cover_insert_keeps_requested_page_count():
+def test_cover_insert_never_discards_closing_to_keep_requested_page_count():
+    import pytest
     plan = _plan()
     source = plan.model_copy(
         update={
@@ -357,13 +361,10 @@ def test_cover_insert_keeps_requested_page_count():
         }
     )
 
-    normalized = planning_service._ensure_cover_contract(
-        source, "classroom", target_count=len(source.slides)
-    )
-
-    assert len(normalized.slides) == len(source.slides)
-    assert normalized.slides[0].slide_type == "cover-scene"
-    assert [slide.slide_no for slide in normalized.slides] == [1, 2, 3]
+    with pytest.raises(ValueError, match="不能自动删除末页正文"):
+        planning_service._ensure_cover_contract(
+            source, "classroom", target_count=len(source.slides)
+        )
 
 
 def test_generated_reveal_uses_answer_text_instead_of_option_id():
@@ -389,7 +390,21 @@ def test_training_template_mode_does_not_use_child_classroom_pack():
         topic="教师观察记录培训", content_mode="training", template="auto",
     )
     _, routing, _ = _apply_visual_mode(payload, result)
-    assert routing.template != "kindergarten-classroom"
+    assert routing.template == "teacher-training"
+
+
+def test_missing_reveal_does_not_expand_requested_deck_or_drop_closing():
+    plan = _plan()
+    plan.slides = plan.slides[:2]
+    closing = plan.slides[-1].model_copy(update={
+        "slide_no": 3, "slide_type": "recap", "game": None,
+    })
+    plan.slides.append(closing)
+    repaired = planning_service._repair_classroom_activity_contracts(plan, max_slides=3)
+    assert len(repaired.slides) == 3
+    assert repaired.slides[-1] == closing
+    report = planning_service.validate_kindergarten_lesson_plan(repaired)
+    assert any(issue.code == "reveal-slide-missing" for issue in report.errors)
 
 
 def test_forty_page_plan_without_cover_fails_instead_of_dropping_content():
@@ -429,6 +444,65 @@ def test_training_sequence_without_game_keeps_sequence_layout_semantics():
 
     assert normalized.slides[1].slide_type == "sequence"
     assert "sequence" in normalized.slides[1].layout_capabilities
+
+
+def _training_steps_plan():
+    plan = _plan()
+    plan.meta.topic = "如何记录儿童游戏证据"
+    plan.lesson_goals = ["区分主观判断与可观察的证据"]
+    plan.lesson_arc = ["提出问题", "练习记录", "复盘验证"]
+    for index, slide in enumerate(plan.slides):
+        slide.slide_type = ["cover-scene", "sequence", "recap"][index]
+        slide.screen_content.title = [plan.meta.topic, "三步记录证据", "复盘本周记录"][index]
+        slide.screen_content.points = ["记录时间和儿童原话", "描述动作，再讨论支持策略"]
+        slide.screen_content.instruction = None
+        slide.game = None
+        slide.teacher_note = "组织教师讨论真实记录。"
+        slide.teaching_goal = "用可观察证据讨论支持策略"
+        slide.assets = []
+        slide.layout_capabilities = ["scene", "sequence"] if index == 1 else ["scene"]
+    return plan
+
+
+def test_training_steps_are_not_a_child_sorting_game():
+    plan = _training_steps_plan()
+    assert planning_service.validate_kindergarten_lesson_plan(plan, content_mode="training").passed
+    classroom_report = planning_service.validate_kindergarten_lesson_plan(plan)
+    assert "game-contract-missing" in {issue.code for issue in classroom_report.errors}
+
+
+def test_training_still_validates_explicit_sorting_game_answers():
+    from models.kindergarten_lesson_plan import LessonGameSpec
+    plan = _training_steps_plan()
+    plan.slides[1].game = LessonGameSpec(type="sequence", activity_id="record-steps")
+    report = planning_service.validate_kindergarten_lesson_plan(plan, content_mode="training")
+    assert "sequence-order-missing" in {issue.code for issue in report.errors}
+
+
+def test_training_steps_and_stale_caption_are_repaired_without_regenerating(monkeypatch):
+    from models.kindergarten_lesson_plan import LessonAssetSpec
+    plan = _training_steps_plan()
+    plan.slides[1].assets = [LessonAssetSpec(
+        slot="evidence", semantic_label="教师观察记录",
+        description="教师在游戏现场记录儿童原话与动作，不包含文字。",
+        audience_text="这是正文整理前的旧句子",
+    )]
+    calls = []
+    async def fake_generate(**kwargs):
+        calls.append(kwargs)
+        return plan
+    monkeypatch.setattr(planning_service, "generate_kindergarten_lesson_plan", fake_generate)
+    result = asyncio.run(planning_service.generate_validated_kindergarten_presentation_outline(
+        topic=plan.meta.topic, age_group="教师", domain="comprehensive", duration_minutes=20,
+        n_slides=3, instructions=None, source_context=None, content_mode="training",
+    ))
+    assert result.quality.passed
+    assert len(calls) == 1
+    assert result.plan.slides[1].slide_type == "sequence"
+    assert result.plan.slides[1].screen_content.points == plan.slides[1].screen_content.points
+    assert result.plan.slides[1].assets[0].audience_text is None
+    assert result.plan.slides[1].assets[0].semantic_label == "教师观察记录"
+    assert result.outline.slides[1].content_contract.visual_audience == "teacher"
 
 
 def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):

@@ -59,7 +59,7 @@ def test_image_runtime_bounds_invalid_operational_values(monkeypatch):
     runtime = resolve_image_runtime()
 
     assert runtime.model == "gemini-3.1-flash-lite-image"
-    assert runtime.timeout_seconds == 75
+    assert runtime.timeout_seconds == 150
     assert runtime.concurrency == 6
 
 

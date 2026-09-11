@@ -120,6 +120,12 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
           return;
         }
 
+        // Reopening a failed project must not fall through to the generic
+        // outline stream and silently pay for another, differently routed plan.
+        if (current.generation_metadata?.outline_status === "failed") {
+          throw new Error(current.generation_metadata.outline_error || "大纲生成失败，请返回首页重新创建。");
+        }
+
         setStreaming(true);
         setStatus("AI 正在组织大纲");
         setOutline({ slides: [] });

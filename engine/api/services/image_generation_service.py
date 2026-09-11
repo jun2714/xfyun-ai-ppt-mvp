@@ -23,6 +23,7 @@ from utils.get_env import (
     get_openai_compat_image_api_key_env,
     get_openai_compat_image_model_env,
     is_parallel_image_generation_enabled,
+    get_image_generation_timeout_seconds,
 )
 from utils.get_env import get_pixabay_api_key_env
 from utils.get_env import get_comfyui_url_env
@@ -140,19 +141,16 @@ class ImageGenerationService:
         logger.info("Generating image")
 
         try:
-            try:
-                timeout_seconds = max(
-                    10.0,
-                    float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")),
-                )
-            except ValueError:
-                timeout_seconds = 75.0
-            async with asyncio.timeout(timeout_seconds):
-                if is_parallel_image_generation_enabled():
-                    image_path = await self._call_image_provider(image_prompt)
-                else:
-                    async with _get_image_generation_lock():
-                        image_path = await self._call_image_provider(image_prompt)
+            async def request_with_timeout():
+                async with asyncio.timeout(get_image_generation_timeout_seconds()):
+                    return await self._call_image_provider(image_prompt)
+
+            if is_parallel_image_generation_enabled():
+                image_path = await request_with_timeout()
+            else:
+                # Waiting for another image must not consume this request's budget.
+                async with _get_image_generation_lock():
+                    image_path = await request_with_timeout()
             if image_path:
                 if image_path.startswith("http"):
                     return image_path
@@ -318,23 +316,18 @@ class ImageGenerationService:
                 "base_url": os.getenv(
                     "GEMINI_IMAGE_BASE_URL", "https://generativelanguage.googleapis.com"
                 ),
-                "timeout": int(
-                    max(
-                        10.0,
-                        float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")),
-                    )
-                    * 1000
-                ),
+                "timeout": int(get_image_generation_timeout_seconds() * 1000),
+                "retry_options": {"attempts": 1},
             },
         )
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-            ),
-        )
+        try:
+            async with client.aio as async_client:
+                response = await async_client.models.generate_content(
+                    model=model, contents=prompt,
+                    config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+                )
+        finally:
+            client.close()
 
         # Latest SDK docs expose images in response.parts.
         response_parts = getattr(response, "parts", None)

@@ -127,6 +127,7 @@ def _repair_reveal_answer(slides, index: int):
 
 def _repair_classroom_activity_contracts(
     plan: KindergartenLessonPlan,
+    *, max_slides: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Complete deterministic choice/reveal contracts without changing the answer."""
     slides = []
@@ -165,6 +166,7 @@ def _repair_classroom_activity_contracts(
         if slide.slide_type == "answer-reveal" and slide.game
     }
     completed = []
+    remaining_slots = None if max_slides is None else max(0, max_slides - len(slides))
     for slide in slides:
         completed.append(slide)
         if (
@@ -173,6 +175,10 @@ def _repair_classroom_activity_contracts(
             or not slide.game.answer_key
             or slide.game.activity_id in reveal_activity_ids
         ):
+            continue
+        if remaining_slots == 0:
+            # Keep the missing-reveal quality error visible. Do not add a paid
+            # page beyond the requested count or drop the teacher's closing page.
             continue
         answer = (slide.game.options or {}).get(
             slide.game.answer_key, slide.game.answer_key,
@@ -215,6 +221,8 @@ def _repair_classroom_activity_contracts(
             )
         )
         reveal_activity_ids.add(slide.game.activity_id)
+        if remaining_slots is not None:
+            remaining_slots -= 1
 
     renumbered = [
         slide.model_copy(update={"slide_no": index})
@@ -315,7 +323,10 @@ def _ensure_cover_contract(
     else:
         slides = [cover, *plan.slides]
         if target_count is not None and target_count > 0 and len(slides) > target_count:
-            slides = slides[:target_count]
+            raise ValueError(
+                f"大纲缺少封面，补充后将超过约定的 {target_count} 页；"
+                "请在大纲中预留封面页，不能自动删除末页正文。"
+            )
     renumbered = [
         slide.model_copy(update={"slide_no": index})
         for index, slide in enumerate(slides, start=1)
@@ -534,10 +545,12 @@ def _normalize_training_contracts(
 def _repair_machine_contracts(
     plan: KindergartenLessonPlan,
     report: KindergartenPlanQualityReport,
+    *, max_slides: Optional[int] = None,
+    content_mode: str = "classroom",
 ) -> KindergartenLessonPlan:
     """Repair recoverable hidden contracts without a second paid model call."""
-    repaired = _repair_classroom_activity_contracts(plan)
-    report = validate_kindergarten_lesson_plan(repaired)
+    repaired = _repair_classroom_activity_contracts(plan, max_slides=max_slides)
+    report = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
     if report.passed:
         return repaired
     if any(issue.code in CLASSROOM_CONTENT_ERRORS for issue in report.errors):
@@ -575,7 +588,7 @@ def _repair_machine_contracts(
     # Two bounded passes handle pair dependencies such as reveal-before-question
     # becoming reveal-slide-missing on the corresponding question page.
     for _ in range(2):
-        remaining = validate_kindergarten_lesson_plan(repaired)
+        remaining = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
         if remaining.passed:
             return repaired
         bad_slide_numbers = {
@@ -594,6 +607,14 @@ def _repair_machine_contracts(
         repaired = repaired.model_copy(update={"slides": slides})
 
     return repaired
+
+
+def _outline_for_audience(plan: KindergartenLessonPlan, content_mode: str):
+    outline = plan.to_presentation_outline()
+    for slide in outline.slides:
+        if slide.content_contract is not None:
+            slide.content_contract.visual_audience = "teacher" if content_mode == "training" else "child"
+    return outline
 
 
 async def generate_validated_kindergarten_presentation_outline(
@@ -641,11 +662,11 @@ async def generate_validated_kindergarten_presentation_outline(
     )
     if content_mode == "training":
         plan = _normalize_training_contracts(plan)
-    report = validate_kindergarten_lesson_plan(plan)
+    report = validate_kindergarten_lesson_plan(plan, content_mode=content_mode)
     if report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=plan,
-            outline=plan.to_presentation_outline(),
+            outline=_outline_for_audience(plan, content_mode),
             quality=report,
             attempts=1,
         )
@@ -654,12 +675,14 @@ async def generate_validated_kindergarten_presentation_outline(
         "Kindergarten outline needs deterministic contract repair: %s",
         ", ".join(issue.code for issue in report.errors),
     )
-    repaired_plan = _repair_machine_contracts(plan, report)
-    repaired_report = validate_kindergarten_lesson_plan(repaired_plan)
+    repaired_plan = _repair_machine_contracts(
+        plan, report, max_slides=n_slides or len(plan.slides), content_mode=content_mode,
+    )
+    repaired_report = validate_kindergarten_lesson_plan(repaired_plan, content_mode=content_mode)
     if repaired_report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=repaired_plan,
-            outline=repaired_plan.to_presentation_outline(),
+            outline=_outline_for_audience(repaired_plan, content_mode),
             quality=repaired_report,
             attempts=1,
         )

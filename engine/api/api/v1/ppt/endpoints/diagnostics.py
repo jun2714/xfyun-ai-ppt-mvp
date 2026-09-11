@@ -11,6 +11,7 @@ from utils.image_provider import (
     is_image_generation_disabled,
 )
 from utils.oss_storage import is_oss_enabled
+from utils.get_env import get_image_generation_timeout_seconds
 
 
 DIAGNOSTICS_ROUTER = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
@@ -51,10 +52,7 @@ def _google_genai_runtime() -> tuple[str | None, bool]:
 
 
 def _bounded_timeout() -> float:
-    try:
-        return max(10.0, float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")))
-    except ValueError:
-        return 75.0
+    return get_image_generation_timeout_seconds()
 
 
 def _bounded_concurrency() -> int:

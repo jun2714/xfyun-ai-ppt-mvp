@@ -88,7 +88,7 @@ export const collectClassroomMappingErrors = (slide, page) => {
     }
   }
   if (uiText("invitation", "cue") !== (contract.screen_instruction || "")) fail("cue changed");
-  const cards = String(slide.layout || "").startsWith("classroom_cards_");
+  const cards = /^classroom_(?:training_)?cards_/.test(String(slide.layout || ""));
   for (const [index, point] of (contract.screen_points || []).entries()) {
     const id = `${cards ? "card" : "point"}_${index}`;
     if (uiText(id, "text") !== point) fail(`screen point ${index} assigned to wrong field`);

@@ -19,6 +19,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   general: "自动匹配",
   "ai-visual": "AI 自由视觉",
   "kindergarten-classroom": "幼教课堂 · 绘本与观察",
+  "teacher-training": "园本教研 · 问题与策略",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",

@@ -6,6 +6,8 @@ import { Shell } from "../create/CreateAndGenerate";
 import { ArrowLeftIcon, ArrowRightIcon } from "../../components/Icons";
 
 const DISPLAY_NAMES: Record<string, string> = {
+  "kindergarten-classroom": "幼教课堂 · 绘本与观察",
+  "teacher-training": "园本教研 · 问题与策略",
   dynamic: "动感橙黑",
   executive: "柔光紫",
   general: "通用模板",
@@ -16,6 +18,8 @@ const DISPLAY_NAMES: Record<string, string> = {
 };
 
 const DISPLAY_DESCRIPTIONS: Record<string, string> = {
+  "kindergarten-classroom": "给孩子看的课堂：科学观察、绘本讲述与生活活动。大场景配短句，教师讲稿独立保留。",
+  "teacher-training": "给教师用的教研：案例证据、问题分析与行动计划。正文空间更充足，配图与讲稿分开。",
   dynamic: "深色高对比、暖橙强调，适合故事化和强视觉表达。",
   executive: "明亮留白与柔和紫色强调，适合清晰、正式的内容。",
   general: "通用白底图文布局，结构简单，适合多数演示主题。",
@@ -99,12 +103,12 @@ export function TemplateLibrary() {
         <TemplateReturnLink />
         <span>模板中心</span>
         <h1>选择一套合适的设计</h1>
-        <p>模板只决定视觉和布局，不限制你的主题、页数和内容结构。</p>
+        <p>幼儿课堂选绘本与观察，教师培训选问题与策略；点击预览版式，再回到大纲选择使用。</p>
       </div>
       <a className="primary" href="/templates/new">制作模板 <ArrowRightIcon /></a>
     </header>
     <nav className="template-tabs" aria-label="模板分类">
-      <button className={tab === "built-in" ? "active" : ""} onClick={() => setTab("built-in")}>内置模板</button>
+      <button className={tab === "built-in" ? "active" : ""} onClick={() => setTab("built-in")}>官方模板</button>
       <button className={tab === "custom" ? "active" : ""} onClick={() => setTab("custom")}>我的模板</button>
     </nav>
     {loading && <div className="template-state">正在加载模板…</div>}

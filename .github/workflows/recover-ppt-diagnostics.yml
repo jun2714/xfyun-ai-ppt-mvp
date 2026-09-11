@@ -1,0 +1,114 @@
+name: Recover PPT diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/kindergarten-generation-stability
+    paths:
+      - .github/workflows/recover-ppt-diagnostics.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-ppt-browser-probe
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 8
+    steps:
+      # Deliberately do not checkout: checkout cleanup would delete the evidence.
+      # Read only the existing probe output, never .env or application databases.
+      - name: Show content-free probe failure classification
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($mode in @("classroom", "training")) {
+            $file = Join-Path $env:GITHUB_WORKSPACE ".runtime\full-ppt-probe\$mode\full-ppt-diagnostics.json"
+            if (-not (Test-Path $file)) { Write-Host "$mode diagnostics missing"; continue }
+            $d = Get-Content -Raw -Encoding UTF8 $file | ConvertFrom-Json
+            # Emit only fixed labels, booleans and counts, never content, URLs,
+            # screenshots, model responses, stack traces or raw error messages.
+            $message = [string]$d.fatalError.message
+            $categories = @()
+            $patterns = [ordered]@{
+              outline_failure = 'outline'
+              browser_timeout = 'Timeout|timed out'
+              page_count = 'Expected .* slides|slide count'
+              template_route = 'teacher workshop template|semantic pack'
+              text_overflow = 'overflow|fit'
+              text_fidelity = 'fidelity|changed|wrong field'
+              missing_images = 'unresolved image|placeholder image|no generated image'
+              image_http = 'image returned HTTP|404|Image URL returned'
+              proxy_mismatch = 'Editor proxy'
+              duplicate_generation = 'stream was opened'
+              semantic_binding = 'semantic binding'
+              empty_cards = 'empty visual|empty text'
+            }
+            foreach ($key in $patterns.Keys) {
+              if ($message -match $patterns[$key]) { $categories += $key }
+            }
+            $summary = [ordered]@{
+              mode = $mode
+              passed = ($d.result.state -eq 'passed')
+              categories = $categories
+              hasOutline = ($null -ne $d.outline)
+              hasFinalPresentation = ($null -ne $d.finalPresentation)
+              validationErrorCount = @($d.validationErrors).Count
+              imageCheckCount = @($d.imageChecks).Count
+              unresolvedImageSlotCount = @($d.unresolvedImageSlots | Where-Object { $null -ne $_ }).Count
+              layoutOverflowCount = @($d.layoutOverflows).Count
+              unreadableTextCount = @($d.unreadableAudienceText).Count
+              emptyVisualCardCount = @($d.emptyVisualCards).Count
+              streamRequestCount = @($d.streamRequests).Count
+            }
+            $summary | ConvertTo-Json -Depth 12 | Write-Host
+          }
+          $logFile = Join-Path $env:GITHUB_WORKSPACE '.runtime\runner-probe\engine.err.log'
+          if (Test-Path $logFile) {
+            $logText = Get-Content -Raw -Encoding UTF8 $logFile
+            $patterns = [ordered]@{
+              planner_180_second_timeout = 'Text model .* call timed out after 180 seconds'
+              planner_total_timeout = 'planning timed out|total.*timeout'
+              schema_validation = 'ValidationError|schema validation|not valid under'
+              missing_greenlet = 'MissingGreenlet'
+              request_timeout = 'ReadTimeout|ConnectTimeout|TimeoutError'
+              invalid_json = 'JSONDecodeError|Invalid JSON'
+              quality_rejection = 'quality|QUALITY|Quality'
+              image_timeout = 'Image generation failed \(TimeoutError\)'
+              bad_request = '400 Bad Request'
+              rate_limit = '429 Too Many Requests'
+              server_error = '500 Internal Server Error|502 Bad Gateway|503 Service Unavailable'
+            }
+            $counts = [ordered]@{}
+            foreach ($key in $patterns.Keys) {
+              $counts[$key] = [regex]::Matches($logText, $patterns[$key]).Count
+            }
+            $counts | ConvertTo-Json | Write-Host
+            # Schema paths and validator error codes contain no submitted values.
+            $schemaPaths = @([regex]::Matches($logText, '\b(?:slides\.\d+\.|meta\.)[a-z_0-9.]+') | ForEach-Object { $_.Value.Trim() } | Select-Object -Unique)
+            $errorTypes = @([regex]::Matches($logText, '\[type=([a-z_]+),') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+            [ordered]@{ schemaPaths = $schemaPaths; validatorCodes = $errorTypes } | ConvertTo-Json | Write-Host
+            $frames = @([regex]::Matches($logText, 'File "[^"\r\n]*[\\/]([a-z_]+\.py)", line (\d+), in ([a-z_]+)') | ForEach-Object {
+              [ordered]@{ file = $_.Groups[1].Value; line = [int]$_.Groups[2].Value; function = $_.Groups[3].Value }
+            })
+            $exceptionTypes = @([regex]::Matches($logText, '\b([a-zA-Z_.]+(?:Error|Exception)):') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+            [ordered]@{ codeFrames = $frames; exceptionTypes = $exceptionTypes } | ConvertTo-Json -Depth 5 | Write-Host
+            $qualityCodes = @('game-contract-missing', 'question-reveals-answer', 'reveal-slide-missing', 'reveal-before-question', 'question-slide-missing', 'topic-replaced-by-unrequested-storyline', 'asset-caption-mismatch', 'required-asset-missing', 'asset-semantic-too-vague', 'reveal-answer-missing', 'answer-key-missing', 'options-too-few', 'answer-not-in-options', 'answer-map-missing', 'sequence-order-missing', 'reveal-answer-mismatch')
+            $qualityCounts = [ordered]@{}
+            foreach ($code in $qualityCodes) { $qualityCounts[$code] = [regex]::Matches($logText, [regex]::Escape($code)).Count }
+            $qualityCounts | ConvertTo-Json | Write-Host
+            $jsonPaths = @([regex]::Matches($logText, '\$\.(?:slides\[\d+\]|meta)(?:\.[a-z_]+|\[\d+\])*') | ForEach-Object { $_.Value } | Select-Object -Unique)
+            [ordered]@{ jsonSchemaPaths = $jsonPaths } | ConvertTo-Json | Write-Host
+            # Only fixed technical role labels; no free-form model values.
+            $roleAliases = @('case-study', 'case-analysis', 'problem-analysis', 'problem-solution', 'discussion', 'reflection', 'action-plan', 'concept-explanation', 'strategy', 'strategy-action', 'evidence', 'practice', 'summary', 'concept', 'process', 'observation', 'training', 'case-compare', 'knowledge-multi', 'knowledge', 'conclusion', 'cover', 'introduction', 'action', 'solution', 'assessment', 'evaluation', 'workshop', 'group-discussion', 'evidence-analysis', 'method', 'question', 'analysis', 'comparison', 'image-text', 'text', 'steps', 'teacher-practice', 'recap-summary', 'strategy-single', 'knowledge-explanation')
+            $observedAliases = @()
+            foreach ($role in $roleAliases) {
+              $pattern = '\$\.slides\[\d+\]\.slide_type:\s*' + "'" + [regex]::Escape($role) + "'"
+              if ([regex]::IsMatch($logText, $pattern)) { $observedAliases += $role }
+            }
+            [ordered]@{ knownRoleAliases = $observedAliases } | ConvertTo-Json | Write-Host
+          }

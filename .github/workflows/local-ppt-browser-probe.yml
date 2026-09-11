@@ -127,6 +127,7 @@ jobs:
           $env:TEACHNOVA_CORS_ORIGINS = "http://127.0.0.1:15001,http://127.0.0.1:15173,http://localhost:3030,http://127.0.0.1:3030"
           $env:DMX_IMAGE_API_STYLE = "gemini"
           $env:GEMINI_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+          $env:IMAGE_GENERATION_TIMEOUT_SECONDS = "150"
           $env:TARGET_URL = "http://127.0.0.1:15001/upload"
           $env:API_BASE_URL = "http://127.0.0.1:18000/api/v1/ppt"
           $env:TEST_TOPIC_B64 = "5bCP56eN5a2Q5pS25Yiw5LqG5LiA5bCB5pil5aSp55qE5p2l5L+h"
@@ -161,13 +162,15 @@ jobs:
 
             $env:TEST_CONTENT_MODE = "classroom"
             $env:EXPECT_CLASSROOM_PACK = "true"
+            $failedModes = @()
             node scripts/local-full-ppt-probe.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Classroom PPT probe failed with exit code $LASTEXITCODE." }
+            if ($LASTEXITCODE -ne 0) { $failedModes += "classroom" }
             $env:TEST_CONTENT_MODE = "training"
             $env:EXPECT_CLASSROOM_PACK = "false"
             $env:TEST_TOPIC_B64 = "5Zut5pys5pWZ56CU77ya5aaC5L2V5oqK5Li76KeC6K+E5Lu35pS55Li65Y+v6KeC5a+f55qE5YS/56ul5ri45oiP6K+B5o2u"
             node scripts/local-full-ppt-probe.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Training PPT probe failed with exit code $LASTEXITCODE." }
+            if ($LASTEXITCODE -ne 0) { $failedModes += "training" }
+            if ($failedModes.Count -gt 0) { throw "PPT probe failed for: $($failedModes -join ', '). See each mode's diagnostics." }
           } finally {
             foreach ($processId in @($engine.Id, $web.Id)) {
               try { taskkill /PID $processId /T /F | Out-Null } catch {}

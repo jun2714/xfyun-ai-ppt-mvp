@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="园本教研版式预览">
+<rect width="1280" height="720" fill="#F5F8FA"/>
+<g font-family="Microsoft YaHei, sans-serif" fill="#243D50"><text x="56" y="94" font-size="46" font-weight="700">从主观判断，走向可观察的证据</text><text x="56" y="246" font-size="32">问题：记录里只有“孩子不认真”。</text><text x="56" y="370" font-size="32">动作：记下时间、行为和原话。</text><text x="56" y="494" font-size="32">验证：对照连续三次游戏记录。</text><text x="56" y="656" font-size="30" fill="#426C78">小组讨论：哪条记录能支持我们的判断？</text></g>
+<rect x="908" y="168" width="324" height="436" fill="#DCECF0"/>
+<rect x="948" y="218" width="244" height="272" fill="#FFF"/>
+<path d="M980 278 H1160 M980 329 H1107 M980 380 H1150 M980 431 H1072" stroke="#9BB2BE" stroke-width="12"/>
+<path d="M1080 528 L1180 428" stroke="#426C78" stroke-width="18"/>
+<circle cx="1073" cy="351" r="82" fill="none" stroke="#426C78" stroke-width="13"/>
+<text x="1120" y="680" font-family="sans-serif" font-size="20" fill="#687D88">版式示例</text>
+</svg>
