@@ -97,4 +97,10 @@ jobs:
             })
             $exceptionTypes = @([regex]::Matches($logText, '\b([a-zA-Z_.]+(?:Error|Exception)):') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
             [ordered]@{ codeFrames = $frames; exceptionTypes = $exceptionTypes } | ConvertTo-Json -Depth 5 | Write-Host
+            $qualityCodes = @('game-contract-missing', 'question-reveals-answer', 'reveal-slide-missing', 'reveal-before-question', 'question-slide-missing', 'topic-replaced-by-unrequested-storyline', 'asset-caption-mismatch', 'required-asset-missing', 'asset-semantic-too-vague', 'reveal-answer-missing', 'answer-key-missing', 'options-too-few', 'answer-not-in-options', 'answer-map-missing', 'sequence-order-missing', 'reveal-answer-mismatch')
+            $qualityCounts = [ordered]@{}
+            foreach ($code in $qualityCodes) { $qualityCounts[$code] = [regex]::Matches($logText, [regex]::Escape($code)).Count }
+            $qualityCounts | ConvertTo-Json | Write-Host
+            $jsonPaths = @([regex]::Matches($logText, '\$\.(?:slides\[\d+\]|meta)(?:\.[a-z_]+|\[\d+\])*') | ForEach-Object { $_.Value } | Select-Object -Unique)
+            [ordered]@{ jsonSchemaPaths = $jsonPaths } | ConvertTo-Json | Write-Host
           }
