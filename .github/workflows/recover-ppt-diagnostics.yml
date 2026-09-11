@@ -89,7 +89,12 @@ jobs:
             }
             $counts | ConvertTo-Json | Write-Host
             # Schema paths and validator error codes contain no submitted values.
-            $schemaPaths = @([regex]::Matches($logText, '(?m)^(?:slides\.\d+\.|meta\.)[a-z_0-9.]+\r?$') | ForEach-Object { $_.Value.Trim() } | Select-Object -Unique)
+            $schemaPaths = @([regex]::Matches($logText, '\b(?:slides\.\d+\.|meta\.)[a-z_0-9.]+') | ForEach-Object { $_.Value.Trim() } | Select-Object -Unique)
             $errorTypes = @([regex]::Matches($logText, '\[type=([a-z_]+),') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
             [ordered]@{ schemaPaths = $schemaPaths; validatorCodes = $errorTypes } | ConvertTo-Json | Write-Host
+            $frames = @([regex]::Matches($logText, 'File "[^"\r\n]*[\\/]([a-z_]+\.py)", line (\d+), in ([a-z_]+)') | ForEach-Object {
+              [ordered]@{ file = $_.Groups[1].Value; line = [int]$_.Groups[2].Value; function = $_.Groups[3].Value }
+            })
+            $exceptionTypes = @([regex]::Matches($logText, '\b([a-zA-Z_.]+(?:Error|Exception)):') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+            [ordered]@{ codeFrames = $frames; exceptionTypes = $exceptionTypes } | ConvertTo-Json -Depth 5 | Write-Host
           }
