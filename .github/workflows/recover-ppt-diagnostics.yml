@@ -35,7 +35,7 @@ jobs:
             $message = [string]$d.fatalError.message
             $categories = @()
             $patterns = [ordered]@{
-              outline_timeout = 'outline|180 seconds'
+              outline_failure = 'outline'
               browser_timeout = 'Timeout|timed out'
               page_count = 'Expected .* slides|slide count'
               template_route = 'teacher workshop template|semantic pack'
@@ -59,11 +59,33 @@ jobs:
               hasFinalPresentation = ($null -ne $d.finalPresentation)
               validationErrorCount = @($d.validationErrors).Count
               imageCheckCount = @($d.imageChecks).Count
-              unresolvedImageSlotCount = @($d.unresolvedImageSlots).Count
+              unresolvedImageSlotCount = @($d.unresolvedImageSlots | Where-Object { $null -ne $_ }).Count
               layoutOverflowCount = @($d.layoutOverflows).Count
               unreadableTextCount = @($d.unreadableAudienceText).Count
               emptyVisualCardCount = @($d.emptyVisualCards).Count
               streamRequestCount = @($d.streamRequests).Count
             }
             $summary | ConvertTo-Json -Depth 12 | Write-Host
+          }
+          $logFile = Join-Path $env:GITHUB_WORKSPACE '.runtime\runner-probe\engine.err.log'
+          if (Test-Path $logFile) {
+            $logText = Get-Content -Raw -Encoding UTF8 $logFile
+            $patterns = [ordered]@{
+              planner_180_second_timeout = 'Text model .* call timed out after 180 seconds'
+              planner_total_timeout = 'planning timed out|total.*timeout'
+              schema_validation = 'ValidationError|schema validation|not valid under'
+              missing_greenlet = 'MissingGreenlet'
+              request_timeout = 'ReadTimeout|ConnectTimeout|TimeoutError'
+              invalid_json = 'JSONDecodeError|Invalid JSON'
+              quality_rejection = 'quality|QUALITY|Quality'
+              image_timeout = 'Image generation failed \(TimeoutError\)'
+              bad_request = '400 Bad Request'
+              rate_limit = '429 Too Many Requests'
+              server_error = '500 Internal Server Error|502 Bad Gateway|503 Service Unavailable'
+            }
+            $counts = [ordered]@{}
+            foreach ($key in $patterns.Keys) {
+              $counts[$key] = [regex]::Matches($logText, $patterns[$key]).Count
+            }
+            $counts | ConvertTo-Json | Write-Host
           }
