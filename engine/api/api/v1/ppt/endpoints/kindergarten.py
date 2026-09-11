@@ -65,6 +65,7 @@ from services.mem0_presentation_memory_service import (
 from services.owner_scope import get_by_id_unscoped
 from templates.ai_visual_production import build_production_ai_visual_template
 from utils.sse import safe_sse_stream
+from utils.outline_utils import get_saved_outline_failure
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
@@ -598,6 +599,10 @@ async def stream_kindergarten_presentation_outline(
     )
     if presentation is None:
         raise HTTPException(status_code=404, detail="Presentation not found")
+
+    failure = get_saved_outline_failure(presentation.theme)
+    if not presentation.outlines and failure:
+        raise HTTPException(status_code=409, detail=failure)
 
     async def inner():
         if presentation.outlines:

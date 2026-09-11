@@ -23,7 +23,8 @@ export type Presentation = {
   updated_at: string;
   slides: EngineSlide[];
   generation_metadata?: {
-    outline_status?: "pending" | "ready";
+    outline_status?: "pending" | "ready" | "failed";
+    outline_error?: string | null;
     selected_template?: string | null;
     visual_mode?: "template" | "ai-background";
   } | null;
