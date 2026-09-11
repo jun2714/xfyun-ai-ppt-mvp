@@ -103,4 +103,12 @@ jobs:
             $qualityCounts | ConvertTo-Json | Write-Host
             $jsonPaths = @([regex]::Matches($logText, '\$\.(?:slides\[\d+\]|meta)(?:\.[a-z_]+|\[\d+\])*') | ForEach-Object { $_.Value } | Select-Object -Unique)
             [ordered]@{ jsonSchemaPaths = $jsonPaths } | ConvertTo-Json | Write-Host
+            # Only fixed technical role labels; no free-form model values.
+            $roleAliases = @('case-study', 'case-analysis', 'problem-analysis', 'problem-solution', 'discussion', 'reflection', 'action-plan', 'concept-explanation', 'strategy', 'strategy-action', 'evidence', 'practice', 'summary', 'concept', 'process', 'observation', 'training', 'case-compare', 'knowledge-multi', 'knowledge', 'conclusion', 'cover', 'introduction', 'action', 'solution', 'assessment', 'evaluation', 'workshop', 'group-discussion', 'evidence-analysis', 'method', 'question', 'analysis', 'comparison', 'image-text', 'text', 'steps', 'teacher-practice', 'recap-summary', 'strategy-single', 'knowledge-explanation')
+            $observedAliases = @()
+            foreach ($role in $roleAliases) {
+              $pattern = '\$\.slides\[\d+\]\.slide_type:\s*' + "'" + [regex]::Escape($role) + "'"
+              if ([regex]::IsMatch($logText, $pattern)) { $observedAliases += $role }
+            }
+            [ordered]@{ knownRoleAliases = $observedAliases } | ConvertTo-Json | Write-Host
           }
