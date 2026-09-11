@@ -1,0 +1,69 @@
+name: Recover PPT diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/kindergarten-generation-stability
+    paths:
+      - .github/workflows/recover-ppt-diagnostics.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-ppt-browser-probe
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 8
+    steps:
+      # Deliberately do not checkout: checkout cleanup would delete the evidence.
+      # Read only the existing probe output, never .env or application databases.
+      - name: Show content-free probe failure classification
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($mode in @("classroom", "training")) {
+            $file = Join-Path $env:GITHUB_WORKSPACE ".runtime\full-ppt-probe\$mode\full-ppt-diagnostics.json"
+            if (-not (Test-Path $file)) { Write-Host "$mode diagnostics missing"; continue }
+            $d = Get-Content -Raw -Encoding UTF8 $file | ConvertFrom-Json
+            # Emit only fixed labels, booleans and counts, never content, URLs,
+            # screenshots, model responses, stack traces or raw error messages.
+            $message = [string]$d.fatalError.message
+            $categories = @()
+            $patterns = [ordered]@{
+              outline_timeout = 'outline|180 seconds'
+              browser_timeout = 'Timeout|timed out'
+              page_count = 'Expected .* slides|slide count'
+              template_route = 'teacher workshop template|semantic pack'
+              text_overflow = 'overflow|fit'
+              text_fidelity = 'fidelity|changed|wrong field'
+              missing_images = 'unresolved image|placeholder image|no generated image'
+              image_http = 'image returned HTTP|404|Image URL returned'
+              proxy_mismatch = 'Editor proxy'
+              duplicate_generation = 'stream was opened'
+              semantic_binding = 'semantic binding'
+              empty_cards = 'empty visual|empty text'
+            }
+            foreach ($key in $patterns.Keys) {
+              if ($message -match $patterns[$key]) { $categories += $key }
+            }
+            $summary = [ordered]@{
+              mode = $mode
+              passed = ($d.result.state -eq 'passed')
+              categories = $categories
+              hasOutline = ($null -ne $d.outline)
+              hasFinalPresentation = ($null -ne $d.finalPresentation)
+              validationErrorCount = @($d.validationErrors).Count
+              imageCheckCount = @($d.imageChecks).Count
+              unresolvedImageSlotCount = @($d.unresolvedImageSlots).Count
+              layoutOverflowCount = @($d.layoutOverflows).Count
+              unreadableTextCount = @($d.unreadableAudienceText).Count
+              emptyVisualCardCount = @($d.emptyVisualCards).Count
+              streamRequestCount = @($d.streamRequests).Count
+            }
+            $summary | ConvertTo-Json -Depth 12 | Write-Host
+          }
