@@ -26,6 +26,7 @@ export type Presentation = {
     outline_status?: "pending" | "ready" | "failed";
     outline_error?: string | null;
     selected_template?: string | null;
+    template_selection_reason?: string | null;
     visual_mode?: "template" | "ai-background";
   } | null;
 };

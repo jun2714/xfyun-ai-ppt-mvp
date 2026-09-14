@@ -230,7 +230,7 @@ def test_lesson_conversion_retains_screen_and_interaction_roles():
     assert contract.interaction_instruction == "请幼儿指出变化。"
     from services.kindergarten_template_routing_service import resolve_kindergarten_template
     from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
-    assert resolve_kindergarten_template(plan, "auto").template == "kindergarten-classroom"
+    assert resolve_kindergarten_template(plan, "auto").template == "classroom-nature"
     assert resolve_kindergarten_template(plan, "standard").template == "standard"
     assert resolve_kindergarten_template(plan, "auto", allow_classroom=False).template != "kindergarten-classroom"
     plan.slides[0].assets[0].audience_text = "另一个页面的内容"

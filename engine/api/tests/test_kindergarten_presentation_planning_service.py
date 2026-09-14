@@ -390,7 +390,7 @@ def test_training_template_mode_does_not_use_child_classroom_pack():
         topic="教师观察记录培训", content_mode="training", template="auto",
     )
     _, routing, _ = _apply_visual_mode(payload, result)
-    assert routing.template == "teacher-training"
+    assert routing.template == "training-case"
 
 
 def test_missing_reveal_does_not_expand_requested_deck_or_drop_closing():

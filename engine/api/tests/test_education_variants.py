@@ -49,7 +49,9 @@ def _pack(template_id):
 
 @pytest.mark.parametrize("template_id", EDUCATION_VARIANTS)
 @pytest.mark.parametrize("suffix", [*(f"scene_{side}_{n}" for side in ("left", "right")
-                                    for n in range(7)), "cards_2", "cards_3", "cards_4"])
+                                    for n in range(7)), "cards_2", "cards_3", "cards_4",
+                                    *(f"scene_roomy_{n}" for n in range(1, 7)),
+                                    *(f"cards_roomy_{n}" for n in range(2, 5))])
 def test_variant_copy_images_and_projectable_geometry(template_id, suffix):
     template, schemas = _pack(template_id)
     teacher = EDUCATION_VARIANTS[template_id]["audience"] == "teacher"
@@ -92,8 +94,8 @@ def test_variant_copy_images_and_projectable_geometry(template_id, suffix):
 @pytest.mark.parametrize("template_id", EDUCATION_VARIANTS)
 def test_manual_variant_preflights_confirmed_copy_and_rejects_overflow(template_id):
     template, schemas = _pack(template_id)
-    assert len(schemas) == 18
-    assert template.assets["template_metadata"]["auto_match"] is False
+    assert len(schemas) == 27
+    assert template.assets["template_metadata"]["auto_match"] is True
     assert template.assets["template_metadata"]["audiences"] == [EDUCATION_VARIANTS[template_id]["audience"]]
     thumbnail = Path(__file__).parents[1] / template.assets["thumbnail"].lstrip("/")
     assert ET.parse(thumbnail).getroot().attrib["viewBox"] == "0 0 1280 720"
@@ -125,3 +127,53 @@ def test_variant_cover_preserves_goal_and_usage(template_id):
     for box in _collect_non_decorative_text_elements(ui["components"]):
         assert box["font"]["size"] >= 32
         assert _template_text_required_height(box) <= box["size"]["height"] + 1
+
+
+@pytest.mark.parametrize('template_id', EDUCATION_VARIANTS)
+def test_long_captions_use_roomier_cards_without_losing_images(template_id):
+    template, schemas = _pack(template_id)
+    outline = _outline(template_id, 4, cards=True)
+    points = [f'证据{i}：' + '记录孩子原话和具体动作，再讨论支持策略。' * 2 + '保留原始证据。' for i in range(4)]
+    contract = outline.content_contract
+    for asset in contract.asset_contracts:
+        index = int(asset.planning_slot)
+        asset.audience_text = points[index]
+    contract.screen_points = points
+    outline.content = '\n'.join([contract.screen_title, *points, contract.screen_instruction])
+    before = outline.model_dump()
+    layout = PresentationLayoutModel(name=template_id, slides=[
+        SlideLayoutModel(id=key, json_schema=schema) for key, schema in schemas.items()
+    ])
+    choices = get_allowed_layout_indices_for_outline(PresentationOutlineModel(slides=[outline]), layout)
+    chosen = layout.slides[choices[0][0]]
+    assert chosen.id.endswith('cards_roomy_4')
+    result = build_classroom_content(chosen.json_schema, outline)
+    assert [result[f'card_{i}']['text'] for i in range(4)] == points
+    assert all(f'观察画面{i}' in result[f'card_{i}']['visual']['image_prompt'] for i in range(4))
+    assert outline.model_dump() == before
+    assert len(choices) == 1
+
+
+def test_long_story_scene_uses_roomier_geometry_without_rewriting():
+    template_id = 'classroom-story'
+    _, schemas = _pack(template_id)
+    outline = _outline(template_id, 4)
+    points = [f'情节{i}：小熊看见朋友遇到困难，停下来想一想自己可以怎样帮助它。' for i in range(4)]
+    outline.content_contract.screen_points = points
+    outline.content = '\n'.join([outline.content_contract.screen_title, *points, outline.content_contract.screen_instruction])
+    layout = PresentationLayoutModel(name=template_id, slides=[
+        SlideLayoutModel(id=key, json_schema=schema) for key, schema in schemas.items()
+    ])
+    choices = get_allowed_layout_indices_for_outline(PresentationOutlineModel(slides=[outline]), layout)
+    assert layout.slides[choices[0][0]].id == 'classroom_scene_roomy_4'
+
+
+@pytest.mark.parametrize('template_id', EDUCATION_VARIANTS)
+def test_template_image_style_reaches_generation_prompt(template_id):
+    template, schemas = _pack(template_id)
+    key = next(key for key in schemas if key.endswith('scene_left_3'))
+    result = build_classroom_content(schemas[key], _outline(template_id, 3))
+    style = next(element['prompt'] for layout in template.layouts['layouts']
+                 for component in layout['components'] for element in component['elements']
+                 if element['type'] == 'image')
+    assert style in result['scene']['visual']['image_prompt']

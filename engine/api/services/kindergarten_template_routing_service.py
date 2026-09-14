@@ -140,6 +140,8 @@ def resolve_kindergarten_template(
     *,
     instructions: str | None = None,
     allow_classroom: bool = True,
+    content_mode: str = "classroom",
+    topic: str | None = None,
 ) -> KindergartenTemplateRoutingDecision:
     """Resolve `auto` to a stable bundled kindergarten visual family.
 
@@ -156,22 +158,12 @@ def resolve_kindergarten_template(
             scores={},
         )
 
-    # Use the semantic classroom pack when the lesson has visual assets. Explicit
-    # choices and legacy nonvisual plans retain the existing compatibility path.
-    content_slides = [
-        slide for slide in plan.slides if slide.slide_type != "cover-scene"
-    ]
-    if (
-        allow_classroom
-        and content_slides
-        and all(any(asset.required for asset in slide.assets) for slide in content_slides)
+    content_slides = [slide for slide in plan.slides if slide.slide_type != "cover-scene"]
+    if allow_classroom and content_slides and (
+        content_mode == "training"
+        or all(any(asset.required for asset in slide.assets) for slide in content_slides)
     ):
-        from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
-        return KindergartenTemplateRoutingDecision(
-            template=CLASSROOM_TEMPLATE_ID,
-            reason="classroom:semantic-copy-and-image-bindings",
-            scores={CLASSROOM_TEMPLATE_ID: 100},
-        )
+        return _resolve_education_pack(plan, content_mode, instructions, topic)
 
     scores = {name: 0 for name in _TEMPLATE_PRIORITY}
     reasons: dict[str, list[str]] = {name: [] for name in _TEMPLATE_PRIORITY}
@@ -241,5 +233,78 @@ def resolve_kindergarten_template(
     return KindergartenTemplateRoutingDecision(
         template=selected,
         reason=";".join(reason_parts),
+        scores=scores,
+    )
+
+
+def _resolve_education_pack(plan, content_mode, instructions, topic):
+    """Rank only the correct audience, then preflight every page without an LLM.
+
+    Topic words support the declared purpose and planned activity structure.
+    Capacity can reject a top-ranked pack; reviewed copy is never rewritten.
+    """
+    from templates.education_variants import build_education_variant
+    from templates.kindergarten_classroom import build_classroom_template
+    from templates.teacher_training import build_training_template
+    from templates.v2.schema import get_template_schema
+    from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
+    from utils.layout_compatibility import LayoutCompatibilityError, get_allowed_layout_indices_for_outline
+
+    teacher = content_mode == "training"
+    fallback = "teacher-training" if teacher else "kindergarten-classroom"
+    keys = ["training-case", "training-action"] if teacher else ["classroom-nature", "classroom-story"]
+    scores = {key: 0 for key in keys}
+    scores[fallback] = 1
+    reasons = {fallback: "采用通用教研版式" if teacher else "采用通用课堂版式"}
+    text = "\n".join([topic or plan.meta.topic, instructions or "", *plan.lesson_goals,
+                      *[s.screen_content.title for s in plan.slides]])
+    if teacher:
+        terms = {
+            "training-case": ("案例", "观察记录", "证据", "原话", "对照", "分析", "研讨"),
+            "training-action": ("实施", "行动计划", "改进计划", "复盘", "负责人", "落实", "跟进", "步骤"),
+        }
+        reasons.update({"training-case": "教师教研包含案例或观察证据，推荐案例档案版式",
+                        "training-action": "教师教研侧重实施与复盘，推荐步骤路线图版式"})
+    else:
+        terms = {"classroom-nature": ("植物", "种子", "天气", "动物", "自然", "科学", "实验"),
+                 "classroom-story": ("绘本", "故事", "阅读", "讲述", "情绪", "角色")}
+        domain = plan.meta.domain
+        if domain == "science":
+            scores["classroom-nature"] += 10
+        elif domain == "language":
+            scores["classroom-story"] += 10
+        scores["classroom-nature"] += min(6, sum(s.slide_type in {"image-observation", "compare"} for s in plan.slides) * 2)
+        scores["classroom-story"] += min(6, sum(s.slide_type == "story-intro" for s in plan.slides) * 3)
+        reasons.update({"classroom-nature": "课堂以科学探索和观察比较为主，推荐观察手册版式",
+                        "classroom-story": "课堂以阅读讲述或情绪表达为主，推荐绘本分镜版式"})
+    for key, words in terms.items():
+        scores[key] += min(8, sum(word in text for word in words) * 2)
+    # No strong signal: retain a neutral audience-appropriate pack.
+    ranked = sorted(scores, key=lambda key: -scores[key])
+    outline = plan.to_presentation_outline()
+    failures = []
+    for key in ranked:
+        template = (build_training_template() if key == "teacher-training" else
+                    build_classroom_template() if key == "kindergarten-classroom" else
+                    build_education_variant(key))
+        schemas = get_template_schema(template.layouts)["layouts"]
+        layout = PresentationLayoutModel(name=key, slides=[
+            SlideLayoutModel(id=entry["layout_id"], json_schema=entry["schema"]) for entry in schemas
+        ])
+        try:
+            get_allowed_layout_indices_for_outline(outline, layout)
+        except LayoutCompatibilityError as error:
+            failures.append(error)
+            continue
+        reason = reasons[key]
+        if failures:
+            reason += "；优先模板的正文容量不足，已改用可完整保留文案的同用途模板"
+        return KindergartenTemplateRoutingDecision(template=key, reason=reason, scores=scores)
+    # Preserve a reviewable outline even if no pack fits. Preparation still
+    # blocks overflowing pages; do not discard a paid plan or silently split it.
+    key = ranked[0]
+    return KindergartenTemplateRoutingDecision(
+        template=key,
+        reason=f"{reasons[key]}；现有模板无法完整容纳文案，请先调整大纲。{failures[0]}",
         scores=scores,
     )

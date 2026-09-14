@@ -263,20 +263,13 @@ def _apply_visual_mode(
     Optional[str],
 ]:
     if payload.visual_mode == "template":
-        if (payload.content_mode == "training" and payload.template == AUTO_TEMPLATE_NAME
-                and payload.image_policy != ImagePolicy.DISABLED):
-            from templates.teacher_training import TRAINING_TEMPLATE_ID
-            return result, KindergartenTemplateRoutingDecision(
-                template=TRAINING_TEMPLATE_ID,
-                reason="training-mode:teacher-workshop-layouts",
-                scores={TRAINING_TEMPLATE_ID: 100},
-            ), None
         routing = resolve_kindergarten_template(
             result.plan,
             payload.template,
             instructions=payload.instructions,
-            allow_classroom=(payload.content_mode == "classroom"
-                             and payload.image_policy != ImagePolicy.DISABLED),
+            allow_classroom=payload.image_policy != ImagePolicy.DISABLED,
+            content_mode=payload.content_mode,
+            topic=payload.topic,
         )
         return result, routing, None
 

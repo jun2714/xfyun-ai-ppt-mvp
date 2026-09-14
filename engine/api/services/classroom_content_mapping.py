@@ -63,6 +63,9 @@ def preferred_classroom_layout(outline, slide_index=0):
 
 
 def _image_value(schema, prompt):
+    style = schema.get("x-image-style")
+    if isinstance(style, str) and style.strip():
+        prompt += "模板配图风格：" + style.strip()
     result = {}
     for key in schema.get("properties", {}):
         if key in {"image_prompt", "__image_prompt__"}:
