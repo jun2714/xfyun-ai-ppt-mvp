@@ -8,6 +8,10 @@ import { ArrowLeftIcon, ArrowRightIcon } from "../../components/Icons";
 const DISPLAY_NAMES: Record<string, string> = {
   "kindergarten-classroom": "幼教课堂 · 绘本与观察",
   "teacher-training": "园本教研 · 问题与策略",
+  "classroom-nature": "自然观察 · 探索与发现",
+  "classroom-story": "故事表达 · 阅读与分享",
+  "training-case": "案例研讨 · 观察与证据",
+  "training-action": "行动复盘 · 实施与改进",
   dynamic: "动感橙黑",
   executive: "柔光紫",
   general: "通用模板",
@@ -103,7 +107,7 @@ export function TemplateLibrary() {
         <TemplateReturnLink />
         <span>模板中心</span>
         <h1>选择一套合适的设计</h1>
-        <p>幼儿课堂选绘本与观察，教师培训选问题与策略；点击预览版式，再回到大纲选择使用。</p>
+        <p>课堂可选自然观察、故事表达，教研可选案例研讨、行动复盘；点击预览版式，再回到大纲选择使用。</p>
       </div>
       <a className="primary" href="/templates/new">制作模板 <ArrowRightIcon /></a>
     </header>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>案例研讨 · 观察与证据：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#F4F7F9"/>
+<polygon points="48.0,157.0 1232.0,157.0 1232.0,161.0 48.0,161.0" fill="#356880"/>
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,157.0 0.0,157.0" fill="#DFEAF0"/>
+<text fill="#263E4C" font-size="48.0" font-weight="700"><tspan x="48.0" y="108.0">从观察记录找到支持策略</tspan></text>
+<text fill="#356880" font-size="32.0" font-weight="700"><tspan x="48.0" y="680.0">先描述看见的行为，再讨论支持方法。</tspan></text>
+<rect x="48.0" y="174.0" width="324.0" height="430.0" rx="16" fill="#DFEAF0"/><g transform="translate(48.0 279.875) scale(0.50625)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#DFEAF0" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#356880"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#356880"/></g><text x="210.0" y="590.0" text-anchor="middle" font-size="20" fill="#263E4C">配图位置 · 版式示意</text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="420.0" y="206.0">观察事实：孩子连续三次调整积木位置，仍然没有搭稳。</tspan></text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="420.0" y="349.33333333333337">保留原话：“我想搭高一点，但是它总是倒下来。”</tspan></text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="420.0" y="492.6666666666667">共同讨论：哪些材料和提问能够支持孩子继续尝试？</tspan></text>
+</g>
+</svg>

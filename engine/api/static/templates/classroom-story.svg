@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>故事表达 · 阅读与分享：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#FFF8EE"/>
+<polygon points="48.0,157.0 1232.0,157.0 1232.0,161.0 48.0,161.0" fill="#B6573F"/>
+<text fill="#593C31" font-size="48.0" font-weight="700"><tspan x="48.0" y="108.0">小熊找到好朋友</tspan></text>
+<text fill="#B6573F" font-size="32.0" font-weight="700"><tspan x="48.0" y="680.0">想一想：小熊的心情怎样变了？</tspan></text>
+<rect x="48.0" y="174.0" width="1184.0" height="248.0" rx="16" fill="#F5DFC4"/><g transform="translate(451.55555555555554 174.0) scale(0.5888888888888889)"><path d="M0 230Q150 160 320 230T640 230V360H0Z" fill="#F5DFC4"/><circle cx="279" cy="82" r="30" fill="#B6573F"/><circle cx="361" cy="82" r="30" fill="#B6573F"/><ellipse cx="320" cy="236" rx="68" ry="100" fill="#B6573F"/><circle cx="320" cy="132" r="66" fill="#C98965"/><ellipse cx="320" cy="158" rx="34" ry="25" fill="#F5DFC4"/><circle cx="297" cy="125" r="5" fill="#593C31"/><circle cx="343" cy="125" r="5" fill="#593C31"/><circle cx="320" cy="148" r="7" fill="#593C31"/></g><text x="640.0" y="408.0" text-anchor="middle" font-size="20" fill="#593C31">配图位置 · 版式示意</text>
+<text fill="#593C31" font-size="32.0" font-weight="700"><tspan x="48.0" y="474.0">开始：小熊走进森林。</tspan></text>
+<text fill="#593C31" font-size="32.0" font-weight="700"><tspan x="452.0" y="474.0">后来：听见朋友呼唤。</tspan></text>
+<text fill="#593C31" font-size="32.0" font-weight="700"><tspan x="856.0" y="474.0">最后：大家分享果子。</tspan></text>
+</g>
+</svg>
