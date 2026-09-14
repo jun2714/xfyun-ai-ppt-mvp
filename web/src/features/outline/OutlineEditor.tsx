@@ -109,6 +109,8 @@ export function OutlineEditor({
       ? "template"
       : "topic";
   const preferred = preferredTemplateId || queryOptions.templateId || null;
+  const recommendationUnavailable = presentation.generation_metadata?.selected_template === ""
+    && Boolean(presentation.generation_metadata?.template_selection_reason);
 
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
@@ -128,6 +130,11 @@ export function OutlineEditor({
   }, [initial, streaming, activeSlideIndex]);
 
   useEffect(() => {
+    if (recommendationUnavailable) {
+      setTemplate("");
+      setTemplateNotice(presentation.generation_metadata?.template_selection_reason || "请手动选择模板。");
+      return;
+    }
     if (templates.length === 0) return;
     if (preferred === AI_VISUAL_TEMPLATE_ID || (preferred && templates.some((item) => item.id === preferred))) {
       setTemplate(preferred);
@@ -135,24 +142,21 @@ export function OutlineEditor({
       return;
     }
 
+    if (preferred) {
+      setTemplate("");
+      setTemplateNotice(`“${DISPLAY_NAMES[preferred] || preferred}”当前不可用，请手动选择一个已加载的模板。`);
+      return;
+    }
     const fallback = pickDefaultTemplate(templates);
     if (!fallback) {
       setTemplate("");
-      setTemplateNotice(
-        preferred
-          ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前不可用，请先选择一个已加载的模板。`
-          : "暂无可用模板，请先在模板中心添加。",
-      );
+      setTemplateNotice("暂无可用模板，请先在模板中心添加。");
       return;
     }
 
     setTemplate(fallback.id);
-    setTemplateNotice(
-      preferred
-        ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前未加载，已切换为“${templateName(fallback)}”。你也可以重新选择模板。`
-        : "",
-    );
-  }, [preferred, templates]);
+    setTemplateNotice("");
+  }, [preferred, templates, recommendationUnavailable, presentation.generation_metadata?.template_selection_reason]);
 
   useEffect(() => {
     if (streaming) setStage("outline");

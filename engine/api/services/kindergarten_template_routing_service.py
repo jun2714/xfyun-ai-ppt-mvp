@@ -142,6 +142,7 @@ def resolve_kindergarten_template(
     allow_classroom: bool = True,
     content_mode: str = "classroom",
     topic: str | None = None,
+    available_templates: dict | None = None,
 ) -> KindergartenTemplateRoutingDecision:
     """Resolve `auto` to a stable bundled kindergarten visual family.
 
@@ -163,7 +164,7 @@ def resolve_kindergarten_template(
         content_mode == "training"
         or all(any(asset.required for asset in slide.assets) for slide in content_slides)
     ):
-        return _resolve_education_pack(plan, content_mode, instructions, topic)
+        return _resolve_education_pack(plan, content_mode, instructions, topic, available_templates)
 
     scores = {name: 0 for name in _TEMPLATE_PRIORITY}
     reasons: dict[str, list[str]] = {name: [] for name in _TEMPLATE_PRIORITY}
@@ -237,7 +238,7 @@ def resolve_kindergarten_template(
     )
 
 
-def _resolve_education_pack(plan, content_mode, instructions, topic):
+def _resolve_education_pack(plan, content_mode, instructions, topic, available_templates):
     """Rank only the correct audience, then preflight every page without an LLM.
 
     Topic words support the declared purpose and planned activity structure.
@@ -280,11 +281,30 @@ def _resolve_education_pack(plan, content_mode, instructions, topic):
     for key, words in terms.items():
         scores[key] += min(8, sum(word in text for word in words) * 2)
     # No strong signal: retain a neutral audience-appropriate pack.
-    ranked = sorted(scores, key=lambda key: -scores[key])
+    eligible = list(scores)
+    if available_templates is not None:
+        audience = "teacher" if teacher else "child"
+        eligible = []
+        for key in scores:
+            template = available_templates.get(key)
+            if template is None:
+                continue
+            metadata = (template.assets or {}).get("template_metadata", {})
+            if metadata.get("auto_match") is False:
+                continue
+            if metadata.get("audiences") and audience not in metadata["audiences"]:
+                continue
+            eligible.append(key)
+        if not eligible:
+            return KindergartenTemplateRoutingDecision(
+                template="", reason="当前没有可自动匹配的教研模板，请手动选择可用模板。" if teacher else
+                "当前没有可自动匹配的课堂模板，请手动选择可用模板。", scores={},
+            )
+    ranked = sorted(eligible, key=lambda key: -scores[key])
     outline = plan.to_presentation_outline()
     failures = []
     for key in ranked:
-        template = (build_training_template() if key == "teacher-training" else
+        template = available_templates[key] if available_templates is not None else (build_training_template() if key == "teacher-training" else
                     build_classroom_template() if key == "kindergarten-classroom" else
                     build_education_variant(key))
         schemas = get_template_schema(template.layouts)["layouts"]

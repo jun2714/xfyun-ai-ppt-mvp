@@ -148,10 +148,10 @@ jobs:
                   $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 5
                   if ($response.StatusCode -lt 500) { $ready = $true; break }
                 } catch {}
-                if ($engine.HasExited) { throw "Repair engine exited early. See uploaded runtime logs." }
-                if ($web.HasExited) { throw "Repair outline web exited early. See uploaded runtime logs." }
+                if ($engine.HasExited) { throw "Repair engine exited early. Runtime logs are retained on the runner." }
+                if ($web.HasExited) { throw "Repair outline web exited early. Runtime logs are retained on the runner." }
               }
-              if (-not $ready) { throw "$url did not become ready. See uploaded runtime logs." }
+              if (-not $ready) { throw "$url did not become ready. Runtime logs are retained on the runner." }
               Write-Host "$url is ready"
             }
             $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:18000/api/v1/ppt/diagnostics/image-runtime" -TimeoutSec 15
@@ -170,20 +170,20 @@ jobs:
             $env:TEST_TOPIC_B64 = "5Zut5pys5pWZ56CU77ya5aaC5L2V5oqK5Li76KeC6K+E5Lu35pS55Li65Y+v6KeC5a+f55qE5YS/56ul5ri45oiP6K+B5o2u"
             node scripts/local-full-ppt-probe.mjs
             if ($LASTEXITCODE -ne 0) { $failedModes += "training" }
-            if ($failedModes.Count -gt 0) { throw "PPT probe failed for: $($failedModes -join ', '). See each mode's diagnostics." }
+            if ($failedModes.Count -gt 0) { throw "PPT probe failed for: $($failedModes -join ', '). See each mode's safe summary." }
           } finally {
             foreach ($processId in @($engine.Id, $web.Id)) {
               try { taskkill /PID $processId /T /F | Out-Null } catch {}
             }
           }
 
-      - name: Upload full diagnostics and runtime logs
+      - name: Upload content-free acceptance summaries
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: local-full-ppt-diagnostics-${{ github.run_id }}
+          name: local-ppt-safe-summary-${{ github.run_id }}
           path: |
-            .runtime/full-ppt-probe
-            .runtime/runner-probe
+            .runtime/full-ppt-probe/classroom/safe-summary.json
+            .runtime/full-ppt-probe/training/safe-summary.json
           if-no-files-found: warn
           retention-days: 7

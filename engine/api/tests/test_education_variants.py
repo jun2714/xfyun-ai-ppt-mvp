@@ -177,3 +177,15 @@ def test_template_image_style_reaches_generation_prompt(template_id):
                  for component in layout['components'] for element in component['elements']
                  if element['type'] == 'image')
     assert style in result['scene']['visual']['image_prompt']
+
+
+@pytest.mark.parametrize('template_id', EDUCATION_VARIANTS)
+def test_custom_style_does_not_inherit_a_conflicting_default_palette(template_id):
+    _, schemas = _pack(template_id)
+    key = next(key for key in schemas if key.endswith('scene_left_3'))
+    content = build_classroom_content(schemas[key], _outline(template_id, 3))
+    prompt = content['scene']['visual']['image_prompt']
+    assert '奶油白、薄荷绿、暖珊瑚' not in prompt
+    assert '浅米白、松石绿、雾蓝' not in prompt
+    assert '不要摄影、3D、文字' in prompt
+    assert ('不要拟人角色' in prompt) == (EDUCATION_VARIANTS[template_id]['audience'] == 'teacher')

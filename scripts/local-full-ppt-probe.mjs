@@ -8,6 +8,8 @@ import {
   collectUnresolvedImageSlots,
 } from "./lib/ppt-image-validation.mjs";
 
+import { summarizeProbe } from "./lib/ppt-probe-summary.mjs";
+
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
 const apiBase = (process.env.API_BASE_URL || "http://127.0.0.1:8000/api/v1/ppt").replace(/\/$/, "");
@@ -587,6 +589,9 @@ try {
     JSON.stringify(redact(diagnostics), null, 2),
     "utf8",
   );
+  const summary = summarizeProbe(diagnostics);
+  await writeFile(resolve(outputDir, "safe-summary.json"), JSON.stringify(summary, null, 2), "utf8");
+  console.log("PPT_PROBE_SUMMARY " + JSON.stringify(summary));
 }
 
 process.exitCode = exitCode;

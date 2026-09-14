@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from api.v1.ppt.endpoints.presentation import (
     create_presentation,
@@ -254,9 +255,18 @@ async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
     await sql_session.commit()
 
 
+async def _available_auto_templates(payload, sql_session):
+    if payload.visual_mode != "template" or (payload.template or "auto").strip().casefold() != "auto":
+        return None
+    rows = await sql_session.scalars(select(TemplateV2).where(TemplateV2.is_default.is_(True)))
+    return {template.id: template for template in rows}
+
+
 def _apply_visual_mode(
     payload: KindergartenPresentationCreateRequest,
     result: ValidatedKindergartenPlanningResult,
+    *,
+    available_templates: dict | None = None,
 ) -> tuple[
     ValidatedKindergartenPlanningResult,
     KindergartenTemplateRoutingDecision,
@@ -270,6 +280,7 @@ def _apply_visual_mode(
             allow_classroom=payload.image_policy != ImagePolicy.DISABLED,
             content_mode=payload.content_mode,
             topic=payload.topic,
+            available_templates=available_templates,
         )
         return result, routing, None
 
@@ -501,7 +512,9 @@ async def create_kindergarten_presentation(
     generation until after the teacher reviews the outline.
     """
     result = await _generate_validated_plan(payload, request)
-    result, routing, style_summary = _apply_visual_mode(payload, result)
+    result, routing, style_summary = _apply_visual_mode(
+        payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+    )
     if payload.visual_mode == "ai-background":
         await _ensure_ai_visual_template(sql_session)
 
@@ -680,7 +693,9 @@ async def stream_kindergarten_presentation_outline(
             result = await planning_task
             if not disconnected:
                 yield SSEStatusResponse(status="正在校验并保存大纲").to_string()
-            result, routing, style_summary = _apply_visual_mode(payload, result)
+            result, routing, style_summary = _apply_visual_mode(
+                payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+            )
             if payload.visual_mode == "ai-background":
                 await _ensure_ai_visual_template(sql_session)
 
@@ -762,7 +777,9 @@ async def prepare_kindergarten_presentation(
 ):
     """One-shot plan + route + prepare endpoint for API clients without review UI."""
     result = await _generate_validated_plan(payload, request)
-    result, routing, style_summary = _apply_visual_mode(payload, result)
+    result, routing, style_summary = _apply_visual_mode(
+        payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+    )
     if payload.visual_mode == "ai-background":
         await _ensure_ai_visual_template(sql_session)
 
