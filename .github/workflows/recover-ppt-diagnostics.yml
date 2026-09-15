@@ -1,3 +1,4 @@
+# Inspect run 36 using fixed diagnostic labels only; no generation or artifact upload.
 name: Recover PPT diagnostics
 
 on:
