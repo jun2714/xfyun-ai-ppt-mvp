@@ -42,7 +42,9 @@ def test_teacher_art_direction_survives_execution_and_is_not_reused_for_children
     plan = asset_execution_service.build_asset_plan([child, teacher])
     assert len(plan) == 2
     prompts = {item.slots[0].visual_audience: asset_execution_service._request_prompt(item) for item in plan}
-    assert "professional educational editorial" in prompts["teacher"]
+    assert "中国幼儿园教研插画" in prompts["teacher"]
+    assert "禁止英文" in prompts["teacher"]
+    assert "professional educational editorial" not in prompts["teacher"]
     assert "ages 3-6" not in prompts["teacher"]
     assert "ages 3-6" in prompts["child"]
 

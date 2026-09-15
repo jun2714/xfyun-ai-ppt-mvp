@@ -151,6 +151,35 @@ _err_logger = _logging.getLogger("api.error_catcher")
 _inner_app = app
 
 
+def rewrite_ppt_api_path(path: str) -> str:
+    """Map official-site /ppt-api URLs onto FastAPI routes.
+
+    The website proxies `/ppt-api` → this engine. When the browser hits
+    uvicorn directly with that prefix (or omits `/api` after it), rewrite
+    so kindergarten/async routes still match.
+    """
+    value = path or ""
+    if value == "/ppt-api" or value.startswith("/ppt-api/"):
+        rest = value[len("/ppt-api"):] or "/"
+        if rest.startswith("/v1/") or rest == "/v1":
+            rest = "/api" + rest
+        return rest
+    return value
+
+
+class _PptApiPrefixASGIMiddleware:
+    def __init__(self, wrapped):
+        self.app = wrapped
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            rewritten = rewrite_ppt_api_path(scope.get("path") or "")
+            if rewritten != (scope.get("path") or ""):
+                scope = dict(scope)
+                scope["path"] = rewritten
+        await self.app(scope, receive, send)
+
+
 class _ErrorLoggingASGIMiddleware:
     """Pure ASGI middleware that logs exceptions before ServerErrorMiddleware swallows them."""
     def __init__(self, wrapped):
@@ -171,4 +200,4 @@ class _ErrorLoggingASGIMiddleware:
             raise
 
 
-app = _ErrorLoggingASGIMiddleware(_inner_app)
+app = _ErrorLoggingASGIMiddleware(_PptApiPrefixASGIMiddleware(_inner_app))

@@ -437,6 +437,26 @@ def test_training_template_mode_does_not_use_child_classroom_pack():
     assert routing.template == "training-case"
 
 
+def test_training_ai_background_still_uses_teacher_pack_not_child_skeleton():
+    from api.v1.ppt.endpoints.kindergarten import (
+        KindergartenPresentationCreateRequest, _apply_visual_mode,
+    )
+    plan = _plan()
+    result = planning_service.ValidatedKindergartenPlanningResult(
+        plan=plan, outline=plan.to_presentation_outline(),
+        quality=planning_service.validate_kindergarten_lesson_plan(plan), attempts=1,
+    )
+    payload = KindergartenPresentationCreateRequest(
+        topic="教师观察记录培训",
+        content_mode="training",
+        template="auto",
+        visual_mode="ai-background",
+    )
+    _, routing, _ = _apply_visual_mode(payload, result)
+    assert routing.template != "ai-visual"
+    assert routing.template in {"training-case", "training-action", "teacher-training"}
+
+
 def test_missing_reveal_does_not_expand_requested_deck_or_drop_closing():
     plan = _plan()
     plan.slides = plan.slides[:2]

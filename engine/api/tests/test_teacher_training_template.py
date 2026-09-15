@@ -59,6 +59,7 @@ def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
     jsonschema.validate({k: v for k, v in result.items() if not k.startswith("__")}, schema)
     assert [result[f"point_{index}"]["text"] for index in range(count)] == points
     assert "专业清晰的教育编辑插画" in result["scene"]["visual"]["image_prompt"]
+    assert "禁止英文" in result["scene"]["visual"]["image_prompt"]
     assert "统一二维儿童绘本" not in result["scene"]["visual"]["image_prompt"]
     layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
     ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)

@@ -76,11 +76,15 @@ def _prompt(assets, title, points, *, training=False, template_style=None):
     subjects = "；".join(f"{a.semantic_label}：{a.description or ''}" for a in assets)
     custom_style = template_style.strip() if isinstance(template_style, str) else ""
     if training:
+        from services.research_ppt_generation_context import research_ppt_image_options
+
         style = (
             "专业清晰的教育编辑插画；中国幼儿园真实工作场景，"
             "围绕教师观察、讨论与改进活动；不要拟人角色、童话、商务海报或儿童猜谜。"
             + (custom_style or "浅米白、松石绿、雾蓝配色。")
         )
+        if research_ppt_image_options.get().forbid_latin_text:
+            style += "禁止英文、拉丁字母、拼音和任何图内标签。"
     else:
         style = "统一二维儿童绘本；" + (
             custom_style or "柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色。"

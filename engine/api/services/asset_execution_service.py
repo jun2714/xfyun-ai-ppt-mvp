@@ -21,6 +21,7 @@ from services.asset_semantic_quality_service import (
     build_default_asset_semantic_quality_service,
 )
 from services.image_generation_service import ImageGenerationService
+from services.research_ppt_generation_context import research_ppt_image_options
 from services.sprite_sheet_service import (
     create_transparent_cutout,
     crop_sprite_sheet,
@@ -42,13 +43,24 @@ from utils.process_slides import _set_asset_url, _uses_template_asset_fields
 LOGGER = logging.getLogger(__name__)
 
 
+def _is_teacher_visual(item: AssetPlanItem) -> bool:
+    return bool(item.slots) and all(slot.visual_audience == "teacher" for slot in item.slots)
+
+
 def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
-    if all(slot.visual_audience == "teacher" for slot in item.slots):
+    if _is_teacher_visual(item):
+        from services.research_ppt_generation_context import research_ppt_image_options
+
+        no_latin = (
+            "禁止英文、拉丁字母、数字标签和水印；"
+            if research_ppt_image_options.get().forbid_latin_text
+            else "本课为英语教学，图内文字可以使用英文。"
+        )
         return (
-            " Use a consistent professional educational editorial illustration style, "
-            "cream, muted teal and blue, realistic Chinese kindergarten work situations. "
-            "Show clear observation evidence and teacher actions. No child fantasy, "
-            "anthropomorphic objects, corporate stock photography, 3D, text or watermarks."
+            " 画成专业清晰的中国幼儿园教研插画：浅米白、松石绿、雾蓝；"
+            "真实教研现场里的教师观察、研讨与介入；"
+            "用具体人物动作和场景表达概念，不要画信息图、思维导图、循环图或对照表上的文字标签；"
+            f"{no_latin}不要儿童童话拟人、商务海报、3D、摄影或黑色抽象纹理。"
         )
     if not any(slot.semantic_expectations for slot in item.slots):
         return ""
@@ -66,7 +78,18 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
 
 def _request_prompt(item: AssetPlanItem) -> str:
     kindergarten_direction = _kindergarten_visual_direction(item)
+    teacher = _is_teacher_visual(item)
     if item.generation_mode == "sprite-sheet":
+        if teacher:
+            cells = "；".join(
+                f"第{index + 1}格：{slot.prompt}"
+                for index, slot in enumerate(item.slots)
+            )
+            return (
+                f"生成一张干净的{item.grid_columns}列{item.grid_rows}行分镜拼图。"
+                f"{cells}。每格一个完整居中主体，风格统一，大留白，纯色背景，"
+                f"不要网格线和任何文字。{kindergarten_direction}"
+            )
         cells = "; ".join(
             f"cell {index + 1}: {slot.prompt}"
             for index, slot in enumerate(item.slots)
@@ -78,7 +101,11 @@ def _request_prompt(item: AssetPlanItem) -> str:
             f"{kindergarten_direction}"
         )
     if item.generation_mode == "composite-image":
-        subjects = "; ".join(slot.prompt for slot in item.slots)
+        subjects = "；".join(slot.prompt for slot in item.slots) if teacher else "; ".join(
+            slot.prompt for slot in item.slots
+        )
+        if teacher:
+            return f"生成一个连贯场景，画面中包含：{subjects}。{kindergarten_direction}"
         return (
             f"Create one coherent scene containing: {subjects}."
             f"{kindergarten_direction}"
@@ -86,6 +113,16 @@ def _request_prompt(item: AssetPlanItem) -> str:
 
     slot = item.slots[0]
     if item.generation_mode == "direct-background":
+        if teacher:
+            safe_area = (
+                f" 在{slot.text_safe_area}侧保留安静的文字安全区。"
+                if slot.text_safe_area != "none"
+                else ""
+            )
+            return (
+                f"{slot.prompt}。铺满16:9课件背景，不要边框。{safe_area}"
+                f"{kindergarten_direction}"
+            )
         safe_area = (
             f" Keep a quiet text-safe area on the {slot.text_safe_area}."
             if slot.text_safe_area != "none"
@@ -96,6 +133,11 @@ def _request_prompt(item: AssetPlanItem) -> str:
             f"{slot.aspect_ratio}, no border.{safe_area}{kindergarten_direction}"
         )
     if item.generation_mode == "single-cutout":
+        if teacher:
+            return (
+                f"{slot.prompt}。一个完整居中主体，四周留白，纯色对比背景，便于抠图。"
+                f"{kindergarten_direction}"
+            )
         return (
             f"{slot.prompt}. One complete centered subject, generous margin, solid "
             f"plain contrasting background suitable for local background removal."
@@ -261,6 +303,8 @@ async def process_presentation_assets(
         concurrency = 4
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
+    image_options = research_ppt_image_options.get()
+    max_attempts = 3 if image_options.enabled else 2
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
@@ -270,7 +314,7 @@ async def process_presentation_assets(
             derived_outputs: list[str] = []
             quality_warning: Exception | None = None
 
-            for attempt in range(2):
+            for attempt in range(max_attempts):
                 trace_id = (
                     item.request_id
                     if attempt == 0
@@ -280,7 +324,12 @@ async def process_presentation_assets(
                 quality_warning = None
                 try:
                     result = await image_generation_service.generate_image(
-                        ImagePrompt(prompt=_request_prompt(item))
+                        ImagePrompt(
+                            prompt=_request_prompt(item),
+                            forbid_latin_text=image_options.forbid_latin_text
+                            if image_options.enabled
+                            else True,
+                        )
                     )
                     source_asset = result if isinstance(result, ImageAsset) else None
 
@@ -420,8 +469,11 @@ async def process_presentation_assets(
                             error=_trace_error_payload(exc),
                         )
                     )
-                    if not isinstance(exc, AssetSemanticQualityError):
-                        break
+                    if isinstance(exc, AssetSemanticQualityError) or (
+                        image_options.enabled and attempt < max_attempts - 1
+                    ):
+                        continue
+                    break
                 finally:
                     _remove_materialized_source(materialized_source_to_cleanup)
 
