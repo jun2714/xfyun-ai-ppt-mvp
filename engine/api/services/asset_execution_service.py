@@ -231,6 +231,10 @@ def _trace_error_payload(exc: Exception) -> dict:
         "type": type(exc).__name__,
         "message": str(exc)[:500],
     }
+    if getattr(exc, "provider_code", None):
+        payload["code"] = exc.provider_code
+    if getattr(exc, "status_code", None):
+        payload["status_code"] = exc.status_code
     if isinstance(exc, AssetSemanticQualityError):
         # Keep the structured failure in the existing trace table. This becomes
         # the per-asset quality report without introducing another persistence
@@ -304,7 +308,7 @@ async def process_presentation_assets(
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
     image_options = research_ppt_image_options.get()
-    max_attempts = 3 if image_options.enabled else 2
+    max_attempts = 2  # Only a confirmed semantic mismatch gets one scoped retry.
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
@@ -318,7 +322,7 @@ async def process_presentation_assets(
                 trace_id = (
                     item.request_id
                     if attempt == 0
-                    else f"{item.request_id}_retry1"
+                    else f"{item.request_id}_retry{attempt}"
                 )
                 materialized_source_to_cleanup: str | None = None
                 quality_warning = None
@@ -469,9 +473,9 @@ async def process_presentation_assets(
                             error=_trace_error_payload(exc),
                         )
                     )
-                    if isinstance(exc, AssetSemanticQualityError) or (
-                        image_options.enabled and attempt < max_attempts - 1
-                    ):
+                    # A DMX timeout does not prove its remote job was cancelled.
+                    # Repeating it immediately can duplicate work and charges.
+                    if isinstance(exc, AssetSemanticQualityError) and attempt < max_attempts - 1:
                         continue
                     break
                 finally:

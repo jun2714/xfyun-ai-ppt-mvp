@@ -4,7 +4,6 @@ from api.v1.ppt.endpoints.kindergarten import (
     ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE,
     _is_slide_chunk,
     friendly_complete_generation_detail,
-    is_retryable_complete_generation_error,
     iter_sse_json_events,
     kindergarten_complete_task_data,
     slide_has_visible_content,
@@ -101,21 +100,6 @@ def test_applied_ui_text_counts_as_visible_content():
         }
     )
     assert slide_has_visible_content(slide) is True
-
-
-def test_provider_failures_are_retryable_but_layout_errors_are_not():
-    assert is_retryable_complete_generation_error(
-        HTTPException(status_code=500, detail="AI provider API request failed. Please try again.")
-    )
-    assert is_retryable_complete_generation_error(
-        HTTPException(status_code=500, detail="课件页已创建但没有可见正文，请重新生成")
-    )
-    assert not is_retryable_complete_generation_error(
-        HTTPException(
-            status_code=400,
-            detail="Slide 1 reviewed text does not fit any compatible layout; choose a roomier template",
-        )
-    )
 
 
 def test_provider_error_is_shown_in_chinese():

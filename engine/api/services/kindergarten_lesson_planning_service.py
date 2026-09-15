@@ -12,6 +12,7 @@ from models.kindergarten_lesson_plan import (
     KindergartenSlidePlan,
 )
 from services.kindergarten_planner_runtime import get_kindergarten_planner_runtime
+from services.model_request_queue import model_request_slot
 from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_utils import (
     DisconnectChecker,
@@ -321,34 +322,35 @@ async def generate_kindergarten_lesson_plan(
     )
 
     try:
-        content = await generate_structured_with_schema_retries(
-            client,
-            model,
-            messages=build_kindergarten_lesson_messages(
-                topic=topic,
-                age_group=age_group,
-                domain=domain,
-                duration_minutes=duration_minutes,
-                n_slides=n_slides,
-                instructions=instructions,
-                source_context=source_context,
-                content_mode=content_mode,
-            ),
-            response_format=response_format,
-            json_schema=schema,
-            strict=False,
-            validate_schema=True,
-            disconnect_checker=disconnect_checker,
-            text_chunk_callback=text_chunk_callback,
-            max_tokens=runtime.max_tokens,
-            extra_body=runtime.request_extra_body,
-            # The kindergarten planner can use a dedicated OpenAI-compatible
-            # client. Its model parameters must not be inherited from the
-            # unrelated global text provider.
-            use_provider_extra_body=False,
-            call_timeout_seconds=runtime.timeout_seconds,
-            force_stream=runtime.stream,
-        )
+        async with model_request_slot("outline"):
+            content = await generate_structured_with_schema_retries(
+                client,
+                model,
+                messages=build_kindergarten_lesson_messages(
+                    topic=topic,
+                    age_group=age_group,
+                    domain=domain,
+                    duration_minutes=duration_minutes,
+                    n_slides=n_slides,
+                    instructions=instructions,
+                    source_context=source_context,
+                    content_mode=content_mode,
+                ),
+                response_format=response_format,
+                json_schema=schema,
+                strict=False,
+                validate_schema=True,
+                disconnect_checker=disconnect_checker,
+                text_chunk_callback=text_chunk_callback,
+                max_tokens=runtime.max_tokens,
+                extra_body=runtime.request_extra_body,
+                # The kindergarten planner can use a dedicated OpenAI-compatible
+                # client. Its model parameters must not be inherited from the
+                # unrelated global text provider.
+                use_provider_extra_body=False,
+                call_timeout_seconds=runtime.timeout_seconds,
+                force_stream=runtime.stream,
+            )
         return KindergartenLessonPlan(**content)
     except Exception as exc:
         raise handle_llm_client_exceptions(exc)

@@ -67,7 +67,7 @@ def test_image_provider_failure_keeps_slide_and_returns_empty_assets(tmp_path, m
     assert traces[0].error["type"] == "TimeoutError"
 
 
-def test_research_ppt_retries_provider_failures(tmp_path, monkeypatch):
+def test_research_ppt_does_not_repeat_an_uncertain_provider_timeout(tmp_path, monkeypatch):
     traces = []
 
     async def record(trace):
@@ -102,6 +102,6 @@ def test_research_ppt_retries_provider_failures(tmp_path, monkeypatch):
     finally:
         research_ppt_image_options.reset(token)
 
-    assert service.calls == 3
+    assert service.calls == 1
     assert generated == []
-    assert len(traces) == 3
+    assert len(traces) == 1

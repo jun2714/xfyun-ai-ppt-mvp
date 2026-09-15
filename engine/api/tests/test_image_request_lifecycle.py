@@ -5,6 +5,7 @@ import pytest
 from models.image_prompt import ImagePrompt
 from services import image_generation_service as images
 from utils.get_env import get_image_generation_timeout_seconds
+from utils.image_generation_error import normalize_image_generation_error
 
 
 def test_image_timeout_default_and_explicit_override(monkeypatch):
@@ -14,6 +15,41 @@ def test_image_timeout_default_and_explicit_override(monkeypatch):
     assert get_image_generation_timeout_seconds() == 75
     monkeypatch.setenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "invalid")
     assert get_image_generation_timeout_seconds() == 150
+
+
+def test_dmx_gemini_rate_limit_and_transport_timeout_have_distinct_codes():
+    from google.genai.errors import ClientError
+    import httpx
+    limited = normalize_image_generation_error(ClientError(429, {'error': {'message': 'private upstream details'}}))
+    timed_out = normalize_image_generation_error(httpx.ReadTimeout('private upstream URL'))
+    assert limited.status_code == 429 and limited.provider_code == 'image_provider_rate_limited'
+    assert timed_out.status_code == 504 and timed_out.provider_code == 'image_request_timeout'
+    assert 'private' not in limited.detail + timed_out.detail
+
+
+def test_provider_deadline_cancels_call_and_next_teacher_can_proceed(monkeypatch):
+    monkeypatch.setattr(images, 'get_image_generation_timeout_seconds', lambda: .02)
+    state = {'calls': 0, 'cancelled': False}
+    async def run():
+        async def provider(*args):
+            state['calls'] += 1
+            if state['calls'] > 1:
+                return 'https://example.com/ready.png'
+            try:
+                await asyncio.Event().wait()
+            finally:
+                state['cancelled'] = True
+        service = images.ImageGenerationService.__new__(images.ImageGenerationService)
+        service.is_image_generation_disabled = False
+        service.is_stock_provider_selected = lambda: False
+        service.image_gen_func = provider
+        service.output_directory = '.'
+        with pytest.raises(images.HTTPException) as failure:
+            await service.generate_image(ImagePrompt(prompt='课堂观察'))
+        assert failure.value.provider_code == 'image_request_timeout'
+        assert state == {'calls': 1, 'cancelled': True}
+        assert await service.generate_image(ImagePrompt(prompt='另一张图')) == 'https://example.com/ready.png'
+    asyncio.run(run())
 
 
 def test_gemini_cancellation_closes_async_transport_without_background_thread(monkeypatch, tmp_path):
@@ -60,8 +96,7 @@ def test_serialized_image_wait_does_not_start_provider_timeout(monkeypatch):
                 state["budgets"] += 1
             async def __aexit__(self, *_args):
                 pass
-        monkeypatch.setattr(images, "_get_image_generation_lock", lambda: lock)
-        monkeypatch.setattr(images, "is_parallel_image_generation_enabled", lambda: False)
+        monkeypatch.setattr(images, "model_request_slot", lambda _lane: lock)
         monkeypatch.setattr(images.asyncio, "timeout", lambda _seconds: Budget())
         async def provider(*_args):
             state["calls"] += 1

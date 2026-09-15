@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import secrets
-from weakref import WeakKeyDictionary
 
 import aiohttp
 from fastapi import HTTPException
@@ -22,7 +21,6 @@ from utils.get_env import (
     get_openai_compat_image_base_url_env,
     get_openai_compat_image_api_key_env,
     get_openai_compat_image_model_env,
-    is_parallel_image_generation_enabled,
     get_image_generation_timeout_seconds,
 )
 from utils.get_env import get_pixabay_api_key_env
@@ -42,25 +40,13 @@ from utils.image_provider import (
 )
 from utils.asset_directory_utils import absolute_fastapi_asset_url
 from utils.image_generation_error import normalize_image_generation_error
+from services.model_request_queue import model_request_slot
 import uuid
 
 logger = logging.getLogger(__name__)
 
 COMFYUI_MAX_SEED = 0xFFFFFFFFFFFFFFFF
 COMFYUI_SEED_SOURCE_VALUE_KEYS = {"value", "int", "integer", "number"}
-_IMAGE_GENERATION_LOCKS: WeakKeyDictionary[
-    asyncio.AbstractEventLoop, asyncio.Lock
-] = WeakKeyDictionary()
-
-
-def _get_image_generation_lock() -> asyncio.Lock:
-    """Share one image request lock across presentation, editor, and chat services."""
-    loop = asyncio.get_running_loop()
-    lock = _IMAGE_GENERATION_LOCKS.get(loop)
-    if lock is None:
-        lock = asyncio.Lock()
-        _IMAGE_GENERATION_LOCKS[loop] = lock
-    return lock
 
 
 class ImageGenerationService:
@@ -145,12 +131,10 @@ class ImageGenerationService:
                 async with asyncio.timeout(get_image_generation_timeout_seconds()):
                     return await self._call_image_provider(image_prompt)
 
-            if is_parallel_image_generation_enabled():
+            # Every entry point shares the same admission budget. Provider time
+            # starts only after admission; a timeout never auto-retries upstream.
+            async with model_request_slot("image"):
                 image_path = await request_with_timeout()
-            else:
-                # Waiting for another image must not consume this request's budget.
-                async with _get_image_generation_lock():
-                    image_path = await request_with_timeout()
             if image_path:
                 if image_path.startswith("http"):
                     return image_path
@@ -187,7 +171,7 @@ class ImageGenerationService:
     async def generate_image_openai(
         self, prompt: str, output_directory: str, model: str, quality: str
     ) -> str:
-        client = AsyncOpenAI()
+        client = AsyncOpenAI(max_retries=0, timeout=get_image_generation_timeout_seconds())
         result = await client.images.generate(
             model=model,
             prompt=prompt,
@@ -909,7 +893,8 @@ class ImageGenerationService:
         parsed = urlparse(base_url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
 
-        client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        client = AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=0,
+                             timeout=get_image_generation_timeout_seconds())
 
         # The asset planner already expands prompts. Disable paid rewriting for
         # Z-Image, and explicitly disable Seedream watermarks for slide assets.

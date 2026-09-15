@@ -10,7 +10,6 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -929,37 +928,6 @@ def _exception_detail(exc: Exception) -> str:
     return str(exc or "")
 
 
-def is_retryable_complete_generation_error(exc: Exception) -> bool:
-    text = _exception_detail(exc)
-    lowered = text.lower()
-    if any(
-        marker in lowered
-        for marker in (
-            "does not fit any compatible layout",
-            "roomier template",
-            "大字号",
-            "无法完整容纳",
-            "template not found",
-            "outlines can not be empty",
-            "invalid generated data",
-        )
-    ):
-        return False
-    return any(
-        marker in lowered
-        for marker in (
-            "ai provider",
-            "please try again",
-            "failed to generate presentation",
-            "llm api error",
-            "课件生成中断",
-            "没有可见正文",
-            "尚未写完",
-            "只生成了",
-        )
-    )
-
-
 def friendly_complete_generation_detail(detail: str) -> str:
     text = str(detail or "").strip()
     lowered = text.lower()
@@ -1028,20 +996,6 @@ def slide_has_visible_content(slide) -> bool:
     )
 
 
-async def _clear_incomplete_slides(
-    sql_session: AsyncSession,
-    presentation_id: uuid.UUID,
-) -> None:
-    try:
-        await sql_session.rollback()
-    except Exception:
-        pass
-    await sql_session.execute(
-        delete(SlideModel).where(SlideModel.presentation == presentation_id)
-    )
-    await sql_session.commit()
-
-
 async def _require_persisted_visible_slides(
     sql_session: AsyncSession,
     presentation_id: uuid.UUID,
@@ -1062,16 +1016,26 @@ async def _require_persisted_visible_slides(
             status_code=500,
             detail="课件页尚未写入，请重新生成",
         )
-    if expected_slides > 0 and len(rows) < expected_slides:
+    if expected_slides > 0 and len(rows) != expected_slides:
         raise HTTPException(
             status_code=500,
             detail=f"课件只生成了 {len(rows)}/{expected_slides} 页，请重新生成",
         )
-    if not visible or len(visible) * 2 < len(rows):
+    if len(visible) != len(rows):
         raise HTTPException(
             status_code=500,
             detail="课件页已创建但没有可见正文，请重新生成",
         )
+    from services.asset_planning_service import build_asset_plan
+    presentation = await sql_session.get(PresentationModel, presentation_id)
+    if presentation is None or presentation.image_policy != ImagePolicy.DISABLED:
+        missing = build_asset_plan(rows)
+        if missing:
+            pages = sorted({slot.slide_index + 1 for item in missing for slot in item.slots})
+            raise HTTPException(
+                status_code=422,
+                detail=f"课件文字已保存，第 {', '.join(map(str, pages))} 页配图未完成，请打开课件补充配图。",
+            )
     return len(visible)
 
 
@@ -1210,45 +1174,15 @@ async def _run_kindergarten_complete_task(
                 )
                 await _save_complete_task(sql_session, task)
 
-                last_error: Exception | None = None
-                for attempt in range(2):
-                    try:
-                        if attempt > 0:
-                            await _clear_incomplete_slides(
-                                sql_session,
-                                prepared.presentation_id,
-                            )
-                            task = await sql_session.get(AsyncTaskModel, task_id)
-                            if task is None:
-                                return
-                            task.message = "生成中断，正在重新生成课件页"
-                            await _save_complete_task(sql_session, task)
-                        await _consume_presentation_stream(
-                            prepared.presentation_id,
-                            sql_session,
-                            task.id,
-                            topic=payload.topic,
-                            n_slides=n_slides,
-                        )
-                        await _require_persisted_visible_slides(
-                            sql_session,
-                            prepared.presentation_id,
-                            n_slides,
-                        )
-                        last_error = None
-                        break
-                    except HTTPException as exc:
-                        last_error = exc
-                        if attempt == 0 and is_retryable_complete_generation_error(exc):
-                            LOGGER.warning(
-                                "[kindergarten.generate_complete] retrying slides task_id=%s detail=%s",
-                                task_id,
-                                exc.detail,
-                            )
-                            continue
-                        raise
-                if last_error is not None:
-                    raise last_error
+                # Preserve paid output on failure. Never delete pages and replay
+                # the entire stream because a provider response is uncertain.
+                await _consume_presentation_stream(
+                    prepared.presentation_id, sql_session, task.id,
+                    topic=payload.topic, n_slides=n_slides,
+                )
+                await _require_persisted_visible_slides(
+                    sql_session, prepared.presentation_id, n_slides,
+                )
 
                 await sql_session.refresh(task)
                 task.status = AsyncTaskStatus.COMPLETED

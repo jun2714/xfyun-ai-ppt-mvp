@@ -1,0 +1,83 @@
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlmodel import SQLModel, select
+
+from api.v1.ppt.endpoints import kindergarten as endpoint
+from models.sql.presentation import PresentationModel, PresentationVersion
+from models.sql.slide import SlideModel
+from models.sql.async_task import AsyncTaskModel
+from enums.async_task_status import AsyncTaskStatus
+from models.image_policy import ImagePolicy
+
+
+async def seed(session, *, missing=False, disabled=False, blank=False):
+    deck = PresentationModel(version=PresentationVersion.V2_STANDARD, content='观察记录', n_slides=3,
+                             language='Chinese', image_policy=ImagePolicy.DISABLED if disabled else ImagePolicy.STANDARD)
+    session.add(deck)
+    await session.commit()
+    for i in range(3):
+        session.add(SlideModel(presentation=deck.id, layout_group='test', layout='test', index=i,
+                              content={'picture': {'image_prompt': '观察记录场景',
+                                  'image_url': '' if missing and i == 1 else 'https://example.com/ready.png'}},
+                              ui={'type': 'text', 'runs': [{'text': 'title' if blank and i == 1 else '教师观察记录'}]}))
+    await session.commit()
+    return deck.id
+
+
+@pytest.mark.parametrize('missing,disabled,blank', [(True, False, False), (False, False, True),
+                                                  (False, False, False), (True, True, False)])
+def test_completion_checks_real_saved_copy_and_images(missing, disabled, blank):
+    async def run():
+        engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(SQLModel.metadata.create_all)
+            sessions = async_sessionmaker(engine, expire_on_commit=False)
+            async with sessions() as session:
+                deck_id = await seed(session, missing=missing, disabled=disabled, blank=blank)
+                if blank or (missing and not disabled):
+                    with pytest.raises(HTTPException) as failure:
+                        await endpoint._require_persisted_visible_slides(session, deck_id, 3)
+                    if missing:
+                        assert '第 2 页' in failure.value.detail
+                else:
+                    assert await endpoint._require_persisted_visible_slides(session, deck_id, 3) == 3
+                assert len(list(await session.scalars(select(SlideModel)))) == 3
+        finally:
+            await engine.dispose()
+    asyncio.run(run())
+
+
+def test_background_provider_error_keeps_saved_pages_and_does_not_replay(monkeypatch):
+    async def run():
+        engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(SQLModel.metadata.create_all)
+            sessions = async_sessionmaker(engine, expire_on_commit=False)
+            async with sessions() as session:
+                deck_id = await seed(session)
+                task = AsyncTaskModel(type=endpoint.ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE, status=AsyncTaskStatus.PENDING)
+                session.add(task)
+                await session.commit()
+                task_id = task.id
+            prepare = AsyncMock(return_value=SimpleNamespace(presentation_id=deck_id, outline=SimpleNamespace(slides=[{}, {}, {}])))
+            consume = AsyncMock(side_effect=HTTPException(status_code=504, detail='图片服务响应超时'))
+            monkeypatch.setattr(endpoint, 'async_session_maker', sessions)
+            monkeypatch.setattr(endpoint, 'prepare_kindergarten_presentation', prepare)
+            monkeypatch.setattr(endpoint, '_consume_presentation_stream', consume)
+            await endpoint._run_kindergarten_complete_task(task_id, {'topic': '教师观察记录', 'n_slides': 3})
+            assert consume.await_count == 1 and prepare.await_count == 1
+            async with sessions() as session:
+                saved = await session.get(AsyncTaskModel, task_id)
+                assert saved.status == AsyncTaskStatus.ERROR
+                assert str(saved.data['presentation_id']) == str(deck_id)
+                assert len(list(await session.scalars(select(SlideModel)))) == 3
+        finally:
+            await engine.dispose()
+    asyncio.run(run())
