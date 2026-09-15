@@ -125,6 +125,60 @@ def _repair_reveal_answer(slides, index: int):
     )
 
 
+def _link_unambiguous_reveal_pages(slides):
+    """Repair only a mismatched activity ID between existing answer-equivalent pages.
+
+    Option IDs alone (such as A/B) are not evidence of an answer match. Require
+    actual answer text and a unique match in both directions; otherwise keep the
+    quality error for the teacher. This never inserts, rewrites or drops a page.
+    """
+    def answer_text(slide):
+        game = slide.game
+        if not game or not game.answer_key:
+            return None
+        answer = game.options.get(game.answer_key)
+        if answer is None and game.answer_key in game.options.values():
+            answer = game.answer_key
+        return answer.strip() if isinstance(answer, str) and answer.strip() else None
+
+    question_ids = {
+        slide.game.activity_id for slide in slides
+        if slide.slide_type in {"guess-partial", "guess-shadow"} and slide.game
+    }
+    reveal_ids = {
+        slide.game.activity_id for slide in slides
+        if slide.slide_type == "answer-reveal" and slide.game
+    }
+    questions = [
+        (index, slide) for index, slide in enumerate(slides)
+        if slide.slide_type in {"guess-partial", "guess-shadow"}
+        and slide.game and slide.game.activity_id not in reveal_ids
+    ]
+    orphans = [
+        (index, slide) for index, slide in enumerate(slides)
+        if slide.slide_type == "answer-reveal"
+        and slide.game and slide.game.activity_id not in question_ids
+    ]
+    matches = [
+        (q_index, r_index) for q_index, question in questions for r_index, reveal in orphans
+        if r_index > q_index and answer_text(question)
+        and answer_text(question) == answer_text(reveal)
+    ]
+    linked = list(slides)
+    for q_index, r_index in matches:
+        if sum(q == q_index for q, _ in matches) != 1 or sum(r == r_index for _, r in matches) != 1:
+            continue
+        question, reveal = slides[q_index], slides[r_index]
+        linked[r_index] = reveal.model_copy(update={
+            "game": reveal.game.model_copy(update={
+                "activity_id": question.game.activity_id,
+                "answer_key": question.game.answer_key,
+                "options": dict(question.game.options),
+            }),
+        })
+    return linked
+
+
 def _repair_classroom_activity_contracts(
     plan: KindergartenLessonPlan,
     *, max_slides: Optional[int] = None,
@@ -160,6 +214,7 @@ def _repair_classroom_activity_contracts(
             )
         slides.append(slide)
 
+    slides = _link_unambiguous_reveal_pages(slides)
     reveal_activity_ids = {
         slide.game.activity_id
         for slide in slides
@@ -687,4 +742,8 @@ async def generate_validated_kindergarten_presentation_outline(
             attempts=1,
         )
 
+    LOGGER.warning(
+        "Kindergarten outline rejected after local repair: %s",
+        ", ".join(issue.code for issue in repaired_report.errors),
+    )
     raise KindergartenPlanningQualityError(repaired_report, 1)

@@ -41,3 +41,6 @@ reason: cancellable-gemini-requests-and-teacher-visual-direction-with-long-capti
 run35: persist-outline-timeouts-after-async-rollback-and-check-both-audiences
 
 run36: verify-available-education-template-routing-and-unique-image-styles-with-safe-summaries
+
+run37: verify-existing-answer-pair-linking-and-persisted-outline-failure-classification
+scope: classroom

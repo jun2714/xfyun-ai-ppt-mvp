@@ -367,6 +367,50 @@ def test_cover_insert_never_discards_closing_to_keep_requested_page_count():
         )
 
 
+def test_existing_reveal_with_wrong_activity_id_is_linked_without_changing_pages():
+    plan = _plan()
+    reveal = plan.slides[2]
+    reveal.game.activity_id = "separate-reveal-id"
+    reveal.game.answer_key = "rabbit"
+    reveal.game.options = {"cat": "小猫", "rabbit": "小兔子"}
+    original = plan.model_dump(mode="json")
+    repaired = planning_service._repair_classroom_activity_contracts(plan, max_slides=3)
+    assert planning_service.validate_kindergarten_lesson_plan(repaired).passed
+    assert len(repaired.slides) == 3
+    assert repaired.slides[2].game.activity_id == plan.slides[1].game.activity_id
+    assert repaired.slides[2].game.answer_key == "B"
+    for before, after in zip(plan.slides, repaired.slides):
+        assert before.screen_content == after.screen_content
+        assert before.assets == after.assets
+        assert before.teacher_note == after.teacher_note
+    assert plan.model_dump(mode="json") == original
+
+
+def test_same_option_letter_does_not_link_a_different_answer():
+    plan = _plan()
+    plan.slides[2].game.activity_id = "unrelated"
+    plan.slides[2].game.options = {"A": "小兔子", "B": "小猫"}
+    repaired = planning_service._repair_classroom_activity_contracts(plan, max_slides=3)
+    assert repaired.slides[2].game.activity_id == "unrelated"
+    assert any(issue.code == "reveal-slide-missing" for issue in planning_service.validate_kindergarten_lesson_plan(repaired).errors)
+
+
+def test_ambiguous_or_earlier_answer_pages_are_not_reassigned():
+    for earlier in (False, True):
+        plan = _plan()
+        plan.slides[2].game.activity_id = "unrelated"
+        if earlier:
+            plan.slides[1], plan.slides[2] = plan.slides[2], plan.slides[1]
+        else:
+            duplicate = plan.slides[2].model_copy(deep=True)
+            duplicate.game.activity_id = "another-reveal"
+            plan.slides.append(duplicate)
+        plan.slides = [slide.model_copy(update={"slide_no": i + 1}) for i, slide in enumerate(plan.slides)]
+        repaired = planning_service._repair_classroom_activity_contracts(plan, max_slides=len(plan.slides))
+        assert any(issue.code == "reveal-slide-missing" for issue in planning_service.validate_kindergarten_lesson_plan(repaired).errors)
+        assert repaired == plan
+
+
 def test_generated_reveal_uses_answer_text_instead_of_option_id():
     plan = _plan()
     plan.slides = plan.slides[:2]

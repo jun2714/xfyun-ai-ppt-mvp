@@ -9,6 +9,7 @@ import {
 } from "./lib/ppt-image-validation.mjs";
 
 import { summarizeProbe } from "./lib/ppt-probe-summary.mjs";
+import { readOutlineFailure } from "./lib/ppt-outline-failure.mjs";
 
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
@@ -575,6 +576,9 @@ try {
   exitCode = 1;
   diagnostics.result = { state: "failed" };
   diagnostics.fatalError = redact({ message: error?.message || String(error), stack: error?.stack || null });
+  if (diagnostics.presentationId && !diagnostics.outline) {
+    diagnostics.outlineFailure = redact(await readOutlineFailure(apiBase, diagnostics.presentationId));
+  }
   if (page) {
     await page.screenshot({ path: resolve(outputDir, "99-failure.png"), fullPage: true }).catch(() => {});
   }
