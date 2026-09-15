@@ -113,3 +113,20 @@ jobs:
             }
             [ordered]@{ knownRoleAliases = $observedAliases } | ConvertTo-Json | Write-Host
           }
+
+          # Classify each retained browser diagnostic independently. Emit no raw text.
+          foreach ($mode in @("classroom", "training")) {
+            $file = Join-Path $env:GITHUB_WORKSPACE ".runtime\full-ppt-probe\$mode\full-ppt-diagnostics.json"
+            if (-not (Test-Path $file)) { continue }
+            $modeText = Get-Content -Raw -Encoding UTF8 $file
+            $modeCodes = @()
+            foreach ($code in $qualityCodes) {
+              if ($modeText.Contains($code)) { $modeCodes += $code }
+            }
+            [ordered]@{
+              mode = $mode
+              browserQualityCodes = $modeCodes
+              browserHasSchemaError = ($modeText -match 'schema validation|ValidationError|not valid under')
+              browserHasTimeout = ($modeText -match 'timed out|TimeoutError')
+            } | ConvertTo-Json -Depth 5 | Write-Host
+          }
