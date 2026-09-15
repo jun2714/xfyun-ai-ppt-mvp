@@ -36,7 +36,7 @@ jobs:
           DISABLE_AUTH: 'true'
           APP_DATA_DIRECTORY: ${{ runner.temp }}/sparkdeck-data
           TEMP_DIRECTORY: ${{ runner.temp }}/sparkdeck-temp
-        run: uv run pytest -q
+        run: uv run python -m pytest -q
       - name: Test local engine image model migration
         run: node --test ../../scripts/image-model-config.test.mjs
       - name: Test PPT image acceptance gates
