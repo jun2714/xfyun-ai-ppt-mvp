@@ -288,6 +288,7 @@ async def process_presentation_assets(
     presentation_id=None,
     on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
     semantic_quality_service: AssetSemanticQualityService | None = None,
+    on_item_finished: Callable[[], Awaitable[None]] | None = None,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
@@ -549,5 +550,12 @@ async def process_presentation_assets(
                     await on_item_completed(item_assets)
             return item_assets
 
-    item_results = await asyncio.gather(*(process_item(item) for item in plan))
+    async def tracked_item(item):
+        result = await process_item(item)
+        if on_item_finished is not None:
+            async with checkpoint_lock:
+                await on_item_finished()
+        return result
+
+    item_results = await asyncio.gather(*(tracked_item(item) for item in plan))
     return [asset for assets in item_results for asset in assets], plan

@@ -166,6 +166,65 @@ def test_training_normalization_structures_evidence_and_problem_solution():
     assert "problem-solution" in solution.layout_capabilities
 
 
+def test_training_normalization_never_crops_confirmed_body_copy():
+    long_title = "观察记录中的关键问题与教师回应需要保持完整表达"
+    long_point = (
+        "客观证据：幼儿连续三周在区域活动中主动发起合作，并用完整句描述自己的计划；"
+        "教师逐次记录了原话、动作、同伴回应与材料变化。"
+    )
+    long_note = "这是教师已经确认的观察原文，需要逐字保留。" * 80
+    source = KindergartenLessonPlan.model_validate(
+        {
+            "meta": {
+                "topic": "观察记录支持园本教研",
+                "age_group": "教师教研",
+                "domain": "comprehensive",
+                "duration_minutes": 40,
+            },
+            "lesson_goals": ["用完整观察证据支持教研判断"],
+            "lesson_arc": ["封面", "证据", "行动"],
+            "slides": [
+                {
+                    "slide_no": 1,
+                    "slide_type": "cover-scene",
+                    "teaching_goal": "说明主题",
+                    "screen_content": {"title": "观察记录支持园本教研"},
+                    "teacher_note": "开场说明",
+                    "assets": [],
+                },
+                {
+                    "slide_no": 2,
+                    "slide_type": "other",
+                    "teaching_goal": "分析证据",
+                    "screen_content": {
+                        "title": long_title,
+                        "points": [long_point],
+                    },
+                    "teacher_note": long_note,
+                    "assets": [],
+                },
+                {
+                    "slide_no": 3,
+                    "slide_type": "other",
+                    "teaching_goal": "形成行动",
+                    "screen_content": {
+                        "title": "形成下一步观察行动",
+                        "points": ["保留原始记录并持续追踪"],
+                    },
+                    "teacher_note": "行动说明",
+                    "assets": [],
+                },
+            ],
+        }
+    )
+
+    normalized = planning_service._normalize_training_contracts(source)
+
+    assert normalized.slides[1].screen_content.title == long_title
+    assert normalized.slides[1].screen_content.points == [long_point]
+    assert normalized.slides[1].teacher_note == long_note
+
+
 def test_start_endpoint_persists_project_before_planning(monkeypatch):
     presentation = SimpleNamespace(
         id=uuid.uuid4(),

@@ -871,6 +871,8 @@ def kindergarten_complete_task_data(
     created_slides: int = 0,
     n_slides: int = 0,
     previous: dict[str, Any] | None = None,
+    warnings: list[str] | None = None,
+    missing_image_pages: list[int] | None = None,
 ) -> dict[str, Any]:
     data: dict[str, Any] = dict(previous or {})
     data.update(
@@ -885,6 +887,11 @@ def kindergarten_complete_task_data(
     )
     if presentation_id:
         data["presentation_id"] = str(presentation_id)
+    if warnings is not None:
+        data["warnings"] = [str(item) for item in warnings if str(item).strip()]
+        data["has_warnings"] = bool(data["warnings"])
+    if missing_image_pages is not None:
+        data["missing_image_pages"] = sorted(set(int(page) for page in missing_image_pages))
     return data
 
 
@@ -996,11 +1003,12 @@ def slide_has_visible_content(slide) -> bool:
     )
 
 
-async def _require_persisted_visible_slides(
+async def _inspect_persisted_visible_slides(
     sql_session: AsyncSession,
     presentation_id: uuid.UUID,
     expected_slides: int,
-) -> int:
+) -> dict[str, Any]:
+    """Return a usable-deck report; missing images are warnings, not fatal."""
     await sql_session.commit()
     sql_session.expire_all()
     rows = list(
@@ -1011,32 +1019,46 @@ async def _require_persisted_visible_slides(
         )
     )
     visible = [slide for slide in rows if slide_has_visible_content(slide)]
+    structural_error = None
     if not rows:
-        raise HTTPException(
-            status_code=500,
-            detail="课件页尚未写入，请重新生成",
-        )
-    if expected_slides > 0 and len(rows) != expected_slides:
-        raise HTTPException(
-            status_code=500,
-            detail=f"课件只生成了 {len(rows)}/{expected_slides} 页，请重新生成",
-        )
-    if len(visible) != len(rows):
-        raise HTTPException(
-            status_code=500,
-            detail="课件页已创建但没有可见正文，请重新生成",
-        )
+        structural_error = "课件页尚未写入，请重新生成"
+    elif expected_slides > 0 and len(rows) != expected_slides:
+        structural_error = f"课件只生成了 {len(rows)}/{expected_slides} 页，请重新生成"
+    elif len(visible) != len(rows):
+        structural_error = "课件页已创建但没有可见正文，请重新生成"
+
+    missing_pages: list[int] = []
     from services.asset_planning_service import build_asset_plan
     presentation = await sql_session.get(PresentationModel, presentation_id)
-    if presentation is None or presentation.image_policy != ImagePolicy.DISABLED:
-        missing = build_asset_plan(rows)
-        if missing:
-            pages = sorted({slot.slide_index + 1 for item in missing for slot in item.slots})
-            raise HTTPException(
-                status_code=422,
-                detail=f"课件文字已保存，第 {', '.join(map(str, pages))} 页配图未完成，请打开课件补充配图。",
-            )
-    return len(visible)
+    if rows and (presentation is None or presentation.image_policy != ImagePolicy.DISABLED):
+        pending = build_asset_plan(rows)
+        missing_pages = sorted({slot.slide_index + 1 for item in pending for slot in item.slots})
+    warnings = []
+    if missing_pages:
+        warnings.append(
+            f"第 {', '.join(map(str, missing_pages))} 页配图未完成；课件文字与其他页面已保存，可先打开课件，再补齐缺图。"
+        )
+    return {
+        "rows": rows,
+        "visible_count": len(visible),
+        "missing_image_pages": missing_pages,
+        "warnings": warnings,
+        "structural_error": structural_error,
+        "usable": structural_error is None,
+    }
+
+
+async def _require_persisted_visible_slides(
+    sql_session: AsyncSession,
+    presentation_id: uuid.UUID,
+    expected_slides: int,
+) -> dict[str, Any]:
+    report = await _inspect_persisted_visible_slides(
+        sql_session, presentation_id, expected_slides
+    )
+    if report["structural_error"]:
+        raise HTTPException(status_code=500, detail=report["structural_error"])
+    return report
 
 
 async def _consume_presentation_stream(
@@ -1180,20 +1202,27 @@ async def _run_kindergarten_complete_task(
                     prepared.presentation_id, sql_session, task.id,
                     topic=payload.topic, n_slides=n_slides,
                 )
-                await _require_persisted_visible_slides(
+                report = await _require_persisted_visible_slides(
                     sql_session, prepared.presentation_id, n_slides,
                 )
 
                 await sql_session.refresh(task)
                 task.status = AsyncTaskStatus.COMPLETED
-                task.message = "教研 PPT 已生成完成，点击查看"
+                task.message = (
+                    f"教研 PPT 已生成并可打开；第 {', '.join(map(str, report['missing_image_pages']))} 页配图待补充"
+                    if report["warnings"] else
+                    "教研 PPT 已生成完成，点击查看"
+                )
+                task.error = None
                 task.data = kindergarten_complete_task_data(
                     topic=payload.topic,
-                    stage="completed",
+                    stage="completed_with_warnings" if report["warnings"] else "completed",
                     progress=100,
                     presentation_id=prepared.presentation_id,
                     created_slides=n_slides,
                     n_slides=n_slides,
+                    warnings=report["warnings"],
+                    missing_image_pages=report["missing_image_pages"],
                     previous=task.data if isinstance(task.data, dict) else None,
                 )
                 await _save_complete_task(sql_session, task)
@@ -1210,6 +1239,40 @@ async def _run_kindergarten_complete_task(
                 if task is None:
                     return
                 detail = friendly_complete_generation_detail(_exception_detail(exc))
+                task_data = task.data if isinstance(task.data, dict) else {}
+                saved_id = task_data.get("presentation_id")
+                expected = int(task_data.get("n_slides") or 0)
+                report = None
+                if saved_id and expected:
+                    try:
+                        report = await _inspect_persisted_visible_slides(
+                            sql_session, uuid.UUID(str(saved_id)), expected
+                        )
+                    except Exception:
+                        LOGGER.exception("Could not inspect saved deck after generation warning")
+                if report and report["usable"]:
+                    warnings = [detail, *report["warnings"]]
+                    task.status = AsyncTaskStatus.COMPLETED
+                    missing_label = ", ".join(map(str, report["missing_image_pages"]))
+                    task.message = (
+                        f"课件已生成并可打开；第 {missing_label} 页配图待补充"
+                        if missing_label else
+                        "课件已生成并可打开；生成过程有提示，请进入课件检查"
+                    )
+                    task.error = None
+                    task.data = kindergarten_complete_task_data(
+                        topic=topic,
+                        stage="completed_with_warnings",
+                        progress=100,
+                        presentation_id=saved_id,
+                        created_slides=report["visible_count"],
+                        n_slides=expected,
+                        warnings=warnings,
+                        missing_image_pages=report["missing_image_pages"],
+                        previous=task_data,
+                    )
+                    await _save_complete_task(sql_session, task)
+                    return
                 api_error = APIErrorModel.from_exception(
                     HTTPException(status_code=500, detail=detail)
                 )

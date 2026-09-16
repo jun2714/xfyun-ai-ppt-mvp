@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from api.v1.ppt.endpoints.image_repair import IMAGE_REPAIR_ROUTER
 
 from api.v1.ppt.endpoints.anthropic import ANTHROPIC_ROUTER
 from api.v1.ppt.endpoints.chat import CHAT_ROUTER
@@ -46,3 +47,5 @@ API_V1_PPT_ROUTER.include_router(TEMPLATE_ROUTER)
 API_V1_PPT_ROUTER.include_router(COMMUNITY_ROUTER)
 API_V1_PPT_ROUTER.include_router(LIBRARY_ROUTER)
 API_V1_PPT_ROUTER.include_router(STORAGE_ROUTER)
+
+API_V1_PPT_ROUTER.include_router(IMAGE_REPAIR_ROUTER)

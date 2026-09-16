@@ -47,6 +47,14 @@ def test_complete_task_data_tracks_progress_and_presentation():
     assert data["created_slides"] == 3
     assert data["remaining_slides"] == 7
     assert data["progress"] == 40
+    warning = kindergarten_complete_task_data(
+        topic="园本教研", stage="completed_with_warnings", progress=100,
+        presentation_id="abc", created_slides=10, n_slides=10,
+        warnings=["第 7 页配图待补充"], missing_image_pages=[7],
+    )
+    assert warning["has_warnings"] is True
+    assert warning["missing_image_pages"] == [7]
+    assert warning["presentation_id"] == "abc"
 
 
 def test_is_slide_chunk_ignores_array_wrappers():

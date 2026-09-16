@@ -412,37 +412,9 @@ def _normalize_training_contracts(
                 update={"slide_type": "cover-scene"})]})
             slides.append(_ensure_cover_contract(cover_plan, "training").slides[0])
             continue
-        original_points = list(slide.screen_content.points)
-        visible_chars = len(slide.screen_content.title) + sum(
-            len(point) for point in original_points
-        )
-        compacted_points = original_points
-        teacher_note = slide.teacher_note
-        char_limit = 160 if slide.slide_type in {"compare", "sequence"} else 140
-        if visible_chars > char_limit:
-            if len(original_points) > 4:
-                compacted_points = [
-                    (point.split("：", 1)[0] if "：" in point else point)[:24]
-                    for point in original_points[:6]
-                ]
-            else:
-                compacted_points = [point[:36] for point in original_points]
-            details = "\n".join(f"- {point}" for point in original_points)
-            teacher_note = (
-                f"{teacher_note.rstrip()}\n\n本页屏幕文案已压缩，讲解时补充：\n{details}"
-            )[:1200]
-
-        screen_title = slide.screen_content.title[:36]
-        updates = {
-            "screen_content": slide.screen_content.model_copy(
-                update={
-                    "title": screen_title,
-                    "points": compacted_points,
-                    "instruction": slide.screen_content.instruction,
-                }
-            ),
-            "teacher_note": teacher_note,
-        }
+        # Preserve sentences in full; capacity routing can select a roomier
+        # layout or ask for a reviewed split, never silently crop copy.
+        updates = {}
         is_plain_training_sequence = (
             slide.slide_type == "sequence" and slide.game is None
         )
@@ -503,7 +475,7 @@ def _normalize_training_contracts(
             note = (
                 f"{note.rstrip()}\n\n补充说明："
                 + "；".join(omitted)
-            )[:1200]
+            )
         slides[index] = slide.model_copy(
             update={
                 "slide_type": "compare",
@@ -560,19 +532,21 @@ def _normalize_training_contracts(
                     update={
                         "title": "问题如何解决并验证",
                         "points": [
-                            f"问题表现：{problem.screen_content.title}"[:52],
-                            f"解决动作：{action.screen_content.title}"[:52],
-                            f"验证指标：{metric}"[:52],
+                            f"问题表现：{problem.screen_content.title}",
+                            f"解决动作：{action.screen_content.title}",
+                            f"验证指标：{metric}",
                         ],
                     }
                 ),
                 "teacher_note": (
                     f"{target.teacher_note.rstrip()}\n\n原验证要点：{original_copy}"
-                )[:1200],
+                ),
                 "layout_capabilities": ["scene", "problem-solution", "sequence"],
             }
         )
 
+    if any(len(slide.teacher_note) > 12000 for slide in slides):
+        raise ValueError("教研备注超过 12000 字，请拆分材料，不能自动截断原文。")
     return plan.model_copy(update={"slides": slides})
 
 

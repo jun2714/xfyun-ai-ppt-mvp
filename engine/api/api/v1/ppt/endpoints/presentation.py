@@ -49,6 +49,7 @@ from services.chat.slide_ui_helpers import _normalize_generated_image_fit
 from services.temp_file_service import TEMP_FILE_SERVICE
 from services.webhook_service import WebhookService
 from services.image_generation_service import ImageGenerationService
+from services.image_repair_service import preserve_completed_images
 from services.asset_execution_service import process_presentation_assets
 from services.asset_planning_service import build_asset_plan
 from services.mem0_presentation_memory_service import (
@@ -2894,10 +2895,16 @@ async def update_presentation(
                 status_code=400,
                 detail=f"Number of slides cannot be greater than {MAX_NUMBER_OF_SLIDES}",
             )
+        stored_rows = list(await sql_session.scalars(select(SlideModel).where(SlideModel.presentation == id)))
+        stored_by_id = {str(row.id): row for row in stored_rows}
+        for incoming in slides:
+            source = stored_by_id.get(str(incoming.id))
+            if source:
+                preserve_completed_images(source, incoming)
         # Just to make sure id is UUID
         for slide in slides:
-            slide.presentation = uuid.UUID(slide.presentation)
-            slide.id = uuid.UUID(slide.id)
+            slide.presentation = uuid.UUID(str(slide.presentation))
+            slide.id = uuid.UUID(str(slide.id))
 
         await sql_session.execute(
             delete(SlideModel).where(
@@ -2942,6 +2949,8 @@ async def update_presentation_slide(
             status_code=400,
             detail="Slide does not belong to the supplied presentation",
         )
+
+    preserve_completed_images(stored_slide, slide)
 
     stored_slide.sqlmodel_update(
         slide.model_dump(

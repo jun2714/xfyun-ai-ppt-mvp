@@ -1,4 +1,8 @@
 "use client";
+import ImageRepairBanner from './ImageRepairBanner';
+import { mergeRepairedImages } from '../utils/mergeRepairedImages';
+import { DashboardApi } from '../../services/api/dashboard';
+import { setPresentationData } from '@/store/slices/presentationGeneration';
 import React, {
   useCallback,
   useEffect,
@@ -141,6 +145,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isChatSending, setIsChatSending] = useState(false);
   const [isChatMutating, setIsChatMutating] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const [isFollowModeEnabled, setIsFollowModeEnabled] = useState(true);
   const [agentFocusedSlide, setAgentFocusedSlide] = useState<number | null>(
     null
@@ -183,7 +188,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
     (searchParams.get("type") === "smart" &&
       presentationData?.generation_mode !== "standard" &&
       !isTemplateV2Presentation);
-  const editingDisabled = isStreaming === true;
+  const editingDisabled = isStreaming === true || isRepairing;
 
   useEffect(() => {
     presentationDataRef.current = presentationData;
@@ -228,13 +233,14 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
   // Pause while the chat assistant is mutating the deck: the assistant edits
   // slide.ui directly in the database, so a debounced autosave firing with the
   // pre-edit Redux state would overwrite (revert) the assistant's change.
-  const { isSaving } = useAutoSave({
+  const { isSaving, flush: flushAutoSave } = useAutoSave({
     debounceMs: 2000,
     enabled:
       !!presentationData &&
       !isStreaming &&
       !isChatSending &&
-      !isChatMutating,
+      !isChatMutating &&
+      !isRepairing,
   });
 
   // Custom hooks
@@ -419,6 +425,16 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
       return next;
     });
   }, []);
+
+  const handleRepairCompleted = useCallback(async () => {
+    const latest = await DashboardApi.getPresentation(presentation_id, { cache: 'no-store' });
+    const current = presentationDataRef.current;
+    if (current) {
+      const merged = mergeRepairedImages(current, latest);
+      presentationDataRef.current = merged;
+      dispatch(setPresentationData(merged));
+    }
+  }, [presentation_id, dispatch]);
 
   const handlePresentationChanged = useCallback(async () => {
     const currentPresentationData = presentationDataRef.current;
@@ -678,13 +694,18 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
         id="presentation-slides-wrapper"
         className="relative flex h-full flex-col overflow-hidden"
       >
+        <ImageRepairBanner presentationId={presentation_id}
+          disabled={!!isStreaming || loading || !presentationData || isChatSending || isChatMutating || isSmartPresentation}
+          flush={flushAutoSave} onBusy={setIsRepairing} onCompleted={handleRepairCompleted} />
+        <div inert={isRepairing} className="contents">
         <PresentationHeader
           presentation_id={presentation_id}
           isPresentationSaving={isSaving}
           currentSlide={selectedSlide}
           generationMode={isSmartPresentation ? "smart" : "standard"}
         />
-        <div className="flex flex-1 min-h-0 gap-3 overflow-hidden xl:gap-5 2xl:gap-6">
+        </div>
+        <div inert={isRepairing} className="flex flex-1 min-h-0 gap-3 overflow-hidden xl:gap-5 2xl:gap-6">
           <div className="hidden h-full w-[120px] shrink-0 self-start sticky top-0 pt-[18px] md:block">
             <SidePanel
               selectedSlide={selectedSlide}

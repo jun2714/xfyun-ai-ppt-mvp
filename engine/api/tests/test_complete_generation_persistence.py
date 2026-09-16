@@ -40,13 +40,17 @@ def test_completion_checks_real_saved_copy_and_images(missing, disabled, blank):
             sessions = async_sessionmaker(engine, expire_on_commit=False)
             async with sessions() as session:
                 deck_id = await seed(session, missing=missing, disabled=disabled, blank=blank)
-                if blank or (missing and not disabled):
-                    with pytest.raises(HTTPException) as failure:
+                if blank:
+                    with pytest.raises(HTTPException):
                         await endpoint._require_persisted_visible_slides(session, deck_id, 3)
-                    if missing:
-                        assert '第 2 页' in failure.value.detail
                 else:
-                    assert await endpoint._require_persisted_visible_slides(session, deck_id, 3) == 3
+                    report = await endpoint._require_persisted_visible_slides(session, deck_id, 3)
+                    assert report['visible_count'] == 3
+                    if missing and not disabled:
+                        assert report['missing_image_pages'] == [2]
+                        assert '第 2 页' in report['warnings'][0]
+                    else:
+                        assert report['missing_image_pages'] == []
                 assert len(list(await session.scalars(select(SlideModel)))) == 3
         finally:
             await engine.dispose()
@@ -75,7 +79,10 @@ def test_background_provider_error_keeps_saved_pages_and_does_not_replay(monkeyp
             assert consume.await_count == 1 and prepare.await_count == 1
             async with sessions() as session:
                 saved = await session.get(AsyncTaskModel, task_id)
-                assert saved.status == AsyncTaskStatus.ERROR
+                assert saved.status == AsyncTaskStatus.COMPLETED
+                assert saved.data['stage'] == 'completed_with_warnings'
+                assert saved.data['has_warnings'] is True
+                assert '图片服务响应超时' in saved.data['warnings'][0]
                 assert str(saved.data['presentation_id']) == str(deck_id)
                 assert len(list(await session.scalars(select(SlideModel)))) == 3
         finally:
