@@ -3,11 +3,14 @@ from fastapi import HTTPException
 from api.v1.ppt.endpoints.kindergarten import (
     ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE,
     _is_slide_chunk,
+    complete_task_progress_writable,
     friendly_complete_generation_detail,
+    is_retryable_complete_generation_error,
     iter_sse_json_events,
     kindergarten_complete_task_data,
     slide_has_visible_content,
 )
+from enums.async_task_status import AsyncTaskStatus
 
 
 def test_complete_task_type_is_dedicated_from_interactive_ppt():
@@ -19,6 +22,14 @@ def test_generate_complete_async_route_exists():
 
     paths = [getattr(route, "path", "") for route in KINDERGARTEN_ROUTER.routes]
     assert "/kindergarten/presentation/generate-complete/async" in paths
+    assert "/kindergarten/presentation/generate-complete/{task_id}/cancel" in paths
+
+
+def test_complete_task_progress_stops_after_cancel_or_finish():
+    assert complete_task_progress_writable(AsyncTaskStatus.PENDING)
+    assert not complete_task_progress_writable(AsyncTaskStatus.ERROR)
+    assert not complete_task_progress_writable(AsyncTaskStatus.COMPLETED)
+    assert not complete_task_progress_writable("error")
 
 
 def test_iter_sse_json_events_reads_complete_and_error_frames():
@@ -108,6 +119,21 @@ def test_applied_ui_text_counts_as_visible_content():
         }
     )
     assert slide_has_visible_content(slide) is True
+
+
+def test_provider_failures_are_retryable_but_layout_errors_are_not():
+    assert is_retryable_complete_generation_error(
+        HTTPException(status_code=500, detail="AI provider API request failed. Please try again.")
+    )
+    assert is_retryable_complete_generation_error(
+        HTTPException(status_code=500, detail="课件页已创建但没有可见正文，请重新生成")
+    )
+    assert not is_retryable_complete_generation_error(
+        HTTPException(
+            status_code=400,
+            detail="Slide 1 reviewed text does not fit any compatible layout; choose a roomier template",
+        )
+    )
 
 
 def test_provider_error_is_shown_in_chinese():

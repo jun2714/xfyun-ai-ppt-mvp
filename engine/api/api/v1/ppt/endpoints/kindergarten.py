@@ -10,6 +10,7 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -935,6 +936,37 @@ def _exception_detail(exc: Exception) -> str:
     return str(exc or "")
 
 
+def is_retryable_complete_generation_error(exc: Exception) -> bool:
+    text = _exception_detail(exc)
+    lowered = text.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "does not fit any compatible layout",
+            "roomier template",
+            "大字号",
+            "无法完整容纳",
+            "template not found",
+            "outlines can not be empty",
+            "invalid generated data",
+        )
+    ):
+        return False
+    return any(
+        marker in lowered
+        for marker in (
+            "ai provider",
+            "please try again",
+            "failed to generate presentation",
+            "llm api error",
+            "课件生成中断",
+            "没有可见正文",
+            "尚未写完",
+            "只生成了",
+        )
+    )
+
+
 def friendly_complete_generation_detail(detail: str) -> str:
     text = str(detail or "").strip()
     lowered = text.lower()
@@ -950,6 +982,15 @@ def friendly_complete_generation_detail(detail: str) -> str:
     ):
         return "课件生成服务暂时失败，请重新生成"
     return text or "教研 PPT 生成失败"
+
+
+class CompleteTaskCancelled(Exception):
+    """Stop the worker because the task was cancelled or already finished."""
+
+
+def complete_task_progress_writable(status: AsyncTaskStatus | str | None) -> bool:
+    value = str(getattr(status, "value", status) or "").lower()
+    return value == AsyncTaskStatus.PENDING.value
 
 
 async def _save_complete_task(sql_session: AsyncSession, task: AsyncTaskModel) -> None:
@@ -971,8 +1012,8 @@ async def _save_complete_task_by_id(
     """
     async with async_session_maker() as sql_session:
         task = await sql_session.get(AsyncTaskModel, task_id)
-        if task is None:
-            return
+        if task is None or not complete_task_progress_writable(task.status):
+            raise CompleteTaskCancelled()
         task.message = message
         task.data = data
         await _save_complete_task(sql_session, task)
@@ -1001,6 +1042,20 @@ def slide_has_visible_content(slide) -> bool:
         value not in placeholders and len(value) > 1
         for value in _collect_ui_text(getattr(slide, "ui", None))
     )
+
+
+async def _clear_incomplete_slides(
+    sql_session: AsyncSession,
+    presentation_id: uuid.UUID,
+) -> None:
+    try:
+        await sql_session.rollback()
+    except Exception:
+        pass
+    await sql_session.execute(
+        delete(SlideModel).where(SlideModel.presentation == presentation_id)
+    )
+    await sql_session.commit()
 
 
 async def _inspect_persisted_visible_slides(
@@ -1196,17 +1251,63 @@ async def _run_kindergarten_complete_task(
                 )
                 await _save_complete_task(sql_session, task)
 
-                # Preserve paid output on failure. Never delete pages and replay
-                # the entire stream because a provider response is uncertain.
-                await _consume_presentation_stream(
-                    prepared.presentation_id, sql_session, task.id,
-                    topic=payload.topic, n_slides=n_slides,
-                )
-                report = await _require_persisted_visible_slides(
-                    sql_session, prepared.presentation_id, n_slides,
-                )
+                last_error: Exception | None = None
+                report: dict[str, Any] | None = None
+                for attempt in range(2):
+                    try:
+                        sql_session.expire_all()
+                        task = await sql_session.get(AsyncTaskModel, task_id)
+                        if task is None or not complete_task_progress_writable(task.status):
+                            raise CompleteTaskCancelled()
+                        if attempt > 0:
+                            # Only replay after a confirmed structural/provider
+                            # failure. Missing images stay as warnings, not a wipe.
+                            await _clear_incomplete_slides(
+                                sql_session,
+                                prepared.presentation_id,
+                            )
+                            task = await sql_session.get(AsyncTaskModel, task_id)
+                            if task is None or not complete_task_progress_writable(task.status):
+                                raise CompleteTaskCancelled()
+                            task.message = "生成中断，正在重新生成课件页"
+                            await _save_complete_task(sql_session, task)
+                        await _consume_presentation_stream(
+                            prepared.presentation_id,
+                            sql_session,
+                            task.id,
+                            topic=payload.topic,
+                            n_slides=n_slides,
+                        )
+                        report = await _require_persisted_visible_slides(
+                            sql_session,
+                            prepared.presentation_id,
+                            n_slides,
+                        )
+                        last_error = None
+                        break
+                    except CompleteTaskCancelled:
+                        raise
+                    except HTTPException as exc:
+                        last_error = exc
+                        if attempt == 0 and is_retryable_complete_generation_error(exc):
+                            LOGGER.warning(
+                                "[kindergarten.generate_complete] retrying slides task_id=%s detail=%s",
+                                task_id,
+                                exc.detail,
+                            )
+                            continue
+                        raise
+                if last_error is not None:
+                    raise last_error
+                if report is None:
+                    report = await _require_persisted_visible_slides(
+                        sql_session, prepared.presentation_id, n_slides,
+                    )
 
-                await sql_session.refresh(task)
+                sql_session.expire_all()
+                task = await sql_session.get(AsyncTaskModel, task_id)
+                if task is None or not complete_task_progress_writable(task.status):
+                    return
                 task.status = AsyncTaskStatus.COMPLETED
                 task.message = (
                     f"教研 PPT 已生成并可打开；第 {', '.join(map(str, report['missing_image_pages']))} 页配图待补充"
@@ -1226,6 +1327,12 @@ async def _run_kindergarten_complete_task(
                     previous=task.data if isinstance(task.data, dict) else None,
                 )
                 await _save_complete_task(sql_session, task)
+            except CompleteTaskCancelled:
+                LOGGER.info(
+                    "[kindergarten.generate_complete] cancelled task_id=%s",
+                    task_id,
+                )
+                return
             except Exception as exc:
                 LOGGER.exception(
                     "[kindergarten.generate_complete] failed task_id=%s",
@@ -1235,8 +1342,9 @@ async def _run_kindergarten_complete_task(
                     await sql_session.rollback()
                 except Exception:
                     pass
+                sql_session.expire_all()
                 task = await sql_session.get(AsyncTaskModel, task_id)
-                if task is None:
+                if task is None or not complete_task_progress_writable(task.status):
                     return
                 detail = friendly_complete_generation_detail(_exception_detail(exc))
                 task_data = task.data if isinstance(task.data, dict) else {}
@@ -1325,6 +1433,39 @@ async def generate_kindergarten_presentation_complete_async(
         get_current_owner_id(),
         get_current_owner_is_admin(),
     )
+    return task
+
+
+@KINDERGARTEN_ROUTER.post(
+    "/presentation/generate-complete/{task_id}/cancel",
+    response_model=AsyncTaskModel,
+)
+async def cancel_kindergarten_presentation_complete(
+    task_id: str,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    task = await sql_session.get(AsyncTaskModel, task_id)
+    if task is None or task.type != ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE:
+        raise HTTPException(status_code=404, detail="No async task found")
+    if task.status == AsyncTaskStatus.COMPLETED:
+        return task
+    if task.status != AsyncTaskStatus.ERROR:
+        data = task.data if isinstance(task.data, dict) else {}
+        task.status = AsyncTaskStatus.ERROR
+        task.message = "已取消"
+        task.error = APIErrorModel.from_exception(
+            HTTPException(status_code=409, detail="已取消")
+        ).model_dump(mode="json")
+        task.data = kindergarten_complete_task_data(
+            topic=str(data.get("topic") or ""),
+            stage="cancelled",
+            progress=int(data.get("progress") or 0),
+            presentation_id=data.get("presentation_id"),
+            created_slides=int(data.get("created_slides") or 0),
+            n_slides=int(data.get("n_slides") or 0),
+            previous=data,
+        )
+        await _save_complete_task(sql_session, task)
     return task
 
 
