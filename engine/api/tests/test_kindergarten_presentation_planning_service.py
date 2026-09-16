@@ -101,12 +101,12 @@ def test_training_normalization_forces_real_cover_slide():
     outline = normalized.to_presentation_outline()
 
     assert first.slide_type == "cover-scene"
-    assert first.screen_content.title == "主题环境创设追随班本课程推进"
+    assert first.screen_content.title == source.meta.topic
     assert first.screen_content.points[0].startswith("培训目的：")
     assert first.screen_content.points[1] == "幼儿园园本教研培训"
     assert first.screen_content.instruction is None
     assert first.interaction.type == "none"
-    assert first.layout_capabilities == ["scene", "single-focus"]
+    assert first.layout_capabilities == ["cover", "single-focus"]
     assert outline.slides[0].content_contract.relationship == "single"
 
 
@@ -700,3 +700,38 @@ def test_invalid_game_contract_cannot_be_hidden_by_downgrading_the_question(monk
 
     assert len(calls) == 1
     assert plan.slides[1].slide_type == "guess-partial"
+
+
+def test_cover_keeps_full_title_and_long_goals_in_notes_without_crop():
+    plan = _plan()
+    plan.meta.topic = "游戏化教学，如何支持中班幼儿的语言表达？"
+    plan.lesson_goals = ["观察儿童在游戏中的具体动作与语言，" * 10 + "完整记录观察证据。",
+                         "区分娱乐性游戏规则与促进语言表达的支持策略。"]
+    plan.slides[0].teacher_note = "保留教师开场讲稿。" * 100
+    result = planning_service._ensure_cover_contract(plan, "training")
+    result = planning_service._normalize_training_contracts(result)
+    cover = result.slides[0]
+    assert cover.screen_content.title == plan.meta.topic
+    assert cover.screen_content.points[0] == "培训目的：围绕主题开展研讨与实践"
+    for goal in plan.lesson_goals:
+        assert goal in cover.teacher_note
+    assert plan.slides[0].teacher_note in cover.teacher_note
+    assert cover.teacher_note.count("完整目标：") == 1
+    assert len(result.slides) == len(plan.slides)
+    assert cover.assets[0].role == "background"
+    # Both storage models must accept the expanded notes, not only model_copy.
+    KindergartenLessonPlan.model_validate(result.model_dump())
+    outline = result.to_presentation_outline()
+    assert outline.slides[0].content_contract.teacher_note == cover.teacher_note
+    assert outline.slides[0].content_contract.requires_images
+
+
+def test_cover_keeps_whole_short_goal_and_rejects_overlong_title():
+    import pytest
+    plan = _plan()
+    plan.lesson_goals = ["观察叶片的形状。"]
+    result = planning_service._ensure_cover_contract(plan, "classroom")
+    assert result.slides[0].screen_content.points[0] == "活动目标：观察叶片的形状。"
+    plan.meta.topic = "长主题" * 30
+    with pytest.raises(ValueError, match="请缩短主题"):
+        planning_service._ensure_cover_contract(plan, "classroom")

@@ -72,8 +72,8 @@ def test_cover_role_uses_dedicated_editable_title_layout():
         _collect_non_decorative_text_elements(ui["components"]),
         key=lambda element: element["position"]["y"],
     )
-    assert [box["position"]["y"] for box in text_boxes] == [190, 350, 520]
-    assert [box["size"]["height"] for box in text_boxes] == [110, 144, 64]
+    assert [box["position"]["y"] for box in text_boxes] == [104, 390, 586]
+    assert [box["size"]["height"] for box in text_boxes] == [264, 172, 56]
     assert all(box["font"]["size"] >= 32 for box in text_boxes)
     assert text_boxes[0]["position"]["y"] + text_boxes[0]["size"]["height"] < text_boxes[1]["position"]["y"]
     assert text_boxes[1]["position"]["y"] + text_boxes[1]["size"]["height"] < text_boxes[2]["position"]["y"]

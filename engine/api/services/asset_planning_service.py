@@ -51,6 +51,7 @@ class AssetSlotRequest:
     height: float
     semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
     visual_audience: Literal["child", "teacher"] = "child"
+    classroom_role: str | None = None
 
     @property
     def consumer_id(self) -> str:
@@ -320,6 +321,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     width=width,
                     height=height,
                     visual_audience=("teacher" if _hidden_slide_contract(slide).get("visual_audience") == "teacher" else "child"),
+                    classroom_role=_hidden_slide_contract(slide).get("classroom_role"),
                     semantic_expectations=_expectations_for_prompt(
                         prompt, semantic_expectations
                     ),

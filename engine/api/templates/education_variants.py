@@ -107,36 +107,10 @@ def build_education_variant(template_id):
         paper[:] = [_rect("paper", 0, 0, 1280, 720, spec["background"])]
         title = components["heading"]["elements"][0]
         if layout["id"].endswith("_cover"):
-            # Four different cover compositions, retaining exactly title/goal/usage.
-            title["font"]["size"] = 52
-            _place(title, 80, 120, 1120, 150)
-            _place(components["point_0"]["elements"][0], 80, 350, 1120, 144)
-            _place(components["point_1"]["elements"][0], 80, 530, 1120, 64)
-            for key in ("heading", "point_0", "point_1"):
-                components[key]["elements"][0]["alignment"]["horizontal"] = "left"
-            if template_id == "classroom-nature":
-                paper.extend([_rect("spine", 0, 0, 30, 720, spec["accent"]),
-                              _rect("page", 56, 48, 1184, 624, "#FFFFFF"),
-                              _rect("tab", 80, 48, 210, 28, spec["soft"])])
-                for y in (326, 510, 610):
-                    paper.append(_rect("rule", 80, y, 1120, 2, spec["soft"]))
-            elif template_id == "classroom-story":
-                paper.extend([_rect("frame", 40, 56, 1200, 248, spec["accent"]),
-                              _rect("title-panel", 48, 64, 1184, 232, spec["soft"]),
-                              _rect("story-panel", 48, 326, 1184, 298, "#FFFFFF"),
-                              _rect("bottom", 0, 662, 1280, 58, spec["accent"])])
-                title["alignment"]["horizontal"] = "center"
-            elif template_id == "training-case":
-                paper.extend([_rect("dossier", 0, 0, 1280, 310, spec["accent"]),
-                              _rect("evidence", 48, 326, 1184, 190, "#FFFFFF"),
-                              _rect("file-tab", 80, 40, 160, 10, "#7ABBB4")])
-                title["font"]["color"] = "#FFFFFF"
-            else:
-                paper.extend([_rect("rail", 0, 0, 30, 720, spec["accent"]),
-                              _rect("goal", 48, 326, 1184, 184, "#FFFFFF"),
-                              _rect("usage", 48, 524, 1184, 90, spec["soft"])])
-                for index in range(5):
-                    paper.append(_rect("route", 80 + index * 230, 648, 190, 12, spec["accent"]))
+            # Keep the shared full-bleed artwork below its native text panel.
+            # Each pack supplies its own illustration palette below.
+            components["cover_panel"]["elements"].append(
+                _rect("cover-accent", 592, 78, 100, 6, spec["accent"]))
             continue
 
         if template_id == "classroom-nature":

@@ -320,24 +320,25 @@ def _ensure_cover_contract(
     target_count: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Guarantee a real first-page cover without discarding opening content."""
-    topic_focus = plan.meta.topic
-    for separator in ("，", "。", "；", ";", "\n"):
-        topic_focus = topic_focus.split(separator, 1)[0]
-    topic_focus = topic_focus.strip()[:60] or plan.meta.topic[:60]
-    purpose = "；".join(plan.lesson_goals[:2]).strip("；")
-    cover_points = (
-        [
-            f"培训目的：{purpose or '围绕核心问题形成可落地的改进方案'}"[:64],
-            "幼儿园园本教研培训",
-        ]
-        if content_mode == "training"
-        else [
-            f"活动目标：{purpose or '在观察与互动中获得新的发现'}"[:64],
-            "幼儿园集体教学",
-        ]
-    )
-
+    # The title is native text. Never crop it at punctuation or mid-sentence.
+    topic_focus = plan.meta.topic.strip()
+    if len(topic_focus) > 80:
+        raise ValueError("封面主题超过 80 字，请缩短主题并将详细要求放入补充说明。")
+    training = content_mode == "training"
+    prefix = "培训目的：" if training else "活动目标："
+    first_goal = next((goal.strip() for goal in plan.lesson_goals if goal.strip()), "")
+    # A long goal belongs in the notes, not a cropped fragment on the cover.
+    preview = first_goal if len(first_goal) <= 30 else ""
+    preview = preview or ("围绕主题开展研讨与实践" if training else "在观察与互动中获得新的发现")
+    cover_points = [prefix + preview,
+                    "幼儿园园本教研培训" if training else "幼儿园集体教学"]
     original_first = plan.slides[0]
+    note = original_first.teacher_note if original_first.slide_type == "cover-scene" else ""
+    goals_note = "完整目标：\n" + "\n".join(f"- {goal}" for goal in plan.lesson_goals)
+    if goals_note not in note:
+        note = (note.rstrip() + "\n\n" + goals_note).strip()
+    if len(note) > 12000:
+        raise ValueError("封面目标和备注超过 12000 字，请将详细材料拆分到正文页。")
     cover = original_first.model_copy(
         update={
             "slide_no": 1,
@@ -358,12 +359,12 @@ def _ensure_cover_contract(
             "interaction": original_first.interaction.model_copy(
                 update={"type": "none", "instruction": None}
             ),
-            "teacher_note": (
-                "封面页。简要介绍本次培训主题与目标。"
-                if content_mode == "training"
-                else "封面页。简要介绍本次活动主题与目标。"
-            ),
-            "assets": [],
+            "teacher_note": note,
+            "assets": [LessonAssetSpec(
+                slot="cover-background", semantic_label=topic_focus[:160],
+                description=f"围绕{topic_focus}的无字封面背景，主题活动位于左侧，右侧留白。",
+                role="background", required=True, expected_count=1, qa_required=True,
+            )],
             "game": None,
             "layout_capabilities": ["cover", "single-focus"],
         }
@@ -404,25 +405,20 @@ def _normalize_training_contracts(
         "answer-reveal",
     }
     slides = []
-    topic_focus = plan.meta.topic
-    for separator in ("，", "。", "；", ";", "\n"):
-        topic_focus = topic_focus.split(separator, 1)[0]
-    topic_focus = topic_focus.strip()[:60] or plan.meta.topic[:60]
-
     for index, slide in enumerate(plan.slides):
+        if index == 0:
+            # Reuse the same cover contract so normalization cannot crop it again.
+            cover_plan = plan.model_copy(update={"slides": [slide.model_copy(
+                update={"slide_type": "cover-scene"})]})
+            slides.append(_ensure_cover_contract(cover_plan, "training").slides[0])
+            continue
         original_points = list(slide.screen_content.points)
         visible_chars = len(slide.screen_content.title) + sum(
             len(point) for point in original_points
         )
         compacted_points = original_points
         teacher_note = slide.teacher_note
-        char_limit = (
-            70
-            if index == 0
-            else 160
-            if slide.slide_type in {"compare", "sequence"}
-            else 140
-        )
+        char_limit = 160 if slide.slide_type in {"compare", "sequence"} else 140
         if visible_chars > char_limit:
             if len(original_points) > 4:
                 compacted_points = [
@@ -436,38 +432,21 @@ def _normalize_training_contracts(
                 f"{teacher_note.rstrip()}\n\n本页屏幕文案已压缩，讲解时补充：\n{details}"
             )[:1200]
 
-        screen_title = topic_focus if index == 0 else slide.screen_content.title[:36]
-        if index == 0:
-            purpose = "；".join(plan.lesson_goals[:2]).strip("；")
-            compacted_points = [
-                f"培训目的：{purpose or '围绕核心问题形成可落地的改进方案'}"[:64],
-                "幼儿园园本教研培训",
-            ]
+        screen_title = slide.screen_content.title[:36]
         updates = {
             "screen_content": slide.screen_content.model_copy(
                 update={
                     "title": screen_title,
                     "points": compacted_points,
-                    "instruction": None if index == 0 else slide.screen_content.instruction,
+                    "instruction": slide.screen_content.instruction,
                 }
             ),
             "teacher_note": teacher_note,
         }
-        if index == 0:
-            updates.update(
-                {
-                    "slide_type": "cover-scene",
-                    "game": None,
-                    "interaction": slide.interaction.model_copy(
-                        update={"type": "none", "instruction": None}
-                    ),
-                    "layout_capabilities": ["scene", "single-focus"],
-                }
-            )
         is_plain_training_sequence = (
             slide.slide_type == "sequence" and slide.game is None
         )
-        if index == 0 or is_plain_training_sequence or (
+        if is_plain_training_sequence or (
             slide.slide_type not in child_game_types and slide.game is None
         ):
             slides.append(slide.model_copy(update=updates))
@@ -710,6 +689,8 @@ async def generate_validated_kindergarten_presentation_outline(
         disconnect_checker=disconnect_checker,
         text_chunk_callback=text_chunk_callback,
     )
+    # The user-provided topic is authoritative, not the model's paraphrase.
+    plan = plan.model_copy(update={"meta": plan.meta.model_copy(update={"topic": topic.strip()})})
     plan = _ensure_cover_contract(
         plan,
         content_mode,

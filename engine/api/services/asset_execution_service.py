@@ -48,6 +48,10 @@ def _is_teacher_visual(item: AssetPlanItem) -> bool:
 
 
 def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
+    if item.slots and all(slot.classroom_role == "cover-scene" for slot in item.slots):
+        # Cover typography is native even for English lessons. Do not override
+        # the chosen template palette with the generic classroom/research style.
+        return " 保持上述模板配色与无字构图；禁止任何语言的文字、伪文字、标签和水印。"
     if _is_teacher_visual(item):
         from services.research_ppt_generation_context import research_ppt_image_options
 

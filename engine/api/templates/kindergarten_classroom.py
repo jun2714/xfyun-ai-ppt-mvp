@@ -42,45 +42,34 @@ def _base():
 
 
 def classroom_layouts():
-    title = _label("title", 140, 190, 1000, 110, 58)
-    title["alignment"]["horizontal"] = "center"
-    purpose = _label("text", 140, 350, 1000, 144, 32, color="#51636F")
-    purpose["alignment"]["horizontal"] = "center"
-    context_label = _label("text", 440, 520, 400, 64, 32, color="#79512D")
-    context_label["alignment"]["horizontal"] = "center"
+    # Artwork never carries copy: the native opaque panel and text render last.
+    background = _picture("visual", 0, 0, 1280, 720)
+    background.update(fit="cover", asset_role="background",
+                      asset_mode="direct-background", text_safe_area="right")
+    title = _label("title", 592, 104, 592, 264, 64)
+    purpose = _label("text", 592, 390, 592, 172, 32, color="#51636F")
+    purpose["font"]["bold"] = False
+    context_label = _label("text", 592, 586, 592, 56, 32, color="#79512D")
     layouts = [{
         "id": "classroom_cover",
-        "description": "幼教主题封面，仅呈现活动主题、活动目标与集体教学类型。",
+        "description": "主题 AI 无字背景；右侧原生白色标题面板，标题与简短导语可编辑。",
         "components": [
-            _component("paper", "稳定的奶油白封面底图与柔和装饰色块", [
-                {
-                    "type": "vector", "shape": "polygon", "closed": True,
-                    "points": [{"x": 0, "y": 0}, {"x": 1280, "y": 0},
-                               {"x": 1280, "y": 720}, {"x": 0, "y": 720}],
-                    "fill": {"color": "#FFF9EF", "opacity": 1},
-                },
-                {
-                    "type": "vector", "shape": "polygon", "closed": True,
-                    "points": [{"x": 0, "y": 0}, {"x": 330, "y": 0},
-                               {"x": 170, "y": 160}, {"x": 0, "y": 210}],
-                    "fill": {"color": "#DDF1E7", "opacity": 1},
-                },
-                {
-                    "type": "vector", "shape": "polygon", "closed": True,
-                    "points": [{"x": 1280, "y": 720}, {"x": 930, "y": 720},
-                               {"x": 1080, "y": 565}, {"x": 1280, "y": 520}],
-                    "fill": {"color": "#F7D9A8", "opacity": 1},
-                },
-                {
-                    "type": "vector", "shape": "polygon", "closed": True,
-                    "points": [{"x": 510, "y": 325}, {"x": 770, "y": 325},
-                               {"x": 770, "y": 329}, {"x": 510, "y": 329}],
-                    "fill": {"color": "#9BCDB8", "opacity": 1},
-                },
-            ]),
-            _component("heading", "封面中央呈现唯一醒目的活动主题主标题", [title]),
-            _component("point_0", "主标题下方简洁呈现本次课堂活动目标", [purpose]),
-            _component("point_1", "封面底部标明幼儿园集体教学使用类型", [context_label]),
+            _component("paper", "背景未就绪时的封面底色", [{
+                "type": "vector", "shape": "polygon", "closed": True,
+                "points": [{"x": 0, "y": 0}, {"x": 1280, "y": 0},
+                           {"x": 1280, "y": 720}, {"x": 0, "y": 720}],
+                "fill": {"color": "#FFF9EF", "opacity": 1},
+            }]),
+            _component("scene", "完整主题背景，无文字，主体集中左侧", [background]),
+            _component("cover_panel", "遮挡背景以保障文字清晰的原生面板", [{
+                "type": "vector", "shape": "polygon", "closed": True,
+                "points": [{"x": 544, "y": 48}, {"x": 1232, "y": 48},
+                           {"x": 1232, "y": 672}, {"x": 544, "y": 672}],
+                "fill": {"color": "#FFFFFF", "opacity": 1},
+            }]),
+            _component("heading", "原样保留已确认主题的可编辑标题", [title]),
+            _component("point_0", "简短目标导语；完整目标保留在教师备注", [purpose]),
+            _component("point_1", "封面标明课堂或教研的使用类型", [context_label]),
         ],
     }]
     # No empty repeating cards. Geometry is sized for the actual number of points.

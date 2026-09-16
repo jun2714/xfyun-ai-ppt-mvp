@@ -67,7 +67,7 @@ class SlideContentContract(BaseModel):
     # they travel with the outline so later layout, asset and quality stages can
     # preserve the lesson intent without re-inferring it from rendered copy.
     teaching_goal: Optional[str] = Field(default=None, max_length=300)
-    teacher_note: Optional[str] = Field(default=None, max_length=1200)
+    teacher_note: Optional[str] = Field(default=None, max_length=12000)
     interaction_type: Literal[
         "none",
         "observe",
