@@ -204,7 +204,7 @@ async def _validate_semantic_quality(
             raise ValueError("Sprite sheet did not produce one image for every slot")
         for slot, output in zip(item.slots, derived_outputs):
             expectations = _quality_expectations((slot,))
-            if not expectations:
+            if not expectations and not slot.education_visual:
                 continue
             quality = await quality_service.validate(output, expectations)
             if not quality.passed:
@@ -215,7 +215,7 @@ async def _validate_semantic_quality(
         if not derived_outputs:
             raise ValueError("Cutout processing produced no consumer image")
         expectations = _quality_expectations((item.slots[0],))
-        if not expectations:
+        if not expectations and not item.slots[0].education_visual:
             return
         quality = await quality_service.validate(derived_outputs[0], expectations)
         if not quality.passed:
@@ -223,7 +223,7 @@ async def _validate_semantic_quality(
         return
 
     expectations = _quality_expectations(item.slots)
-    if not expectations:
+    if not expectations and not all(slot.education_visual for slot in item.slots):
         return
     quality = await quality_service.validate(result, expectations)
     if not quality.passed:
@@ -379,7 +379,14 @@ async def process_presentation_assets(
                                 image_generation_service.output_directory,
                             )
                         ]
-                    elif isinstance(result, ImageAsset) and item.slots:
+                    elif (
+                        isinstance(result, ImageAsset)
+                        and item.slots
+                        and (
+                            item.slots[0].fit == "cover"
+                            or item.slots[0].role == "background"
+                        )
+                    ):
                         local_source, materialized = await _materialize_transform_source(
                             result,
                             image_generation_service.output_directory,
@@ -411,9 +418,10 @@ async def process_presentation_assets(
                             derived_outputs,
                         )
                     except AssetSemanticQualityError as exc:
-                        if attempt == 0:
-                            raise
-                        quality_warning = exc
+                        # A second bad result stays missing and can be repaired
+                        # explicitly. Never place known text/cropped/wrong imagery
+                        # into an otherwise usable deck.
+                        raise
                     except Exception as exc:  # visual-QA timeout or provider outage
                         quality_warning = exc
 

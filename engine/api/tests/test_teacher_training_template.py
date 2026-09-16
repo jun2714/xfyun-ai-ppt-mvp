@@ -7,10 +7,16 @@ from api.v1.ppt.endpoints.presentation import (
     _apply_template_content_to_ui, _collect_non_decorative_text_elements,
     _template_text_required_height,
 )
-from models.presentation_outline_model import SlideContentContract, SlideOutlineModel
+from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
+from models.presentation_outline_model import (
+    PresentationOutlineModel,
+    SlideContentContract,
+    SlideOutlineModel,
+)
 from services.classroom_content_mapping import build_classroom_content
 from templates.teacher_training import build_training_template
 from templates.v2.schema import get_template_schema
+from utils.layout_compatibility import get_allowed_layout_indices_for_outline
 
 
 @pytest.mark.parametrize("count", [2, 3, 4])
@@ -61,6 +67,7 @@ def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
     assert "专业清晰的教育编辑插画" in result["scene"]["visual"]["image_prompt"]
     assert "禁止英文" in result["scene"]["visual"]["image_prompt"]
     assert "统一二维儿童绘本" not in result["scene"]["visual"]["image_prompt"]
+    assert all(point not in result["scene"]["visual"]["image_prompt"] for point in points)
     layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
     ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
     boxes = _collect_non_decorative_text_elements(ui["components"])
@@ -76,3 +83,38 @@ def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
                     b["x"] + other["size"]["width"] <= a["x"] or
                     a["y"] + box["size"]["height"] <= b["y"] or
                     b["y"] + other["size"]["height"] <= a["y"])
+
+
+def test_training_deck_rotates_genuinely_different_scene_compositions():
+    template = build_training_template()
+    schemas = get_template_schema(template.layouts)["layouts"]
+    layout = PresentationLayoutModel(
+        name="teacher-training",
+        slides=[
+            SlideLayoutModel(id=entry["layout_id"], json_schema=entry["schema"])
+            for entry in schemas
+        ],
+    )
+    points = ["观察家长表达的事实与担忧", "共同确认下一步行动"]
+    slides = []
+    for index in range(8):
+        contract = SlideContentContract(
+            preserve_visible_copy=True,
+            screen_title=f"教研页面 {index + 1}",
+            screen_points=points,
+            teacher_note="完整讲稿",
+        )
+        slides.append(SlideOutlineModel(
+            content="\n".join([contract.screen_title, *points]),
+            content_contract=contract,
+        ))
+
+    choices = get_allowed_layout_indices_for_outline(
+        PresentationOutlineModel(slides=slides), layout
+    )
+    chosen = [layout.slides[item[0]].id for item in choices]
+
+    assert any("_scene_top_" in layout_id for layout_id in chosen)
+    assert any("_scene_left_" in layout_id for layout_id in chosen)
+    assert any("_scene_right_" in layout_id for layout_id in chosen)
+    assert max(chosen.count(layout_id) for layout_id in set(chosen)) <= 3

@@ -174,8 +174,11 @@ def build_education_variant(template_id):
 
         count = int(layout["id"].rsplit("_", 1)[-1])
         scene = components["scene"]["elements"][0]
+        top_scene = "_scene_top_" in layout["id"]
         if not count:
             _place(scene, 48, 178, 1184, 430)
+        elif top_scene:
+            _place(scene, 48, 178, 1184, 216)
         elif roomy or template_id == "training-action":
             _place(scene, 932, 178, 300, 430)
         elif template_id == "classroom-story":
@@ -187,7 +190,15 @@ def build_education_variant(template_id):
         for index in range(count):
             text = components[f"point_{index}"]["elements"][0]
             text["alignment"]["vertical"] = "top"
-            if template_id == "classroom-story" and not roomy:
+            if top_scene:
+                columns = count if count <= 3 else 2
+                rows = (count + columns - 1) // columns
+                width = (1184 - 24 * (columns - 1)) / columns
+                height = (210 - 12 * (rows - 1)) / rows
+                row, col = divmod(index, columns)
+                _place(text, 48 + col * (width + 24), 410 + row * (height + 12),
+                       width, height)
+            elif template_id == "classroom-story" and not roomy:
                 cols = min(count, 3)
                 rows = (count + cols - 1) // cols
                 width = (1184 - (cols - 1) * 28) / cols

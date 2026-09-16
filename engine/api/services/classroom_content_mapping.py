@@ -90,7 +90,7 @@ def _prompt(assets, title, points, *, training=False, template_style=None):
             custom_style or "柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色。"
         )
     return (
-        f"本页教学主题：{title}。对应屏幕内容：{'；'.join(points)}。"
+        f"本页教学主题仅供理解画面，不得把主题绘制成文字：{title}。"
         f"必须看到的教学对象与动作：{subjects or title}。"
         f"{style}"
         "主体完整、特征准确、背景简洁；不要摄影、3D、文字、字母、数字、标签或水印。"

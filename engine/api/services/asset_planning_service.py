@@ -52,6 +52,7 @@ class AssetSlotRequest:
     semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
     visual_audience: Literal["child", "teacher"] = "child"
     classroom_role: str | None = None
+    education_visual: bool = False
 
     @property
     def consumer_id(self) -> str:
@@ -283,6 +284,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
             for element in _walk_image_elements(slide.ui)
             if isinstance(element.get("name"), str)
         }
+        hidden_contract = _hidden_slide_contract(slide)
         semantic_expectations = _asset_semantic_expectations(slide)
         for path, parent, prompt in _asset_dicts_with_prompt(
             slide.content, IMAGE_PROMPT_KEYS
@@ -320,8 +322,12 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     text_safe_area=str(element.get("text_safe_area") or "none"),
                     width=width,
                     height=height,
-                    visual_audience=("teacher" if _hidden_slide_contract(slide).get("visual_audience") == "teacher" else "child"),
-                    classroom_role=_hidden_slide_contract(slide).get("classroom_role"),
+                    visual_audience=("teacher" if hidden_contract.get("visual_audience") == "teacher" else "child"),
+                    classroom_role=hidden_contract.get("classroom_role"),
+                    education_visual=bool(
+                        hidden_contract.get("classroom_mapping_version")
+                        or hidden_contract.get("visual_audience") == "teacher"
+                    ),
                     semantic_expectations=_expectations_for_prompt(
                         prompt, semantic_expectations
                     ),

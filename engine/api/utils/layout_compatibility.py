@@ -222,7 +222,26 @@ def get_allowed_layout_indices_for_outline(
                                   not preferred.endswith("_cover")
                                   and layout.id.startswith(family)
                                   and layout.id.rsplit("_", 1)[-1] == preferred.rsplit("_", 1)[-1])]
+                target = preferred
+                if audience == "teacher" and "_scene_" in preferred:
+                    prefix, count = preferred.split("_scene_", 1)
+                    point_count = count.rsplit("_", 1)[-1]
+                    available = {
+                        presentation_layout.slides[candidate].id
+                        for candidate in candidates
+                    }
+                    rotation_ids = [
+                        f"{prefix}_scene_left_{point_count}",
+                        f"{prefix}_scene_top_{point_count}",
+                        f"{prefix}_scene_right_{point_count}",
+                        f"{prefix}_scene_roomy_{point_count}",
+                    ]
+                    rotation_ids = [layout_id for layout_id in rotation_ids
+                                    if layout_id in available]
+                    if rotation_ids:
+                        target = rotation_ids[index % len(rotation_ids)]
                 candidates.sort(key=lambda i: (
+                    presentation_layout.slides[i].id != target,
                     presentation_layout.slides[i].id != preferred,
                     "_roomy_" in presentation_layout.slides[i].id, i))
                 selected = None

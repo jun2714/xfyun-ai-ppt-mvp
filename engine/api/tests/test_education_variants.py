@@ -94,7 +94,8 @@ def test_variant_copy_images_and_projectable_geometry(template_id, suffix):
 @pytest.mark.parametrize("template_id", EDUCATION_VARIANTS)
 def test_manual_variant_preflights_confirmed_copy_and_rejects_overflow(template_id):
     template, schemas = _pack(template_id)
-    assert len(schemas) == 27
+    expected = 31 if EDUCATION_VARIANTS[template_id]["audience"] == "teacher" else 27
+    assert len(schemas) == expected
     assert template.assets["template_metadata"]["auto_match"] is True
     assert template.assets["template_metadata"]["audiences"] == [EDUCATION_VARIANTS[template_id]["audience"]]
     thumbnail = Path(__file__).parents[1] / template.assets["thumbnail"].lstrip("/")
@@ -189,3 +190,24 @@ def test_custom_style_does_not_inherit_a_conflicting_default_palette(template_id
     assert '浅米白、松石绿、雾蓝' not in prompt
     assert '不要摄影、3D、文字' in prompt
     assert ('不要拟人角色' in prompt) == (EDUCATION_VARIANTS[template_id]['audience'] == 'teacher')
+
+
+@pytest.mark.parametrize("template_id", ["training-case", "training-action"])
+@pytest.mark.parametrize("count", range(1, 5))
+def test_teacher_variants_include_a_distinct_top_scene(template_id, count):
+    template, schemas = _pack(template_id)
+    layout_id = f"classroom_training_scene_top_{count}"
+    outline = _outline(template_id, count)
+    content = build_classroom_content(schemas[layout_id], outline)
+    layout = next(item for item in template.layouts["layouts"] if item["id"] == layout_id)
+    ui = _apply_template_content_to_ui(copy.deepcopy(layout), content)
+    scene = next(component for component in ui["components"] if component["id"] == "scene")
+    image = scene["elements"][0]
+
+    assert image["size"]["width"] == 1184
+    assert image["size"]["height"] <= 220
+    assert all(
+        component["elements"][0]["position"]["y"] >= 410
+        for component in ui["components"]
+        if component["id"].startswith("point_")
+    )
