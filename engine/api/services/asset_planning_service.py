@@ -11,6 +11,8 @@ from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
 
 
 AssetRole = Literal["background", "framed-image", "cutout"]
+REPAIR_FAILED_PROMPT_KEY = "__repair_failed_prompt__"
+REPAIR_FAILED_REASON_KEY = "__repair_failed_reason__"
 GenerationMode = Literal[
     "direct-background",
     "composite-image",
@@ -50,6 +52,9 @@ class AssetSlotRequest:
     width: float
     height: float
     semantic_expectations: tuple[AssetSemanticExpectation, ...] = ()
+    visual_audience: Literal["child", "teacher"] = "child"
+    classroom_role: str | None = None
+    education_visual: bool = False
 
     @property
     def consumer_id(self) -> str:
@@ -273,7 +278,9 @@ def _infer_role(element: dict[str, Any], width: float, height: float) -> AssetRo
     return "framed-image"
 
 
-def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
+def extract_asset_slots(
+    slides: list[SlideModel], *, include_blocked: bool = False
+) -> list[AssetSlotRequest]:
     slots: list[AssetSlotRequest] = []
     for slide in slides:
         elements = {
@@ -281,6 +288,7 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
             for element in _walk_image_elements(slide.ui)
             if isinstance(element.get("name"), str)
         }
+        hidden_contract = _hidden_slide_contract(slide)
         semantic_expectations = _asset_semantic_expectations(slide)
         for path, parent, prompt in _asset_dicts_with_prompt(
             slide.content, IMAGE_PROMPT_KEYS
@@ -290,6 +298,11 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                 isinstance(existing_url, str)
                 and existing_url.strip()
                 and "placeholder" not in existing_url.casefold()
+            ):
+                continue
+            if (
+                not include_blocked
+                and parent.get(REPAIR_FAILED_PROMPT_KEY) == prompt
             ):
                 continue
             name = _slot_name(path)
@@ -318,6 +331,12 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                     text_safe_area=str(element.get("text_safe_area") or "none"),
                     width=width,
                     height=height,
+                    visual_audience=("teacher" if hidden_contract.get("visual_audience") == "teacher" else "child"),
+                    classroom_role=hidden_contract.get("classroom_role"),
+                    education_visual=bool(
+                        hidden_contract.get("classroom_mapping_version")
+                        or hidden_contract.get("visual_audience") == "teacher"
+                    ),
                     semantic_expectations=_expectations_for_prompt(
                         prompt, semantic_expectations
                     ),
@@ -341,10 +360,10 @@ def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
     consumed: set[str] = set()
 
     # Identical prompts are generated once and mapped to every compatible slot.
-    reuse_groups: dict[tuple[str, AssetRole, str], list[AssetSlotRequest]] = {}
+    reuse_groups: dict[tuple[str, AssetRole, str, str], list[AssetSlotRequest]] = {}
     for slot in slots:
         reuse_groups.setdefault(
-            (_normalized_prompt(slot.prompt), slot.role, slot.aspect_ratio), []
+            (_normalized_prompt(slot.prompt), slot.role, slot.aspect_ratio, slot.visual_audience), []
         ).append(slot)
     for group in reuse_groups.values():
         if len(group) < 2:
@@ -358,13 +377,13 @@ def build_asset_plan(slides: list[SlideModel]) -> list[AssetPlanItem]:
         )
         consumed.update(slot.consumer_id for slot in group)
 
-    explicit_groups: dict[tuple[str, str], list[AssetSlotRequest]] = {}
+    explicit_groups: dict[tuple[str, str, str], list[AssetSlotRequest]] = {}
     for slot in slots:
         if slot.consumer_id in consumed or not slot.asset_group:
             continue
-        explicit_groups.setdefault((slot.requested_mode, slot.asset_group), []).append(slot)
+        explicit_groups.setdefault((slot.requested_mode, slot.asset_group, slot.visual_audience), []).append(slot)
 
-    for (requested_mode, _group_name), group in explicit_groups.items():
+    for (requested_mode, _group_name, _audience), group in explicit_groups.items():
         if requested_mode == "sprite-sheet":
             if not all(slot.role == "cutout" for slot in group):
                 raise ValueError("sprite-sheet groups may contain cutout slots only")

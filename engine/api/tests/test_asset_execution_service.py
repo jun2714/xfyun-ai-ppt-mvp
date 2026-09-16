@@ -9,6 +9,7 @@ from services import asset_execution_service
 from services.asset_semantic_quality_service import (
     AssetSemanticCheck,
     AssetSemanticQualityResult,
+    _enforce_expectations,
 )
 
 
@@ -33,6 +34,48 @@ class FakeImageService:
 
     def configured_model_name(self):
         return "fake-image-model"
+
+
+def test_visual_quality_rejects_visible_text_and_cropped_subject_without_contracts():
+    result = _enforce_expectations(
+        AssetSemanticQualityResult(
+            passed=True,
+            visible_text_detected=True,
+            detected_text="Consensus Path",
+            subject_cropped=True,
+        ),
+        (),
+        0.70,
+    )
+
+    assert result.passed is False
+    assert "可见文字" in result.overall_reason
+    assert "主体被边缘截断" in result.overall_reason
+
+
+def test_teacher_art_direction_survives_execution_and_is_not_reused_for_children():
+    child = _cutout_slide(index=0, with_semantic_contract=True)
+    teacher = _cutout_slide(index=1, with_semantic_contract=True)
+    teacher.content["__content_contract__"]["visual_audience"] = "teacher"
+    plan = asset_execution_service.build_asset_plan([child, teacher])
+    assert len(plan) == 2
+    prompts = {item.slots[0].visual_audience: asset_execution_service._request_prompt(item) for item in plan}
+    assert "中国幼儿园教研插画" in prompts["teacher"]
+    assert "禁止英文" in prompts["teacher"]
+    assert "professional educational editorial" not in prompts["teacher"]
+    assert "ages 3-6" not in prompts["teacher"]
+    assert "ages 3-6" in prompts["child"]
+
+
+def test_education_image_without_semantic_slots_still_runs_text_and_crop_qa():
+    slide = _cutout_slide(with_semantic_contract=False)
+    slide.content["__content_contract__"] = {
+        "classroom_mapping_version": 1,
+        "visual_audience": "teacher",
+    }
+    item = asset_execution_service.build_asset_plan([slide])[0]
+
+    assert item.slots[0].education_visual is True
 
 
 class FakeSemanticQualityService:
@@ -377,6 +420,114 @@ def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
     assert service.calls == 1
     assert slide.content["main"]["subject"]["image_url"]
     assert traces[-1].status == "succeeded_with_warning"
+
+
+def test_second_known_quality_failure_stays_missing_instead_of_using_bad_image(
+    tmp_path,
+    monkeypatch,
+):
+    first = tmp_path / "text-in-image.png"
+    second = tmp_path / "cropped-subject.png"
+    _valid_cutout_source(first)
+    _valid_cutout_source(second)
+    traces = []
+
+    async def record(trace):
+        traces.append(trace)
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    service = FakeImageService(tmp_path, [first, second])
+    quality = FakeSemanticQualityService([False, False])
+    slide = _cutout_slide(with_semantic_contract=True)
+
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service,
+            [slide],
+            semantic_quality_service=quality,
+        )
+    )
+
+    assert service.calls == 2
+    assert generated == []
+    assert "image_url" not in slide.content["main"]["subject"]
+    assert [trace.status for trace in traces] == ["failed", "failed"]
+
+
+def test_education_visual_rejects_detected_text_even_without_semantic_contract(
+    tmp_path,
+    monkeypatch,
+):
+    outputs = [tmp_path / "english-1.png", tmp_path / "english-2.png"]
+    for output in outputs:
+        _valid_cutout_source(output)
+
+    class TextDetectingQualityService:
+        calls = 0
+
+        async def validate(self, _image, expectations):
+            assert expectations == ()
+            self.calls += 1
+            return AssetSemanticQualityResult(
+                passed=False,
+                visible_text_detected=True,
+                detected_text="Consensus Path",
+                overall_reason="图片含英文",
+            )
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    service = FakeImageService(tmp_path, outputs)
+    quality = TextDetectingQualityService()
+    slide = _cutout_slide(with_semantic_contract=False)
+    slide.content["__content_contract__"] = {
+        "classroom_mapping_version": 1,
+        "visual_audience": "teacher",
+    }
+
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service, [slide], semantic_quality_service=quality
+        )
+    )
+
+    assert quality.calls == 2
+    assert generated == []
+    assert "image_url" not in slide.content["main"]["subject"]
+
+
+def test_contain_image_is_not_destructively_center_cropped(tmp_path, monkeypatch):
+    source = tmp_path / "wide-complete-scene.png"
+    Image.new("RGB", (1200, 500), "white").save(source)
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="teacher-training",
+        layout="scene",
+        index=0,
+        content={"main": {"visual": {"image_prompt": "完整教研沟通场景"}}},
+        ui={"components": [{"id": "main", "elements": [{
+            "type": "image", "name": "visual", "fit": "contain",
+            "asset_role": "framed-image", "position": {"x": 0, "y": 0},
+            "size": {"width": 320, "height": 480},
+        }]}]},
+    )
+    service = FakeImageService(tmp_path, [source])
+
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service, [slide], semantic_quality_service=None
+        )
+    )
+
+    assert [asset.path for asset in generated] == [str(source)]
+    assert slide.content["main"]["visual"]["image_url"]
 
 
 def test_kindergarten_asset_prompt_requires_one_illustration_medium():

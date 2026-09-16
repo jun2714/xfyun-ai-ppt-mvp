@@ -198,8 +198,9 @@ def get_allowed_layout_indices_for_outline(
     metadata exists, stronger relationship/media/capacity/readability checks are
     applied on top of that structural guard.
     """
-    from templates.kindergarten_classroom import CLASSROOM_TEMPLATE_ID
-    if presentation_layout.name == CLASSROOM_TEMPLATE_ID:
+    from templates.education_variants import semantic_template_audience
+    audience = semantic_template_audience(presentation_layout.name)
+    if audience:
         from services.classroom_content_mapping import (
             preferred_classroom_layout, build_classroom_content,
         )
@@ -207,13 +208,58 @@ def get_allowed_layout_indices_for_outline(
         for index, slide in enumerate(presentation_outline.slides):
             try:
                 preferred = preferred_classroom_layout(slide, index)
-                selected = next(i for i, layout in enumerate(presentation_layout.slides)
-                                if layout.id == preferred)
-                build_classroom_content(presentation_layout.slides[selected].json_schema, slide)
+                if audience == "teacher":
+                    preferred = preferred.replace("classroom_", "classroom_training_", 1)
+                # Keep the semantic family and exact point/image count. A card
+                # cannot become a whole scene just to squeeze in its captions.
+                family = preferred.rsplit("_", 1)[0]
+                if "_scene_" in preferred:
+                    family = preferred.split("_scene_")[0] + "_scene_"
+                elif "_cards_" in preferred:
+                    family = preferred.split("_cards_")[0] + "_cards_"
+                candidates = [i for i, layout in enumerate(presentation_layout.slides)
+                              if layout.id == preferred or (
+                                  not preferred.endswith("_cover")
+                                  and layout.id.startswith(family)
+                                  and layout.id.rsplit("_", 1)[-1] == preferred.rsplit("_", 1)[-1])]
+                target = preferred
+                if audience == "teacher" and "_scene_" in preferred:
+                    prefix, count = preferred.split("_scene_", 1)
+                    point_count = count.rsplit("_", 1)[-1]
+                    available = {
+                        presentation_layout.slides[candidate].id
+                        for candidate in candidates
+                    }
+                    rotation_ids = [
+                        f"{prefix}_scene_left_{point_count}",
+                        f"{prefix}_scene_top_{point_count}",
+                        f"{prefix}_scene_right_{point_count}",
+                        f"{prefix}_scene_roomy_{point_count}",
+                    ]
+                    rotation_ids = [layout_id for layout_id in rotation_ids
+                                    if layout_id in available]
+                    if rotation_ids:
+                        target = rotation_ids[index % len(rotation_ids)]
+                candidates.sort(key=lambda i: (
+                    presentation_layout.slides[i].id != target,
+                    presentation_layout.slides[i].id != preferred,
+                    "_roomy_" in presentation_layout.slides[i].id, i))
+                selected = None
+                last_error = "没有保留相同图文数量的兼容版式"
+                for candidate in candidates:
+                    try:
+                        build_classroom_content(presentation_layout.slides[candidate].json_schema, slide)
+                    except ValueError as error:
+                        last_error = str(error)
+                        continue
+                    selected = candidate
+                    break
+                if selected is None:
+                    raise ValueError(last_error)
                 choices.append([selected])
             except (ValueError, StopIteration) as error:
                 raise LayoutCompatibilityError(
-                    f"第 {index + 1} 页不适合课堂大字号版式：{error}",
+                    f"第 {index + 1} 页在当前模板的大字号版式中放不下，请换用更宽松的模板或在大纲中拆页：{error}",
                     slide_number=index + 1,
                 ) from error
         return choices

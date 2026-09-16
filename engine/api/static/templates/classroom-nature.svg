@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>自然观察 · 探索与发现：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#F6F8EF"/>
+<polygon points="0.0,0.0 24.0,0.0 24.0,720.0 0.0,720.0" fill="#347657"/>
+<polygon points="40.0,164.0 1248.0,164.0 1248.0,620.0 40.0,620.0" fill="#FFFFFF"/>
+<polygon points="48.0,146.0 238.0,146.0 238.0,158.0 48.0,158.0" fill="#347657"/>
+<polygon points="756.0,315.33333333333337 1232.0,315.33333333333337 1232.0,317.33333333333337 756.0,317.33333333333337" fill="#E1EAD5"/>
+<polygon points="756.0,458.6666666666667 1232.0,458.6666666666667 1232.0,460.6666666666667 756.0,460.6666666666667" fill="#E1EAD5"/>
+<polygon points="756.0,602.0 1232.0,602.0 1232.0,604.0 756.0,604.0" fill="#E1EAD5"/>
+<text fill="#233F32" font-size="48.0" font-weight="700"><tspan x="48.0" y="108.0">小种子的新发现</tspan></text>
+<text fill="#347657" font-size="32.0" font-weight="700"><tspan x="48.0" y="680.0">一起到花园里找一找。</tspan></text>
+<rect x="56.0" y="178.0" width="664.0" height="430.0" rx="16" fill="#E1EAD5"/><g transform="translate(56.0 188.24999999999997) scale(1.0375)"><path d="M310 290V100" stroke="#347657" stroke-width="9" fill="none"/><path d="M309 192C215 201 198 126 204 114C278 111 314 143 309 192ZM314 148C393 159 425 88 416 75C347 80 313 100 314 148Z" fill="#347657"/><path d="M215 290H407L383 353H239Z" fill="#C89865"/><circle cx="464" cy="66" r="32" fill="#E5C780"/></g><text x="388.0" y="594.0" text-anchor="middle" font-size="20" fill="#233F32">配图位置 · 版式示意</text>
+<text fill="#233F32" font-size="32.0" font-weight="700"><tspan x="756.0" y="210.0">看一看：叶子是什么形状？</tspan></text>
+<text fill="#233F32" font-size="32.0" font-weight="700"><tspan x="756.0" y="353.33333333333337">比一比：哪一株长得更高？</tspan></text>
+<text fill="#233F32" font-size="32.0" font-weight="700"><tspan x="756.0" y="496.6666666666667">说一说：还发现了什么变化？</tspan></text>
+</g>
+</svg>

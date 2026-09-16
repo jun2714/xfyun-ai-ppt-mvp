@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>故事表达 · 阅读与分享：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#FFF6E5"/>
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,12.0 0.0,12.0" fill="#245B59"/>
+<polygon points="32.0,628.0 1248.0,628.0 1248.0,708.0 32.0,708.0" fill="#F5C85C"/>
+<polygon points="54.0,180.0 418.0,180.0 418.0,456.0 54.0,456.0" fill="#245B59"/>
+<polygon points="58.0,184.0 414.0,184.0 414.0,452.0 58.0,452.0" fill="#FFFFFF"/>
+<polygon points="458.0,180.0 822.0,180.0 822.0,456.0 458.0,456.0" fill="#245B59"/>
+<polygon points="462.0,184.0 818.0,184.0 818.0,452.0 462.0,452.0" fill="#FFFFFF"/>
+<polygon points="862.0,180.0 1226.0,180.0 1226.0,456.0 862.0,456.0" fill="#245B59"/>
+<polygon points="866.0,184.0 1222.0,184.0 1222.0,452.0 866.0,452.0" fill="#FFFFFF"/>
+<text fill="#244747" font-size="48.0" font-weight="700"><tspan x="48.0" y="108.0">小熊找到好朋友</tspan></text>
+<text fill="#245B59" font-size="32.0" font-weight="700"><tspan x="48.0" y="680.0">想一想：小熊的心情怎样变了？</tspan></text>
+<rect x="60.0" y="186.0" width="352.0" height="264.0" rx="16" fill="#F5C85C"/><g transform="translate(60.0 201.0) scale(0.55)"><path d="M0 230Q150 160 320 230T640 230V360H0Z" fill="#F5C85C"/><circle cx="279" cy="82" r="30" fill="#245B59"/><circle cx="361" cy="82" r="30" fill="#245B59"/><ellipse cx="320" cy="236" rx="68" ry="100" fill="#245B59"/><circle cx="320" cy="132" r="66" fill="#C98965"/><ellipse cx="320" cy="158" rx="34" ry="25" fill="#F5DFC4"/><circle cx="297" cy="125" r="5" fill="#244747"/><circle cx="343" cy="125" r="5" fill="#244747"/><circle cx="320" cy="148" r="7" fill="#244747"/></g><text x="236.0" y="436.0" text-anchor="middle" font-size="20" fill="#244747">配图位置 · 版式示意</text>
+<text fill="#244747" font-size="32.0" font-weight="700"><tspan x="60.0" y="504.0">开始：小熊走进森林。</tspan></text>
+<rect x="464.0" y="186.0" width="352.0" height="264.0" rx="16" fill="#F5C85C"/><g transform="translate(464.0 201.0) scale(0.55)"><path d="M0 230Q150 160 320 230T640 230V360H0Z" fill="#F5C85C"/><circle cx="279" cy="82" r="30" fill="#245B59"/><circle cx="361" cy="82" r="30" fill="#245B59"/><ellipse cx="320" cy="236" rx="68" ry="100" fill="#245B59"/><circle cx="320" cy="132" r="66" fill="#C98965"/><ellipse cx="320" cy="158" rx="34" ry="25" fill="#F5DFC4"/><circle cx="297" cy="125" r="5" fill="#244747"/><circle cx="343" cy="125" r="5" fill="#244747"/><circle cx="320" cy="148" r="7" fill="#244747"/></g><text x="640.0" y="436.0" text-anchor="middle" font-size="20" fill="#244747">配图位置 · 版式示意</text>
+<text fill="#244747" font-size="32.0" font-weight="700"><tspan x="464.0" y="504.0">后来：听见朋友呼唤。</tspan></text>
+<rect x="868.0" y="186.0" width="352.0" height="264.0" rx="16" fill="#F5C85C"/><g transform="translate(868.0 201.0) scale(0.55)"><path d="M0 230Q150 160 320 230T640 230V360H0Z" fill="#F5C85C"/><circle cx="279" cy="82" r="30" fill="#245B59"/><circle cx="361" cy="82" r="30" fill="#245B59"/><ellipse cx="320" cy="236" rx="68" ry="100" fill="#245B59"/><circle cx="320" cy="132" r="66" fill="#C98965"/><ellipse cx="320" cy="158" rx="34" ry="25" fill="#F5DFC4"/><circle cx="297" cy="125" r="5" fill="#244747"/><circle cx="343" cy="125" r="5" fill="#244747"/><circle cx="320" cy="148" r="7" fill="#244747"/></g><text x="1044.0" y="436.0" text-anchor="middle" font-size="20" fill="#244747">配图位置 · 版式示意</text>
+<text fill="#244747" font-size="32.0" font-weight="700"><tspan x="868.0" y="504.0">最后：大家分享果子。</tspan></text>
+</g>
+</svg>

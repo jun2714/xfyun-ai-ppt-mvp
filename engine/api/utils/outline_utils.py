@@ -8,6 +8,15 @@ from models.presentation_outline_model import (
 )
 
 
+def get_saved_outline_failure(theme: object) -> Optional[str]:
+    """Return a terminal failure without starting another paid outline request."""
+    generation = theme.get("kindergarten_generation") if isinstance(theme, dict) else None
+    if not isinstance(generation, dict) or generation.get("outline_status") != "failed":
+        return None
+    detail = generation.get("outline_error")
+    return detail if isinstance(detail, str) and detail.strip() else "大纲生成失败，请返回首页重新创建。"
+
+
 HEADING_PATTERN = re.compile(r"^\s{0,3}#+\s*(.+)$", re.MULTILINE)
 FIRST_SENTENCE_PATTERN = re.compile(r"^\s*([^.?!]+?[.?!])", re.DOTALL)
 IMAGE_URL_PATTERN = re.compile(

@@ -1,0 +1,120 @@
+import copy
+
+import jsonschema
+import pytest
+
+from api.v1.ppt.endpoints.presentation import (
+    _apply_template_content_to_ui, _collect_non_decorative_text_elements,
+    _template_text_required_height,
+)
+from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
+from models.presentation_outline_model import (
+    PresentationOutlineModel,
+    SlideContentContract,
+    SlideOutlineModel,
+)
+from services.classroom_content_mapping import build_classroom_content
+from templates.teacher_training import build_training_template
+from templates.v2.schema import get_template_schema
+from utils.layout_compatibility import get_allowed_layout_indices_for_outline
+
+
+@pytest.mark.parametrize("count", [2, 3, 4])
+def test_training_evidence_cards_fit_full_captions_without_changing_pairing(count):
+    template = build_training_template()
+    layout_id = f"classroom_training_cards_{count}"
+    schema = next(entry["schema"] for entry in get_template_schema(template.layouts)["layouts"]
+                  if entry["layout_id"] == layout_id)
+    points = [f"证据{index}：记录孩子原话和具体动作，区分主观推断，再讨论支持策略。"
+              for index in range(count)]
+    contract = SlideContentContract(
+        preserve_visible_copy=True, screen_title="把主观判断改为客观证据", screen_points=points,
+        asset_contracts=[dict(planning_slot=str(index), semantic_label=f"证据画面{index}",
+                             description="教师在游戏现场进行观察记录", audience_text=point)
+                         for index, point in reversed(list(enumerate(points)))],
+    )
+    outline = SlideOutlineModel(content="\n".join([contract.screen_title, *points]), content_contract=contract)
+    result = build_classroom_content(schema, outline)
+    layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
+    ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
+    for index, point in enumerate(points):
+        assert result[f"card_{index}"]["text"] == point
+        assert f"证据画面{index}" in result[f"card_{index}"]["visual"]["image_prompt"]
+    for box in _collect_non_decorative_text_elements(ui["components"]):
+        assert box["font"]["size"] >= 32
+        assert _template_text_required_height(box) <= box["size"]["height"] + 1
+
+
+@pytest.mark.parametrize("count", range(1, 7))
+def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
+    template = build_training_template()
+    entries = get_template_schema(template.layouts)["layouts"]
+    layout_id = f"classroom_training_scene_left_{count}"
+    schema = next(entry["schema"] for entry in entries if entry["layout_id"] == layout_id)
+    points = [f"观察证据{index + 1}：记录孩子原话和具体动作，再讨论支持策略。" for index in range(count)]
+    title = "把主观评价改为可观察的游戏证据"
+    cue = "两人一组：把一条主观判断改写成观察记录。"
+    outline = SlideOutlineModel(
+        content="\n".join([title, *points, cue]),
+        content_contract=SlideContentContract(
+            preserve_visible_copy=True, screen_title=title, screen_points=points,
+            screen_instruction=cue, teacher_note="保留儿童原话，讨论可验证的支持行动。",
+        ),
+    )
+    result = build_classroom_content(schema, outline)
+    jsonschema.validate({k: v for k, v in result.items() if not k.startswith("__")}, schema)
+    assert [result[f"point_{index}"]["text"] for index in range(count)] == points
+    assert "专业清晰的教育编辑插画" in result["scene"]["visual"]["image_prompt"]
+    assert "禁止英文" in result["scene"]["visual"]["image_prompt"]
+    assert "统一二维儿童绘本" not in result["scene"]["visual"]["image_prompt"]
+    assert all(point not in result["scene"]["visual"]["image_prompt"] for point in points)
+    layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
+    ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
+    boxes = _collect_non_decorative_text_elements(ui["components"])
+    for box in boxes:
+        assert box["font"]["size"] >= 32
+        assert _template_text_required_height(box) <= box["size"]["height"] + 1
+        assert box["position"]["x"] + box["size"]["width"] <= 1280
+        assert box["position"]["y"] + box["size"]["height"] <= 720
+    for index, box in enumerate(boxes):
+        for other in boxes[index + 1:]:
+            a, b = box["position"], other["position"]
+            assert (a["x"] + box["size"]["width"] <= b["x"] or
+                    b["x"] + other["size"]["width"] <= a["x"] or
+                    a["y"] + box["size"]["height"] <= b["y"] or
+                    b["y"] + other["size"]["height"] <= a["y"])
+
+
+def test_training_deck_rotates_genuinely_different_scene_compositions():
+    template = build_training_template()
+    schemas = get_template_schema(template.layouts)["layouts"]
+    layout = PresentationLayoutModel(
+        name="teacher-training",
+        slides=[
+            SlideLayoutModel(id=entry["layout_id"], json_schema=entry["schema"])
+            for entry in schemas
+        ],
+    )
+    points = ["观察家长表达的事实与担忧", "共同确认下一步行动"]
+    slides = []
+    for index in range(8):
+        contract = SlideContentContract(
+            preserve_visible_copy=True,
+            screen_title=f"教研页面 {index + 1}",
+            screen_points=points,
+            teacher_note="完整讲稿",
+        )
+        slides.append(SlideOutlineModel(
+            content="\n".join([contract.screen_title, *points]),
+            content_contract=contract,
+        ))
+
+    choices = get_allowed_layout_indices_for_outline(
+        PresentationOutlineModel(slides=slides), layout
+    )
+    chosen = [layout.slides[item[0]].id for item in choices]
+
+    assert any("_scene_top_" in layout_id for layout_id in chosen)
+    assert any("_scene_left_" in layout_id for layout_id in chosen)
+    assert any("_scene_right_" in layout_id for layout_id in chosen)
+    assert max(chosen.count(layout_id) for layout_id in set(chosen)) <= 3

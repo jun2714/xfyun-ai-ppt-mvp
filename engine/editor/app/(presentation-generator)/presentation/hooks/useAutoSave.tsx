@@ -36,6 +36,7 @@ export const useAutoSave = ({
     const pendingSaveRef = useRef(false);
     const saveLatestRef = useRef<() => Promise<void>>(async () => undefined);
     const isSavingRef = useRef(false);
+    const lastSaveErrorRef = useRef<unknown>(null);
     const [isSaving, setIsSaving] = useState<boolean>(false);
 
     const autoSavePaused =
@@ -68,6 +69,7 @@ export const useAutoSave = ({
         ) return;
 
         try {
+            lastSaveErrorRef.current = null;
             isSavingRef.current = true;
             setIsSaving(true);
             console.log('🔄 Auto-saving presentation data...');
@@ -122,6 +124,7 @@ export const useAutoSave = ({
 
             console.log('✅ Auto-save successful');
         } catch (error) {
+            lastSaveErrorRef.current = error;
             console.error('❌ Auto-save failed:', error);
         } finally {
             isSavingRef.current = false;
@@ -207,7 +210,22 @@ export const useAutoSave = ({
         dispatch,
     ]);
     
-    return {
-        isSaving,
-    };
+    const flush = useCallback(async () => {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        for (let attempt = 0; attempt < 5; attempt++) {
+            while (isSavingRef.current) await new Promise(resolve => setTimeout(resolve, 25));
+            if (autoSavePausedRef.current) throw new Error("请等待当前编辑操作完成后补图");
+            await saveLatest();
+            if (lastSaveErrorRef.current) throw lastSaveErrorRef.current;
+            const data = latestDataRef.current;
+            const acknowledged = acknowledgedDataRef.current;
+            if (data && acknowledged) {
+                const changes = getAutoSaveChanges(acknowledged, data);
+                if (!changes.structuralChange && !changes.metadataChanged && !changes.changedSlides.length) return;
+            }
+        }
+        throw new Error("课件仍在修改，请稍后再补图");
+    }, [saveLatest]);
+
+    return { isSaving, flush };
 };

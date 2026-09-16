@@ -149,6 +149,18 @@ def test_any_topic_cannot_be_replaced_by_unrequested_animal_story():
     )
 
 
+def test_nature_exploration_topic_can_keep_animal_friends():
+    plan = _valid_plan()
+    plan.meta.topic = "帮我生成一个以自然探索动植物为主的ppt"
+
+    report = validate_kindergarten_lesson_plan(plan)
+
+    assert not any(
+        issue.code == "topic-replaced-by-unrequested-storyline"
+        for issue in report.errors
+    )
+
+
 def test_explicit_animal_growth_topic_can_keep_its_animal_subject():
     plan = _valid_plan()
     plan.meta.topic = "小兔子的成长故事"

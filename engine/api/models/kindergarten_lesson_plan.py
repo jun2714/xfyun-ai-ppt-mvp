@@ -141,7 +141,7 @@ class KindergartenSlidePlan(BaseModel):
     teaching_goal: str = Field(min_length=1, max_length=300)
     screen_content: ScreenContent
     interaction: LessonInteraction = Field(default_factory=LessonInteraction)
-    teacher_note: str = Field(min_length=1, max_length=1200)
+    teacher_note: str = Field(min_length=1, max_length=12000)
     assets: List[LessonAssetSpec] = Field(default_factory=list, max_length=12)
     game: Optional[LessonGameSpec] = None
     layout_capabilities: List[str] = Field(default_factory=list, max_length=8)

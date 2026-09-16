@@ -65,3 +65,43 @@ def test_image_provider_failure_keeps_slide_and_returns_empty_assets(tmp_path, m
     assert len(traces) == 1
     assert traces[0].status == "failed"
     assert traces[0].error["type"] == "TimeoutError"
+
+
+def test_research_ppt_does_not_repeat_an_uncertain_provider_timeout(tmp_path, monkeypatch):
+    traces = []
+
+    async def record(trace):
+        traces.append(trace)
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    monkeypatch.setattr(
+        asset_execution_service,
+        "build_default_asset_semantic_quality_service",
+        lambda: None,
+    )
+
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="test",
+        layout="test",
+        index=0,
+        content={"main": {"picture": {"image_prompt": "教研现场观察记录"}}},
+        ui={"components": []},
+    )
+    service = FailingImageService(tmp_path)
+    from services.research_ppt_generation_context import (
+        ResearchPptImageOptions,
+        research_ppt_image_options,
+    )
+
+    token = research_ppt_image_options.set(ResearchPptImageOptions(enabled=True))
+    try:
+        generated, _plan = asyncio.run(
+            asset_execution_service.process_presentation_assets(service, [slide])
+        )
+    finally:
+        research_ppt_image_options.reset(token)
+
+    assert service.calls == 1
+    assert generated == []
+    assert len(traces) == 1

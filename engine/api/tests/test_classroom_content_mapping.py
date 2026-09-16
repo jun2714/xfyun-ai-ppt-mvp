@@ -72,8 +72,8 @@ def test_cover_role_uses_dedicated_editable_title_layout():
         _collect_non_decorative_text_elements(ui["components"]),
         key=lambda element: element["position"]["y"],
     )
-    assert [box["position"]["y"] for box in text_boxes] == [190, 350, 520]
-    assert [box["size"]["height"] for box in text_boxes] == [110, 144, 64]
+    assert [box["position"]["y"] for box in text_boxes] == [104, 390, 586]
+    assert [box["size"]["height"] for box in text_boxes] == [264, 172, 56]
     assert all(box["font"]["size"] >= 32 for box in text_boxes)
     assert text_boxes[0]["position"]["y"] + text_boxes[0]["size"]["height"] < text_boxes[1]["position"]["y"]
     assert text_boxes[1]["position"]["y"] + text_boxes[1]["size"]["height"] < text_boxes[2]["position"]["y"]
@@ -230,7 +230,7 @@ def test_lesson_conversion_retains_screen_and_interaction_roles():
     assert contract.interaction_instruction == "请幼儿指出变化。"
     from services.kindergarten_template_routing_service import resolve_kindergarten_template
     from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
-    assert resolve_kindergarten_template(plan, "auto").template == "kindergarten-classroom"
+    assert resolve_kindergarten_template(plan, "auto").template == "classroom-nature"
     assert resolve_kindergarten_template(plan, "standard").template == "standard"
     assert resolve_kindergarten_template(plan, "auto", allow_classroom=False).template != "kindergarten-classroom"
     plan.slides[0].assets[0].audience_text = "另一个页面的内容"

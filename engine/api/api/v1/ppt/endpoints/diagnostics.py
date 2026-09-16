@@ -11,6 +11,8 @@ from utils.image_provider import (
     is_image_generation_disabled,
 )
 from utils.oss_storage import is_oss_enabled
+from utils.get_env import get_image_generation_timeout_seconds
+from services.model_request_queue import queue_limits
 
 
 DIAGNOSTICS_ROUTER = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
@@ -25,6 +27,11 @@ class ImageRuntimeResponse(BaseModel):
     base_url: str | None
     timeout_seconds: float
     concurrency: int
+    admission_scope: str = "api-process"
+    global_concurrency: int
+    per_owner_concurrency: int
+    max_pending_requests: int
+    queue_timeout_seconds: float
     disabled: bool
     oss_enabled: bool
     google_genai_version: str | None
@@ -51,10 +58,7 @@ def _google_genai_runtime() -> tuple[str | None, bool]:
 
 
 def _bounded_timeout() -> float:
-    try:
-        return max(10.0, float(os.getenv("IMAGE_GENERATION_TIMEOUT_SECONDS", "75")))
-    except ValueError:
-        return 75.0
+    return get_image_generation_timeout_seconds()
 
 
 def _bounded_concurrency() -> int:
@@ -102,6 +106,10 @@ def resolve_image_runtime() -> ImageRuntimeResponse:
         base_url=base_url,
         timeout_seconds=_bounded_timeout(),
         concurrency=_bounded_concurrency(),
+        global_concurrency=queue_limits("image").concurrent,
+        per_owner_concurrency=queue_limits("image").per_owner,
+        max_pending_requests=queue_limits("image").pending,
+        queue_timeout_seconds=queue_limits("image").wait_seconds,
         disabled=is_image_generation_disabled(),
         oss_enabled=is_oss_enabled(),
         google_genai_version=google_genai_version,

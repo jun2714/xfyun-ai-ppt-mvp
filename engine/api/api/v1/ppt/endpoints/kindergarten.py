@@ -4,17 +4,33 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Literal, Optional
+from datetime import datetime
+from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
+from api.v1.auth.context import (
+    get_current_owner_id,
+    get_current_owner_is_admin,
+    reset_current_owner_id,
+    reset_current_owner_is_admin,
+    set_current_owner_id,
+    set_current_owner_is_admin,
+)
 from api.v1.ppt.endpoints.presentation import (
     create_presentation,
     prepare_presentation,
+    stream_presentation,
 )
+from enums.async_task_status import AsyncTaskStatus
+from models.api_error_model import APIErrorModel
+from models.sql.async_task import AsyncTaskModel
+from models.sql.slide import SlideModel
 from enums.tone import Tone
 from enums.verbosity import Verbosity
 from models.image_policy import ImagePolicy
@@ -31,11 +47,12 @@ from models.sse_response import (
 )
 from models.sql.presentation import PresentationModel
 from models.sql.template_v2 import TemplateV2
-from services.database import get_async_session
+from services.database import async_session_maker, get_async_session
 from services.documents_loader import DocumentsLoader
 from services.kindergarten_presentation_planning_service import (
     KindergartenPlanningQualityError,
     ValidatedKindergartenPlanningResult,
+    _outline_for_audience,
     generate_validated_kindergarten_presentation_outline,
 )
 from services.kindergarten_plan_quality_service import (
@@ -59,18 +76,30 @@ from services.kindergarten_visual_planning_service import (
     apply_ai_background_visual_plan,
     get_kindergarten_visual_style_summary,
 )
+from services.research_ppt_generation_context import (
+    ResearchPptImageOptions,
+    looks_like_english_teaching_request,
+    research_ppt_image_options,
+)
 from services.mem0_presentation_memory_service import (
     MEM0_PRESENTATION_MEMORY_SERVICE,
 )
 from services.owner_scope import get_by_id_unscoped
 from templates.ai_visual_production import build_production_ai_visual_template
 from utils.sse import safe_sse_stream
+from utils.outline_utils import get_saved_outline_failure
 
 
 KINDERGARTEN_ROUTER = APIRouter(prefix="/kindergarten", tags=["Kindergarten"])
 MAX_KINDERGARTEN_SOURCE_CONTEXT_CHARS = 30000
 LOGGER = logging.getLogger(__name__)
 KindergartenContentMode = Literal["classroom", "training"]
+ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE = "kindergarten.generate_complete"
+
+
+class _AlwaysConnectedRequest:
+    async def is_disconnected(self) -> bool:
+        return False
 
 
 class KindergartenLessonPlanRequest(BaseModel):
@@ -205,16 +234,73 @@ async def _generate_validated_plan(
                 f"{runtime.total_timeout_seconds:g}-second outline deadline"
             ),
         ) from exc
+
+
+def _quality_failure_http(exc: KindergartenPlanningQualityError) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail={
+            "code": "KINDERGARTEN_PLAN_QUALITY_FAILED",
+            "message": "幼教课堂规划经过自动修复后仍未通过硬性质量校验",
+            "planning_attempts": exc.attempts,
+            "quality": exc.report.model_dump(mode="json"),
+        },
+    )
+
+
+def reviewable_result_from_quality_error(
+    exc: KindergartenPlanningQualityError,
+    content_mode: str,
+) -> ValidatedKindergartenPlanningResult | None:
+    """Keep a streamed outline when pages exist, instead of wiping the review UI."""
+    if exc.plan is None or len(exc.plan.slides) < 3:
+        return None
+    return ValidatedKindergartenPlanningResult(
+        plan=exc.plan,
+        outline=_outline_for_audience(exc.plan, content_mode),
+        quality=exc.report,
+        attempts=exc.attempts,
+    )
+
+
+QUALITY_REVIEW_WARNING = "大纲已保存，部分硬性校验未通过，请核对后再生成课件"
+
+
+def _quality_review_warning(
+    result: ValidatedKindergartenPlanningResult,
+) -> Optional[str]:
+    if result.quality.passed:
+        return None
+    return QUALITY_REVIEW_WARNING
+
+
+async def _generate_reviewable_plan(
+    payload: KindergartenLessonPlanRequest,
+    request: Request,
+    *,
+    text_chunk_callback=None,
+    stop_on_disconnect: bool = True,
+) -> ValidatedKindergartenPlanningResult:
+    """Return a usable plan when hard quality still fails after local repair."""
+    try:
+        return await _generate_validated_plan(
+            payload,
+            request,
+            text_chunk_callback=text_chunk_callback,
+            stop_on_disconnect=stop_on_disconnect,
+        )
     except KindergartenPlanningQualityError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "KINDERGARTEN_PLAN_QUALITY_FAILED",
-                "message": "幼教课堂规划经过自动修复后仍未通过硬性质量校验",
-                "planning_attempts": exc.attempts,
-                "quality": exc.report.model_dump(mode="json"),
-            },
-        ) from exc
+        reviewable = reviewable_result_from_quality_error(
+            exc,
+            payload.content_mode,
+        )
+        if reviewable is None:
+            raise _quality_failure_http(exc) from exc
+        LOGGER.warning(
+            "[kindergarten.plan] keeping reviewable outline after quality gate: %s",
+            exc,
+        )
+        return reviewable
 
 
 def _layout_count(template: TemplateV2) -> int:
@@ -253,21 +339,47 @@ async def _ensure_ai_visual_template(sql_session: AsyncSession) -> None:
     await sql_session.commit()
 
 
+async def _available_auto_templates(payload, sql_session):
+    if not _uses_template_routing(payload) or (payload.template or "auto").strip().casefold() != "auto":
+        return None
+    rows = await sql_session.scalars(select(TemplateV2).where(TemplateV2.is_default.is_(True)))
+    pool = {template.id: template for template in rows}
+    if payload.content_mode == "training" and not any(
+        key in pool for key in ("training-case", "training-action", "teacher-training")
+    ):
+        return None
+    return pool
+
+
+def _uses_template_routing(payload: KindergartenPresentationCreateRequest) -> bool:
+    # Teacher-training decks keep reviewed copy. The AI-background skeleton is
+    # sized for short classroom captions and will reject dense 教研正文.
+    return payload.visual_mode == "template" or payload.content_mode == "training"
+
+
+def _uses_ai_background(payload: KindergartenPresentationCreateRequest) -> bool:
+    return payload.visual_mode == "ai-background" and payload.content_mode != "training"
+
+
 def _apply_visual_mode(
     payload: KindergartenPresentationCreateRequest,
     result: ValidatedKindergartenPlanningResult,
+    *,
+    available_templates: dict | None = None,
 ) -> tuple[
     ValidatedKindergartenPlanningResult,
     KindergartenTemplateRoutingDecision,
     Optional[str],
 ]:
-    if payload.visual_mode == "template":
+    if _uses_template_routing(payload):
         routing = resolve_kindergarten_template(
             result.plan,
             payload.template,
             instructions=payload.instructions,
-            allow_classroom=(payload.content_mode == "classroom"
-                             and payload.image_policy != ImagePolicy.DISABLED),
+            allow_classroom=payload.image_policy != ImagePolicy.DISABLED,
+            content_mode=payload.content_mode,
+            topic=payload.topic,
+            available_templates=available_templates,
         )
         return result, routing, None
 
@@ -348,6 +460,7 @@ async def _persist_kindergarten_generation_metadata(
     routing: KindergartenTemplateRoutingDecision,
     visual_style_summary: Optional[str],
     sql_session: AsyncSession,
+    quality_warning: Optional[str] = None,
 ) -> None:
     """Persist routing so a saved outline can be resumed without URL-only state."""
     theme = dict(presentation.theme or {})
@@ -357,6 +470,7 @@ async def _persist_kindergarten_generation_metadata(
         "version": 1,
         "age_group": payload.age_group,
         "domain": payload.domain,
+        "content_mode": payload.content_mode,
         "duration_minutes": payload.duration_minutes,
         "visual_mode": payload.visual_mode,
         "visual_style": payload.visual_style,
@@ -366,6 +480,11 @@ async def _persist_kindergarten_generation_metadata(
         "template_scores": routing.scores,
         "outline_status": "ready",
     })
+    generation.pop("outline_error", None)
+    if quality_warning:
+        generation["quality_warning"] = quality_warning
+    else:
+        generation.pop("quality_warning", None)
     theme["kindergarten_generation"] = generation
     presentation.theme = theme
     sql_session.add(presentation)
@@ -419,6 +538,9 @@ async def _persist_outline_failure(
 ) -> None:
     """Mark incomplete records so the project list can identify failed generation."""
     await sql_session.rollback()
+    # Rollback expires ORM attributes even with expire_on_commit=False. Reload
+    # explicitly so reading theme does not trigger synchronous IO in async code.
+    await sql_session.refresh(presentation)
     theme = dict(presentation.theme or {})
     existing = theme.get("kindergarten_generation")
     generation = dict(existing) if isinstance(existing, dict) else {}
@@ -470,7 +592,7 @@ async def create_kindergarten_lesson_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
 ):
-    result = await _generate_validated_plan(payload, request)
+    result = await _generate_reviewable_plan(payload, request)
     return KindergartenLessonPlanResponse(
         plan=result.plan,
         outline=result.outline,
@@ -495,9 +617,11 @@ async def create_kindergarten_presentation(
     page-specific full-canvas background contract per slide, and defers paid image
     generation until after the teacher reviews the outline.
     """
-    result = await _generate_validated_plan(payload, request)
-    result, routing, style_summary = _apply_visual_mode(payload, result)
-    if payload.visual_mode == "ai-background":
+    result = await _generate_reviewable_plan(payload, request)
+    result, routing, style_summary = _apply_visual_mode(
+        payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+    )
+    if _uses_ai_background(payload):
         await _ensure_ai_visual_template(sql_session)
 
     presentation = await _create_reviewable_presentation(payload, result, sql_session)
@@ -507,6 +631,7 @@ async def create_kindergarten_presentation(
         routing=routing,
         visual_style_summary=style_summary,
         sql_session=sql_session,
+        quality_warning=_quality_review_warning(result),
     )
     return KindergartenPresentationCreateResponse(
         presentation_id=presentation.id,
@@ -588,6 +713,10 @@ async def stream_kindergarten_presentation_outline(
     if presentation is None:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
+    failure = get_saved_outline_failure(presentation.theme)
+    if not presentation.outlines and failure:
+        raise HTTPException(status_code=409, detail=failure)
+
     async def inner():
         if presentation.outlines:
             yield SSEStatusResponse(status="Loading saved kindergarten outline").to_string()
@@ -636,7 +765,7 @@ async def stream_kindergarten_presentation_outline(
             await chunk_queue.put(chunk)
 
         planning_task = asyncio.create_task(
-            _generate_validated_plan(
+            _generate_reviewable_plan(
                 payload,
                 request,
                 text_chunk_callback=on_chunk,
@@ -669,10 +798,15 @@ async def stream_kindergarten_presentation_outline(
                     ),
                 ).to_string()
             result = await planning_task
+            quality_warning = _quality_review_warning(result)
             if not disconnected:
-                yield SSEStatusResponse(status="正在校验并保存大纲").to_string()
-            result, routing, style_summary = _apply_visual_mode(payload, result)
-            if payload.visual_mode == "ai-background":
+                yield SSEStatusResponse(
+                    status=quality_warning or "正在校验并保存大纲"
+                ).to_string()
+            result, routing, style_summary = _apply_visual_mode(
+                payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+            )
+            if _uses_ai_background(payload):
                 await _ensure_ai_visual_template(sql_session)
 
             presentation.outlines = result.outline.model_dump(mode="json")
@@ -686,6 +820,7 @@ async def stream_kindergarten_presentation_outline(
                 routing=routing,
                 visual_style_summary=style_summary,
                 sql_session=sql_session,
+                quality_warning=quality_warning,
             )
             await MEM0_PRESENTATION_MEMORY_SERVICE.store_generated_outlines(
                 presentation.id,
@@ -717,9 +852,7 @@ async def stream_kindergarten_presentation_outline(
         except KindergartenPlanningQualityError as exc:
             detail = f"幼教课堂大纲质检失败：{exc}"
             await _persist_outline_failure(presentation, detail, sql_session)
-            yield SSEErrorResponse(
-                detail=detail
-            ).to_string()
+            yield SSEErrorResponse(detail=detail).to_string()
         except Exception as exc:
             await _persist_outline_failure(
                 presentation,
@@ -752,9 +885,11 @@ async def prepare_kindergarten_presentation(
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     """One-shot plan + route + prepare endpoint for API clients without review UI."""
-    result = await _generate_validated_plan(payload, request)
-    result, routing, style_summary = _apply_visual_mode(payload, result)
-    if payload.visual_mode == "ai-background":
+    result = await _generate_reviewable_plan(payload, request)
+    result, routing, style_summary = _apply_visual_mode(
+        payload, result, available_templates=await _available_auto_templates(payload, sql_session),
+    )
+    if _uses_ai_background(payload):
         await _ensure_ai_visual_template(sql_session)
 
     presentation = await _create_reviewable_presentation(payload, result, sql_session)
@@ -764,6 +899,7 @@ async def prepare_kindergarten_presentation(
         routing=routing,
         visual_style_summary=style_summary,
         sql_session=sql_session,
+        quality_warning=_quality_review_warning(result),
     )
     try:
         prepared = await prepare_presentation(
@@ -795,11 +931,618 @@ async def prepare_kindergarten_presentation(
     )
 
 
+def kindergarten_complete_task_data(
+    *,
+    topic: str = "",
+    stage: str = "queued",
+    progress: int = 0,
+    presentation_id: str | uuid.UUID | None = None,
+    created_slides: int = 0,
+    n_slides: int = 0,
+    previous: dict[str, Any] | None = None,
+    warnings: list[str] | None = None,
+    missing_image_pages: list[int] | None = None,
+) -> dict[str, Any]:
+    data: dict[str, Any] = dict(previous or {})
+    data.update(
+        {
+            "topic": topic or data.get("topic") or "",
+            "stage": stage,
+            "progress": max(0, min(100, int(progress))),
+            "created_slides": max(int(created_slides), 0),
+            "n_slides": max(int(n_slides), 0),
+            "remaining_slides": max(max(int(n_slides), 0) - max(int(created_slides), 0), 0),
+        }
+    )
+    if presentation_id:
+        data["presentation_id"] = str(presentation_id)
+    if warnings is not None:
+        data["warnings"] = [str(item) for item in warnings if str(item).strip()]
+        data["has_warnings"] = bool(data["warnings"])
+    if missing_image_pages is not None:
+        data["missing_image_pages"] = sorted(set(int(page) for page in missing_image_pages))
+    return data
+
+
+def iter_sse_json_events(raw: str) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for block in str(raw or "").split("\n\n"):
+        data_lines = [
+            line[5:].lstrip()
+            for line in block.splitlines()
+            if line.startswith("data:")
+        ]
+        if not data_lines:
+            continue
+        try:
+            parsed = json.loads("\n".join(data_lines))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            events.append(parsed)
+    return events
+
+
+def _is_slide_chunk(chunk: Any) -> bool:
+    if isinstance(chunk, dict):
+        return "id" in chunk or "index" in chunk
+    if not isinstance(chunk, str):
+        return False
+    text = chunk.strip()
+    if not text.startswith("{") or "slides" in text[:24]:
+        return False
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed, dict) and ("id" in parsed or "index" in parsed)
+
+
+def _exception_detail(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        return str(exc.detail or "")
+    return str(exc or "")
+
+
+def is_retryable_complete_generation_error(exc: Exception) -> bool:
+    text = _exception_detail(exc)
+    lowered = text.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "does not fit any compatible layout",
+            "roomier template",
+            "大字号",
+            "无法完整容纳",
+            "template not found",
+            "outlines can not be empty",
+            "invalid generated data",
+        )
+    ):
+        return False
+    return any(
+        marker in lowered
+        for marker in (
+            "ai provider",
+            "please try again",
+            "failed to generate presentation",
+            "llm api error",
+            "课件生成中断",
+            "没有可见正文",
+            "尚未写完",
+            "只生成了",
+        )
+    )
+
+
+def friendly_complete_generation_detail(detail: str) -> str:
+    text = str(detail or "").strip()
+    lowered = text.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "ai provider",
+            "please try again",
+            "failed to generate presentation",
+            "llm api error",
+            "the ai provider returned an error",
+        )
+    ):
+        return "课件生成服务暂时失败，请重新生成"
+    return text or "教研 PPT 生成失败"
+
+
+class CompleteTaskCancelled(Exception):
+    """Stop the worker because the task was cancelled or already finished."""
+
+
+def complete_task_progress_writable(status: AsyncTaskStatus | str | None) -> bool:
+    value = str(getattr(status, "value", status) or "").lower()
+    return value == AsyncTaskStatus.PENDING.value
+
+
+async def _save_complete_task(sql_session: AsyncSession, task: AsyncTaskModel) -> None:
+    task.updated_at = datetime.now()
+    sql_session.add(task)
+    await sql_session.commit()
+
+
+async def _save_complete_task_by_id(
+    task_id: str,
+    *,
+    message: str,
+    data: dict[str, Any],
+) -> None:
+    """Progress updates must not share the slide-generation session.
+
+    Committing that session mid-stream can persist an empty deck, then the
+    generator still emits `complete` after a later rollback miss.
+    """
+    async with async_session_maker() as sql_session:
+        task = await sql_session.get(AsyncTaskModel, task_id)
+        if task is None or not complete_task_progress_writable(task.status):
+            raise CompleteTaskCancelled()
+        task.message = message
+        task.data = data
+        await _save_complete_task(sql_session, task)
+
+
+def _collect_ui_text(node: Any) -> list[str]:
+    texts: list[str] = []
+    if isinstance(node, dict):
+        if node.get("type") == "text" and node.get("decorative") is not True:
+            for run in node.get("runs") or []:
+                if isinstance(run, dict):
+                    value = str(run.get("text") or "").strip()
+                    if value:
+                        texts.append(value)
+        for child in node.values():
+            texts.extend(_collect_ui_text(child))
+    elif isinstance(node, list):
+        for child in node:
+            texts.extend(_collect_ui_text(child))
+    return texts
+
+
+def slide_has_visible_content(slide) -> bool:
+    placeholders = {"title", "text", "cue", "point", "heading"}
+    return any(
+        value not in placeholders and len(value) > 1
+        for value in _collect_ui_text(getattr(slide, "ui", None))
+    )
+
+
+async def _clear_incomplete_slides(
+    sql_session: AsyncSession,
+    presentation_id: uuid.UUID,
+) -> None:
+    try:
+        await sql_session.rollback()
+    except Exception:
+        pass
+    await sql_session.execute(
+        delete(SlideModel).where(SlideModel.presentation == presentation_id)
+    )
+    await sql_session.commit()
+
+
+async def _inspect_persisted_visible_slides(
+    sql_session: AsyncSession,
+    presentation_id: uuid.UUID,
+    expected_slides: int,
+) -> dict[str, Any]:
+    """Return a usable-deck report; missing images are warnings, not fatal."""
+    await sql_session.commit()
+    sql_session.expire_all()
+    rows = list(
+        await sql_session.scalars(
+            select(SlideModel)
+            .where(SlideModel.presentation == presentation_id)
+            .order_by(SlideModel.index)
+        )
+    )
+    visible = [slide for slide in rows if slide_has_visible_content(slide)]
+    structural_error = None
+    if not rows:
+        structural_error = "课件页尚未写入，请重新生成"
+    elif expected_slides > 0 and len(rows) != expected_slides:
+        structural_error = f"课件只生成了 {len(rows)}/{expected_slides} 页，请重新生成"
+    elif len(visible) != len(rows):
+        structural_error = "课件页已创建但没有可见正文，请重新生成"
+
+    missing_pages: list[int] = []
+    from services.asset_planning_service import build_asset_plan
+    presentation = await sql_session.get(PresentationModel, presentation_id)
+    if rows and (presentation is None or presentation.image_policy != ImagePolicy.DISABLED):
+        pending = build_asset_plan(rows)
+        missing_pages = sorted({slot.slide_index + 1 for item in pending for slot in item.slots})
+    warnings = []
+    if missing_pages:
+        warnings.append(
+            f"第 {', '.join(map(str, missing_pages))} 页配图未完成；课件文字与其他页面已保存，可先打开课件，再补齐缺图。"
+        )
+    return {
+        "rows": rows,
+        "visible_count": len(visible),
+        "missing_image_pages": missing_pages,
+        "warnings": warnings,
+        "structural_error": structural_error,
+        "usable": structural_error is None,
+    }
+
+
+async def _require_persisted_visible_slides(
+    sql_session: AsyncSession,
+    presentation_id: uuid.UUID,
+    expected_slides: int,
+) -> dict[str, Any]:
+    report = await _inspect_persisted_visible_slides(
+        sql_session, presentation_id, expected_slides
+    )
+    if report["structural_error"]:
+        raise HTTPException(status_code=500, detail=report["structural_error"])
+    return report
+
+
+async def _consume_presentation_stream(
+    presentation_id: uuid.UUID,
+    sql_session: AsyncSession,
+    task_id: str,
+    *,
+    topic: str,
+    n_slides: int,
+) -> None:
+    response = await stream_presentation(presentation_id, sql_session)
+    created = 0
+    streamed = 0
+    buffer = ""
+    completed = False
+    last_progress_at: datetime | None = None
+    async for chunk in response.body_iterator:
+        piece = chunk.decode("utf-8") if isinstance(chunk, (bytes, bytearray)) else str(chunk)
+        buffer += piece
+        while "\n\n" in buffer:
+            frame, buffer = buffer.split("\n\n", 1)
+            for event in iter_sse_json_events(frame + "\n\n"):
+                event_type = event.get("type")
+                if event_type == "error":
+                    raise HTTPException(
+                        status_code=500,
+                        detail=event.get("detail") or "课件页生成失败",
+                    )
+                if event_type == "slide_assets":
+                    index = event.get("slide_index")
+                    if isinstance(index, int):
+                        created = max(created, index + 1)
+                elif event_type == "chunk" and _is_slide_chunk(event.get("chunk")):
+                    streamed += 1
+                if event_type == "complete":
+                    completed = True
+                if event_type in {"chunk", "slide_assets", "status", "complete"}:
+                    displayed = created if created else streamed
+                    if not completed and n_slides:
+                        displayed = min(displayed, max(n_slides - 1, 0))
+                    progress = 30 + int(60 * max(streamed, created) / max(n_slides, 1))
+                    now = datetime.now()
+                    should_save = (
+                        completed
+                        or last_progress_at is None
+                        or (now - last_progress_at).total_seconds() >= 1.5
+                    )
+                    if should_save:
+                        last_progress_at = now
+                        await _save_complete_task_by_id(
+                            task_id,
+                            message=f"正在生成课件（{displayed}/{max(n_slides, displayed)}）",
+                            data=kindergarten_complete_task_data(
+                                topic=topic,
+                                stage="slides",
+                                progress=min(progress, 95),
+                                presentation_id=presentation_id,
+                                created_slides=displayed,
+                                n_slides=n_slides,
+                            ),
+                        )
+    if buffer.strip():
+        for event in iter_sse_json_events(buffer + "\n\n"):
+            if event.get("type") == "error":
+                raise HTTPException(
+                    status_code=500,
+                    detail=event.get("detail") or "课件页生成失败",
+                )
+            if event.get("type") == "complete":
+                completed = True
+    if not completed:
+        raise HTTPException(
+            status_code=500,
+            detail="课件生成中断，页面尚未写完",
+        )
+
+
+async def _run_kindergarten_complete_task(
+    task_id: str,
+    payload_data: dict[str, Any],
+    owner_id=None,
+    is_admin: bool = False,
+) -> None:
+    """Auto-confirm the research-plan outline and generate the full deck."""
+    owner_token = set_current_owner_id(owner_id)
+    admin_token = set_current_owner_is_admin(is_admin)
+    image_option_token = None
+    try:
+        async with async_session_maker() as sql_session:
+            task = await sql_session.get(AsyncTaskModel, task_id)
+            if task is None:
+                LOGGER.warning(
+                    "[kindergarten.generate_complete] task missing task_id=%s",
+                    task_id,
+                )
+                return
+            topic = str(payload_data.get("topic") or "")
+            try:
+                payload = KindergartenPresentationCreateRequest.model_validate(payload_data)
+                image_option_token = research_ppt_image_options.set(
+                    ResearchPptImageOptions(
+                        enabled=True,
+                        forbid_latin_text=not looks_like_english_teaching_request(
+                            payload.topic,
+                            payload.instructions,
+                            (payload.source_context or "")[:800],
+                        ),
+                    )
+                )
+                task.status = AsyncTaskStatus.PENDING
+                task.message = "正在根据教研方案规划课件大纲"
+                task.data = kindergarten_complete_task_data(
+                    topic=payload.topic,
+                    stage="outline",
+                    progress=12,
+                    previous=task.data if isinstance(task.data, dict) else None,
+                )
+                await _save_complete_task(sql_session, task)
+
+                prepared = await prepare_kindergarten_presentation(
+                    payload,
+                    _AlwaysConnectedRequest(),  # type: ignore[arg-type]
+                    sql_session,
+                )
+                n_slides = len(prepared.outline.slides)
+                task.message = "大纲已自动确认，正在生成课件页"
+                task.data = kindergarten_complete_task_data(
+                    topic=payload.topic,
+                    stage="slides",
+                    progress=28,
+                    presentation_id=prepared.presentation_id,
+                    created_slides=0,
+                    n_slides=n_slides,
+                    previous=task.data if isinstance(task.data, dict) else None,
+                )
+                await _save_complete_task(sql_session, task)
+
+                last_error: Exception | None = None
+                report: dict[str, Any] | None = None
+                for attempt in range(2):
+                    try:
+                        sql_session.expire_all()
+                        task = await sql_session.get(AsyncTaskModel, task_id)
+                        if task is None or not complete_task_progress_writable(task.status):
+                            raise CompleteTaskCancelled()
+                        if attempt > 0:
+                            # Only replay after a confirmed structural/provider
+                            # failure. Missing images stay as warnings, not a wipe.
+                            await _clear_incomplete_slides(
+                                sql_session,
+                                prepared.presentation_id,
+                            )
+                            task = await sql_session.get(AsyncTaskModel, task_id)
+                            if task is None or not complete_task_progress_writable(task.status):
+                                raise CompleteTaskCancelled()
+                            task.message = "生成中断，正在重新生成课件页"
+                            await _save_complete_task(sql_session, task)
+                        await _consume_presentation_stream(
+                            prepared.presentation_id,
+                            sql_session,
+                            task.id,
+                            topic=payload.topic,
+                            n_slides=n_slides,
+                        )
+                        report = await _require_persisted_visible_slides(
+                            sql_session,
+                            prepared.presentation_id,
+                            n_slides,
+                        )
+                        last_error = None
+                        break
+                    except CompleteTaskCancelled:
+                        raise
+                    except HTTPException as exc:
+                        last_error = exc
+                        if attempt == 0 and is_retryable_complete_generation_error(exc):
+                            LOGGER.warning(
+                                "[kindergarten.generate_complete] retrying slides task_id=%s detail=%s",
+                                task_id,
+                                exc.detail,
+                            )
+                            continue
+                        raise
+                if last_error is not None:
+                    raise last_error
+                if report is None:
+                    report = await _require_persisted_visible_slides(
+                        sql_session, prepared.presentation_id, n_slides,
+                    )
+
+                sql_session.expire_all()
+                task = await sql_session.get(AsyncTaskModel, task_id)
+                if task is None or not complete_task_progress_writable(task.status):
+                    return
+                task.status = AsyncTaskStatus.COMPLETED
+                task.message = (
+                    f"教研 PPT 已生成并可打开；第 {', '.join(map(str, report['missing_image_pages']))} 页配图待补充"
+                    if report["warnings"] else
+                    "教研 PPT 已生成完成，点击查看"
+                )
+                task.error = None
+                task.data = kindergarten_complete_task_data(
+                    topic=payload.topic,
+                    stage="completed_with_warnings" if report["warnings"] else "completed",
+                    progress=100,
+                    presentation_id=prepared.presentation_id,
+                    created_slides=n_slides,
+                    n_slides=n_slides,
+                    warnings=report["warnings"],
+                    missing_image_pages=report["missing_image_pages"],
+                    previous=task.data if isinstance(task.data, dict) else None,
+                )
+                await _save_complete_task(sql_session, task)
+            except CompleteTaskCancelled:
+                LOGGER.info(
+                    "[kindergarten.generate_complete] cancelled task_id=%s",
+                    task_id,
+                )
+                return
+            except Exception as exc:
+                LOGGER.exception(
+                    "[kindergarten.generate_complete] failed task_id=%s",
+                    task_id,
+                )
+                try:
+                    await sql_session.rollback()
+                except Exception:
+                    pass
+                sql_session.expire_all()
+                task = await sql_session.get(AsyncTaskModel, task_id)
+                if task is None or not complete_task_progress_writable(task.status):
+                    return
+                detail = friendly_complete_generation_detail(_exception_detail(exc))
+                task_data = task.data if isinstance(task.data, dict) else {}
+                saved_id = task_data.get("presentation_id")
+                expected = int(task_data.get("n_slides") or 0)
+                report = None
+                if saved_id and expected:
+                    try:
+                        report = await _inspect_persisted_visible_slides(
+                            sql_session, uuid.UUID(str(saved_id)), expected
+                        )
+                    except Exception:
+                        LOGGER.exception("Could not inspect saved deck after generation warning")
+                if report and report["usable"]:
+                    warnings = [detail, *report["warnings"]]
+                    task.status = AsyncTaskStatus.COMPLETED
+                    missing_label = ", ".join(map(str, report["missing_image_pages"]))
+                    task.message = (
+                        f"课件已生成并可打开；第 {missing_label} 页配图待补充"
+                        if missing_label else
+                        "课件已生成并可打开；生成过程有提示，请进入课件检查"
+                    )
+                    task.error = None
+                    task.data = kindergarten_complete_task_data(
+                        topic=topic,
+                        stage="completed_with_warnings",
+                        progress=100,
+                        presentation_id=saved_id,
+                        created_slides=report["visible_count"],
+                        n_slides=expected,
+                        warnings=warnings,
+                        missing_image_pages=report["missing_image_pages"],
+                        previous=task_data,
+                    )
+                    await _save_complete_task(sql_session, task)
+                    return
+                api_error = APIErrorModel.from_exception(
+                    HTTPException(status_code=500, detail=detail)
+                )
+                task.status = AsyncTaskStatus.ERROR
+                task.message = detail
+                task.error = api_error.model_dump(mode="json")
+                task.data = kindergarten_complete_task_data(
+                    topic=topic,
+                    stage="error",
+                    progress=int((task.data or {}).get("progress") or 0),
+                    presentation_id=(task.data or {}).get("presentation_id"),
+                    created_slides=int((task.data or {}).get("created_slides") or 0),
+                    n_slides=int((task.data or {}).get("n_slides") or 0),
+                    previous=task.data if isinstance(task.data, dict) else None,
+                )
+                await _save_complete_task(sql_session, task)
+    finally:
+        if image_option_token is not None:
+            research_ppt_image_options.reset(image_option_token)
+        reset_current_owner_is_admin(admin_token)
+        reset_current_owner_id(owner_token)
+
+
+@KINDERGARTEN_ROUTER.post(
+    "/presentation/generate-complete/async",
+    response_model=AsyncTaskModel,
+)
+async def generate_kindergarten_presentation_complete_async(
+    payload: KindergartenPresentationCreateRequest,
+    background_tasks: BackgroundTasks,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    task = AsyncTaskModel(
+        type=ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE,
+        status=AsyncTaskStatus.PENDING,
+        message="已排队，正在后台生成教研课件",
+        data=kindergarten_complete_task_data(
+            topic=payload.topic,
+            stage="queued",
+            progress=4,
+        ),
+    )
+    sql_session.add(task)
+    await sql_session.commit()
+    await sql_session.refresh(task)
+    background_tasks.add_task(
+        _run_kindergarten_complete_task,
+        task.id,
+        payload.model_dump(mode="json"),
+        get_current_owner_id(),
+        get_current_owner_is_admin(),
+    )
+    return task
+
+
+@KINDERGARTEN_ROUTER.post(
+    "/presentation/generate-complete/{task_id}/cancel",
+    response_model=AsyncTaskModel,
+)
+async def cancel_kindergarten_presentation_complete(
+    task_id: str,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    task = await sql_session.get(AsyncTaskModel, task_id)
+    if task is None or task.type != ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE:
+        raise HTTPException(status_code=404, detail="No async task found")
+    if task.status == AsyncTaskStatus.COMPLETED:
+        return task
+    if task.status != AsyncTaskStatus.ERROR:
+        data = task.data if isinstance(task.data, dict) else {}
+        task.status = AsyncTaskStatus.ERROR
+        task.message = "已取消"
+        task.error = APIErrorModel.from_exception(
+            HTTPException(status_code=409, detail="已取消")
+        ).model_dump(mode="json")
+        task.data = kindergarten_complete_task_data(
+            topic=str(data.get("topic") or ""),
+            stage="cancelled",
+            progress=int(data.get("progress") or 0),
+            presentation_id=data.get("presentation_id"),
+            created_slides=int(data.get("created_slides") or 0),
+            n_slides=int(data.get("n_slides") or 0),
+            previous=data,
+        )
+        await _save_complete_task(sql_session, task)
+    return task
+
+
 @KINDERGARTEN_ROUTER.post(
     "/lesson-plan/validate",
     response_model=KindergartenPlanQualityReport,
 )
 async def validate_kindergarten_plan(
     plan: KindergartenLessonPlan,
+    content_mode: Literal["classroom", "training"] = "classroom",
 ):
-    return validate_kindergarten_lesson_plan(plan)
+    return validate_kindergarten_lesson_plan(plan, content_mode=content_mode)

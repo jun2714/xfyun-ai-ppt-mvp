@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="幼教课堂版式预览">
+<rect width="1280" height="720" fill="#FFF9EF"/>
+<g font-family="Microsoft YaHei, sans-serif" fill="#203C35"><text x="64" y="94" font-size="46" font-weight="700">嘘，小种子醒了吗？</text><text x="868" y="292" font-size="32">摸一摸小外套</text><text x="868" y="386" font-size="32">找一找小变化</text><text x="64" y="664" font-size="30" fill="#79512D">一起蹲下来，慢慢长成一棵小芽。</text></g>
+<rect x="64" y="156" width="744" height="420" fill="#E7F0DE"/>
+<path d="M64 455 Q250 410 440 455 T808 440 V576 H64Z" fill="#C6A17B"/>
+<ellipse cx="421" cy="432" rx="76" ry="59" fill="#A8764D"/>
+<path d="M430 419 Q450 340 422 294" fill="none" stroke="#4F805A" stroke-width="14"/>
+<path d="M423 331 Q320 343 339 260 Q411 252 423 331Z" fill="#87AC70"/>
+<path d="M431 304 Q463 224 527 251 Q528 314 431 304Z" fill="#A3BD80"/>
+<circle cx="420" cy="431" r="7" fill="#453723"/><circle cx="449" cy="426" r="7" fill="#453723"/>
+<path d="M426 450 Q442 464 458 447" fill="none" stroke="#453723" stroke-width="5"/>
+<text x="1120" y="680" font-family="sans-serif" font-size="20" fill="#6D7971">版式示例</text>
+</svg>

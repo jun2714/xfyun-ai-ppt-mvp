@@ -76,10 +76,33 @@ export const collectClassroomMappingErrors = (slide, page) => {
   };
   const heading = components.find((item) => item.id === "heading");
   const titleBox = bounds(heading || {}, heading?.elements?.find((item) => item.name === "title"));
+  // A cover intentionally puts artwork under text, protected by an opaque
+  // native rectangle. Verify both containment and paint order before allowing it.
+  const protectedCoverBackground = (component, element) => {
+    if (contract.classroom_role !== "cover-scene" || element.asset_role !== "background") return false;
+    const imageIndex = components.indexOf(component);
+    const headingIndex = components.indexOf(heading);
+    return components.some((panel, panelIndex) => panel.id === "cover_panel" &&
+      imageIndex < panelIndex && panelIndex < headingIndex &&
+      (panel.elements || []).some((surface) => {
+        if (surface.type !== "vector" || surface.fill?.opacity !== 1 || !surface.closed ||
+            surface.points?.length !== 4) return false;
+        const xs = surface.points.map((point) => Number(point.x));
+        const ys = surface.points.map((point) => Number(point.y));
+        const left = Math.min(...xs), right = Math.max(...xs);
+        const top = Math.min(...ys), bottom = Math.max(...ys);
+        const corners = new Set(surface.points.map((point) => `${point.x},${point.y}`));
+        const rectangle = [left, right].every((x) => [top, bottom].every((y) => corners.has(`${x},${y}`)));
+        const dx = Number(panel.position?.x || 0), dy = Number(panel.position?.y || 0);
+        return rectangle && left + dx <= titleBox.x && right + dx >= titleBox.right &&
+          top + dy <= titleBox.y && bottom + dy >= titleBox.bottom;
+      }));
+  };
   if (titleBox) {
     for (const component of components.filter((item) => !["paper", "heading"].includes(item.id))) {
       for (const element of component.elements || []) {
         const box = bounds(component, element);
+        if (protectedCoverBackground(component, element)) continue;
         if (box && titleBox.x < box.right && titleBox.right > box.x &&
             titleBox.y < box.bottom && titleBox.bottom > box.y) {
           fail(`heading overlaps ${component.id}.${element.name || element.type}`);
@@ -88,7 +111,7 @@ export const collectClassroomMappingErrors = (slide, page) => {
     }
   }
   if (uiText("invitation", "cue") !== (contract.screen_instruction || "")) fail("cue changed");
-  const cards = String(slide.layout || "").startsWith("classroom_cards_");
+  const cards = /^classroom_(?:training_)?cards_/.test(String(slide.layout || ""));
   for (const [index, point] of (contract.screen_points || []).entries()) {
     const id = `${cards ? "card" : "point"}_${index}`;
     if (uiText(id, "text") !== point) fail(`screen point ${index} assigned to wrong field`);

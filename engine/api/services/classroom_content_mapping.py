@@ -72,18 +72,50 @@ def _image_value(schema, prompt):
     return result
 
 
-def _prompt(assets, title, points):
+def _prompt(assets, title, points, *, training=False, template_style=None):
     subjects = "；".join(f"{a.semantic_label}：{a.description or ''}" for a in assets)
+    custom_style = template_style.strip() if isinstance(template_style, str) else ""
+    if training:
+        from services.research_ppt_generation_context import research_ppt_image_options
+
+        style = (
+            "专业清晰的教育编辑插画；中国幼儿园真实工作场景，"
+            "围绕教师观察、讨论与改进活动；不要拟人角色、童话、商务海报或儿童猜谜。"
+            + (custom_style or "浅米白、松石绿、雾蓝配色。")
+        )
+        if research_ppt_image_options.get().forbid_latin_text:
+            style += "禁止英文、拉丁字母、拼音和任何图内标签。"
+    else:
+        style = "统一二维儿童绘本；" + (
+            custom_style or "柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色。"
+        )
     return (
-        f"本页教学主题：{title}。对应屏幕内容：{'；'.join(points)}。"
+        f"本页教学主题仅供理解画面，不得把主题绘制成文字：{title}。"
         f"必须看到的教学对象与动作：{subjects or title}。"
-        "统一二维儿童绘本，柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色；"
+        f"{style}"
         "主体完整、特征准确、背景简洁；不要摄影、3D、文字、字母、数字、标签或水印。"
+    )
+
+
+def _cover_prompt(title, *, training=False, template_style=None):
+    style = template_style or (
+        "浅米白、松石绿、雾蓝的教育编辑插画" if training
+        else "奶油白与薄荷绿的柔和水粉绘本插画"
+    )
+    return (
+        f"幼儿园课件封面背景。主题仅供理解场景，绝不能画成文字：{title}。"
+        f"{style}。根据主题选择相关幼儿活动、教具和环境，画面温暖、主体准确。"
+        "16:9 全幅插画，主要人物和教学对象放在左侧及左下方；"
+        "右侧约一半为浅色安静背景，将由编辑器覆盖原生标题面板。"
+        "只生成无字背景，不要绘制标题、面板、标语、汉字、英文、字母、数字、"
+        "伪文字、标签、书封文字、标志或水印。所有标题另由可编辑文字层呈现。"
     )
 
 
 def build_classroom_content(schema, outline):
     layout_id = str(schema.get("title") or "")
+    training = layout_id.startswith("classroom_training_")
+    layout_id = layout_id.replace("classroom_training_", "classroom_", 1)
     if not layout_id.startswith(CLASSROOM_LAYOUT_PREFIX):
         raise ValueError("不是课堂专用版式。")
     title, points, cue, unchanged = screen_roles(outline)
@@ -112,11 +144,17 @@ def build_classroom_content(schema, outline):
             elif component.startswith("card_"):
                 index = int(component.split("_")[-1])
                 value = (points[index] if key == "text" else
-                         _image_value(field, _prompt([bound[index]], title, [points[index]])))
+                         _image_value(field, _prompt([bound[index]], title, [points[index]], training=training,
+                                                     template_style=field.get("x-image-style"))))
             elif component == "scene" and key == "visual":
                 # Edited content supersedes stale asset instructions in scene mode.
-                value = _image_value(field, _prompt(
-                    contract.asset_contracts if unchanged else [], title, points))
+                image_prompt = (
+                    _cover_prompt(title, training=training, template_style=field.get("x-image-style"))
+                    if layout_id == "classroom_cover" else
+                    _prompt(contract.asset_contracts if unchanged else [], title, points,
+                            training=training, template_style=field.get("x-image-style"))
+                )
+                value = _image_value(field, image_prompt)
             else:
                 raise ValueError(f"未知课堂字段 {component}.{key}")
             if isinstance(value, str) and not locked_text_fits_field(value, field):
@@ -124,6 +162,7 @@ def build_classroom_content(schema, outline):
             values[key] = value
         result[component] = values
     metadata = contract.model_dump(mode="json")
+    metadata["visual_audience"] = "teacher" if training else "child"
     if contract.classroom_role in {"guess-shadow", "guess-partial"}:
         concealment = ("只展示主体剪影，不显示内部纹理或完整彩色答案。"
                        if contract.classroom_role == "guess-shadow" else

@@ -124,6 +124,8 @@ Chinese
 - Image prompt language and slide visible language are independent.
 - Image prompts describe visuals only. Never request visible text, letters, numbers,
   labels, captions, answers, logos, watermarks, signatures, or pseudo-text.
+- When Slide Language is Chinese, never ask the picture to contain English words,
+  Latin letters, pinyin, bilingual labels, or flowchart/infographic captions.
 - Put every audience-facing title, label, option, answer, and annotation in editable
   slide text fields supplied by the response schema, never inside an image prompt.
 - If people appear in the image, they must all be Chinese people with East Asian /

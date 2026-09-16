@@ -13,6 +13,8 @@ from services.asset_planning_service import (
     AssetPlanItem,
     AssetSemanticExpectation,
     AssetSlotRequest,
+    REPAIR_FAILED_PROMPT_KEY,
+    REPAIR_FAILED_REASON_KEY,
     build_asset_plan,
 )
 from services.asset_semantic_quality_service import (
@@ -21,6 +23,7 @@ from services.asset_semantic_quality_service import (
     build_default_asset_semantic_quality_service,
 )
 from services.image_generation_service import ImageGenerationService
+from services.research_ppt_generation_context import research_ppt_image_options
 from services.sprite_sheet_service import (
     create_transparent_cutout,
     crop_sprite_sheet,
@@ -42,7 +45,29 @@ from utils.process_slides import _set_asset_url, _uses_template_asset_fields
 LOGGER = logging.getLogger(__name__)
 
 
+def _is_teacher_visual(item: AssetPlanItem) -> bool:
+    return bool(item.slots) and all(slot.visual_audience == "teacher" for slot in item.slots)
+
+
 def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
+    if item.slots and all(slot.classroom_role == "cover-scene" for slot in item.slots):
+        # Cover typography is native even for English lessons. Do not override
+        # the chosen template palette with the generic classroom/research style.
+        return " 保持上述模板配色与无字构图；禁止任何语言的文字、伪文字、标签和水印。"
+    if _is_teacher_visual(item):
+        from services.research_ppt_generation_context import research_ppt_image_options
+
+        no_latin = (
+            "禁止英文、拉丁字母、数字标签和水印；"
+            if research_ppt_image_options.get().forbid_latin_text
+            else "本课为英语教学，图内文字可以使用英文。"
+        )
+        return (
+            " 画成专业清晰的中国幼儿园教研插画：浅米白、松石绿、雾蓝；"
+            "真实教研现场里的教师观察、研讨与介入；"
+            "用具体人物动作和场景表达概念，不要画信息图、思维导图、循环图或对照表上的文字标签；"
+            f"{no_latin}不要儿童童话拟人、商务海报、3D、摄影或黑色抽象纹理。"
+        )
     if not any(slot.semantic_expectations for slot in item.slots):
         return ""
     return (
@@ -59,7 +84,18 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
 
 def _request_prompt(item: AssetPlanItem) -> str:
     kindergarten_direction = _kindergarten_visual_direction(item)
+    teacher = _is_teacher_visual(item)
     if item.generation_mode == "sprite-sheet":
+        if teacher:
+            cells = "；".join(
+                f"第{index + 1}格：{slot.prompt}"
+                for index, slot in enumerate(item.slots)
+            )
+            return (
+                f"生成一张干净的{item.grid_columns}列{item.grid_rows}行分镜拼图。"
+                f"{cells}。每格一个完整居中主体，风格统一，大留白，纯色背景，"
+                f"不要网格线和任何文字。{kindergarten_direction}"
+            )
         cells = "; ".join(
             f"cell {index + 1}: {slot.prompt}"
             for index, slot in enumerate(item.slots)
@@ -71,7 +107,11 @@ def _request_prompt(item: AssetPlanItem) -> str:
             f"{kindergarten_direction}"
         )
     if item.generation_mode == "composite-image":
-        subjects = "; ".join(slot.prompt for slot in item.slots)
+        subjects = "；".join(slot.prompt for slot in item.slots) if teacher else "; ".join(
+            slot.prompt for slot in item.slots
+        )
+        if teacher:
+            return f"生成一个连贯场景，画面中包含：{subjects}。{kindergarten_direction}"
         return (
             f"Create one coherent scene containing: {subjects}."
             f"{kindergarten_direction}"
@@ -79,6 +119,16 @@ def _request_prompt(item: AssetPlanItem) -> str:
 
     slot = item.slots[0]
     if item.generation_mode == "direct-background":
+        if teacher:
+            safe_area = (
+                f" 在{slot.text_safe_area}侧保留安静的文字安全区。"
+                if slot.text_safe_area != "none"
+                else ""
+            )
+            return (
+                f"{slot.prompt}。铺满16:9课件背景，不要边框。{safe_area}"
+                f"{kindergarten_direction}"
+            )
         safe_area = (
             f" Keep a quiet text-safe area on the {slot.text_safe_area}."
             if slot.text_safe_area != "none"
@@ -89,6 +139,11 @@ def _request_prompt(item: AssetPlanItem) -> str:
             f"{slot.aspect_ratio}, no border.{safe_area}{kindergarten_direction}"
         )
     if item.generation_mode == "single-cutout":
+        if teacher:
+            return (
+                f"{slot.prompt}。一个完整居中主体，四周留白，纯色对比背景，便于抠图。"
+                f"{kindergarten_direction}"
+            )
         return (
             f"{slot.prompt}. One complete centered subject, generous margin, solid "
             f"plain contrasting background suitable for local background removal."
@@ -105,6 +160,8 @@ def _asset_url(result: str | ImageAsset) -> str:
 
 def _assign_url(slide: SlideModel, slot: AssetSlotRequest, url: str) -> None:
     target = get_dict_at_path(slide.content, slot.content_path)
+    target.pop(REPAIR_FAILED_PROMPT_KEY, None)
+    target.pop(REPAIR_FAILED_REASON_KEY, None)
     _set_asset_url(
         target,
         "image",
@@ -112,6 +169,31 @@ def _assign_url(slide: SlideModel, slot: AssetSlotRequest, url: str) -> None:
         template=_uses_template_asset_fields(slide),
     )
     set_dict_at_path(slide.content, slot.content_path, target)
+
+
+def _mark_repair_failure(slide: SlideModel, slot: AssetSlotRequest, error: Exception) -> None:
+    try:
+        target = get_dict_at_path(slide.content, slot.content_path)
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return
+    if not isinstance(target, dict):
+        return
+    target[REPAIR_FAILED_PROMPT_KEY] = slot.prompt
+    target[REPAIR_FAILED_REASON_KEY] = str(getattr(error, "detail", error) or error)[:180]
+    set_dict_at_path(slide.content, slot.content_path, target)
+
+
+def _is_moderation_error(error: Exception) -> bool:
+    text = str(getattr(error, "detail", "") or error)
+    folded = text.casefold()
+    return "审核" in text or "moderation" in folded or "safety system" in folded
+
+
+def _safer_kindergarten_prompt(prompt: str) -> str:
+    return (
+        f"{prompt}。适合3到6岁幼儿园的温馨绘本插画，画面干净明亮，"
+        "不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
+    )
 
 
 def _quality_expectations(
@@ -151,7 +233,7 @@ async def _validate_semantic_quality(
             raise ValueError("Sprite sheet did not produce one image for every slot")
         for slot, output in zip(item.slots, derived_outputs):
             expectations = _quality_expectations((slot,))
-            if not expectations:
+            if not expectations and not slot.education_visual:
                 continue
             quality = await quality_service.validate(output, expectations)
             if not quality.passed:
@@ -162,7 +244,7 @@ async def _validate_semantic_quality(
         if not derived_outputs:
             raise ValueError("Cutout processing produced no consumer image")
         expectations = _quality_expectations((item.slots[0],))
-        if not expectations:
+        if not expectations and not item.slots[0].education_visual:
             return
         quality = await quality_service.validate(derived_outputs[0], expectations)
         if not quality.passed:
@@ -170,7 +252,7 @@ async def _validate_semantic_quality(
         return
 
     expectations = _quality_expectations(item.slots)
-    if not expectations:
+    if not expectations and not all(slot.education_visual for slot in item.slots):
         return
     quality = await quality_service.validate(result, expectations)
     if not quality.passed:
@@ -182,6 +264,10 @@ def _trace_error_payload(exc: Exception) -> dict:
         "type": type(exc).__name__,
         "message": str(exc)[:500],
     }
+    if getattr(exc, "provider_code", None):
+        payload["code"] = exc.provider_code
+    if getattr(exc, "status_code", None):
+        payload["status_code"] = exc.status_code
     if isinstance(exc, AssetSemanticQualityError):
         # Keep the structured failure in the existing trace table. This becomes
         # the per-asset quality report without introducing another persistence
@@ -231,6 +317,9 @@ async def process_presentation_assets(
     presentation_id=None,
     on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
     semantic_quality_service: AssetSemanticQualityService | None = None,
+    on_item_finished: Callable[[], Awaitable[None]] | None = None,
+    quality_retries: int = 1,
+    skip_semantic_quality: bool = False,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
@@ -243,7 +332,9 @@ async def process_presentation_assets(
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
     quality_service = (
-        semantic_quality_service or build_default_asset_semantic_quality_service()
+        None
+        if skip_semantic_quality
+        else (semantic_quality_service or build_default_asset_semantic_quality_service())
     )
     try:
         concurrency = max(
@@ -254,6 +345,8 @@ async def process_presentation_assets(
         concurrency = 4
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
+    image_options = research_ppt_image_options.get()
+    max_attempts = 1 + max(0, int(quality_retries))
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
@@ -263,17 +356,22 @@ async def process_presentation_assets(
             derived_outputs: list[str] = []
             quality_warning: Exception | None = None
 
-            for attempt in range(2):
+            for attempt in range(max_attempts):
                 trace_id = (
                     item.request_id
                     if attempt == 0
-                    else f"{item.request_id}_retry1"
+                    else f"{item.request_id}_retry{attempt}"
                 )
                 materialized_source_to_cleanup: str | None = None
                 quality_warning = None
                 try:
                     result = await image_generation_service.generate_image(
-                        ImagePrompt(prompt=_request_prompt(item))
+                        ImagePrompt(
+                            prompt=_request_prompt(item),
+                            forbid_latin_text=image_options.forbid_latin_text
+                            if image_options.enabled
+                            else True,
+                        )
                     )
                     source_asset = result if isinstance(result, ImageAsset) else None
 
@@ -314,7 +412,14 @@ async def process_presentation_assets(
                                 image_generation_service.output_directory,
                             )
                         ]
-                    elif isinstance(result, ImageAsset) and item.slots:
+                    elif (
+                        isinstance(result, ImageAsset)
+                        and item.slots
+                        and (
+                            item.slots[0].fit == "cover"
+                            or item.slots[0].role == "background"
+                        )
+                    ):
                         local_source, materialized = await _materialize_transform_source(
                             result,
                             image_generation_service.output_directory,
@@ -346,9 +451,10 @@ async def process_presentation_assets(
                             derived_outputs,
                         )
                     except AssetSemanticQualityError as exc:
-                        if attempt == 0:
-                            raise
-                        quality_warning = exc
+                        # A second bad result stays missing and can be repaired
+                        # explicitly. Never place known text/cropped/wrong imagery
+                        # into an otherwise usable deck.
+                        raise
                     except Exception as exc:  # visual-QA timeout or provider outage
                         quality_warning = exc
 
@@ -413,10 +519,36 @@ async def process_presentation_assets(
                             error=_trace_error_payload(exc),
                         )
                     )
-                    if not isinstance(exc, AssetSemanticQualityError):
-                        break
+                    # A DMX timeout does not prove its remote job was cancelled.
+                    # Repeating it immediately can duplicate work and charges.
+                    if isinstance(exc, AssetSemanticQualityError) and attempt < max_attempts - 1:
+                        continue
+                    break
                 finally:
                     _remove_materialized_source(materialized_source_to_cleanup)
+
+            if (
+                result is None
+                and last_error is not None
+                and _is_moderation_error(last_error)
+                and item.generation_mode not in {"sprite-sheet", "single-cutout"}
+            ):
+                try:
+                    result = await image_generation_service.generate_image(
+                        ImagePrompt(
+                            prompt=_safer_kindergarten_prompt(_request_prompt(item)),
+                            forbid_latin_text=(
+                                image_options.forbid_latin_text
+                                if image_options.enabled
+                                else True
+                            ),
+                        )
+                    )
+                    source_asset = result if isinstance(result, ImageAsset) else None
+                    last_error = None
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    result = None
 
             if result is None:
                 assert last_error is not None
@@ -429,6 +561,13 @@ async def process_presentation_assets(
                     affected_pages,
                     last_error,
                 )
+                for slot in item.slots:
+                    slide = slides_by_index.get(slot.slide_index)
+                    if slide is not None:
+                        _mark_repair_failure(slide, slot, last_error)
+                if on_item_completed is not None:
+                    async with checkpoint_lock:
+                        await on_item_completed([])
                 return []
 
             item_assets: list[ImageAsset] = []
@@ -482,5 +621,12 @@ async def process_presentation_assets(
                     await on_item_completed(item_assets)
             return item_assets
 
-    item_results = await asyncio.gather(*(process_item(item) for item in plan))
+    async def tracked_item(item):
+        result = await process_item(item)
+        if on_item_finished is not None:
+            async with checkpoint_lock:
+                await on_item_finished()
+        return result
+
+    item_results = await asyncio.gather(*(tracked_item(item) for item in plan))
     return [asset for assets in item_results for asset in assets], plan

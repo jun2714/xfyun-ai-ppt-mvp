@@ -19,6 +19,11 @@ const DISPLAY_NAMES: Record<string, string> = {
   general: "自动匹配",
   "ai-visual": "AI 自由视觉",
   "kindergarten-classroom": "幼教课堂 · 绘本与观察",
+  "teacher-training": "园本教研 · 问题与策略",
+  "classroom-nature": "自然观察 · 探索与发现",
+  "classroom-story": "故事表达 · 阅读与分享",
+  "training-case": "案例研讨 · 观察与证据",
+  "training-action": "行动复盘 · 实施与改进",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",
@@ -104,6 +109,8 @@ export function OutlineEditor({
       ? "template"
       : "topic";
   const preferred = preferredTemplateId || queryOptions.templateId || null;
+  const recommendationUnavailable = presentation.generation_metadata?.selected_template === ""
+    && Boolean(presentation.generation_metadata?.template_selection_reason);
 
   const [outline, setOutline] = useState(initial);
   const [selected, setSelected] = useState(0);
@@ -123,6 +130,11 @@ export function OutlineEditor({
   }, [initial, streaming, activeSlideIndex]);
 
   useEffect(() => {
+    if (recommendationUnavailable) {
+      setTemplate("");
+      setTemplateNotice(presentation.generation_metadata?.template_selection_reason || "请手动选择模板。");
+      return;
+    }
     if (templates.length === 0) return;
     if (preferred === AI_VISUAL_TEMPLATE_ID || (preferred && templates.some((item) => item.id === preferred))) {
       setTemplate(preferred);
@@ -130,24 +142,21 @@ export function OutlineEditor({
       return;
     }
 
+    if (preferred) {
+      setTemplate("");
+      setTemplateNotice(`“${DISPLAY_NAMES[preferred] || preferred}”当前不可用，请手动选择一个已加载的模板。`);
+      return;
+    }
     const fallback = pickDefaultTemplate(templates);
     if (!fallback) {
       setTemplate("");
-      setTemplateNotice(
-        preferred
-          ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前不可用，请先选择一个已加载的模板。`
-          : "暂无可用模板，请先在模板中心添加。",
-      );
+      setTemplateNotice("暂无可用模板，请先在模板中心添加。");
       return;
     }
 
     setTemplate(fallback.id);
-    setTemplateNotice(
-      preferred
-        ? `自动推荐的“${DISPLAY_NAMES[preferred] || preferred}”当前未加载，已切换为“${templateName(fallback)}”。你也可以重新选择模板。`
-        : "",
-    );
-  }, [preferred, templates]);
+    setTemplateNotice("");
+  }, [preferred, templates, recommendationUnavailable, presentation.generation_metadata?.template_selection_reason]);
 
   useEffect(() => {
     if (streaming) setStage("outline");
@@ -590,6 +599,19 @@ export function OutlineEditor({
               <div className="outline-complete-copy">
                 <strong>大纲已生成完成</strong>
                 <p>可以继续修改内容，也可以选择视觉方案或模板后开始生成 PPT。</p>
+                {presentation.generation_metadata?.quality_warning && (
+                  <p className="outline-template-notice">
+                    {presentation.generation_metadata.quality_warning}
+                  </p>
+                )}
+                {template === preferred && presentation.generation_metadata?.template_selection_reason
+                  && !/^[a-z][a-z-]*[:;]/i.test(presentation.generation_metadata.template_selection_reason)
+                  && presentation.generation_metadata.template_selection_reason !== "manual-selection" && (
+                  <p className="outline-template-notice">
+                    推荐“{DISPLAY_NAMES[template] || templates.find((item) => item.id === template)?.name || template}”：
+                    {presentation.generation_metadata.template_selection_reason}
+                  </p>
+                )}
                 {templateNotice && (
                   <p className="outline-template-notice">{templateNotice}</p>
                 )}

@@ -8,6 +8,9 @@ import {
   collectUnresolvedImageSlots,
 } from "./lib/ppt-image-validation.mjs";
 
+import { summarizeProbe } from "./lib/ppt-probe-summary.mjs";
+import { readOutlineFailure } from "./lib/ppt-outline-failure.mjs";
+
 const root = process.cwd();
 const targetUrl = process.env.TARGET_URL || "http://127.0.0.1:5001/upload";
 const apiBase = (process.env.API_BASE_URL || "http://127.0.0.1:8000/api/v1/ppt").replace(/\/$/, "");
@@ -353,6 +356,9 @@ try {
   }
   diagnostics.outline = outlineResponse.body;
   await page.screenshot({ path: resolve(outputDir, "02-outline-ready.png"), fullPage: true });
+  if (expectedSlides > 0 && outlineResponse.body.slides.length !== expectedSlides) {
+    throw new Error(`Expected ${expectedSlides} outline slides before paid rendering, received ${outlineResponse.body.slides.length}.`);
+  }
 
   const confirm = page.getByRole("button", { name: "确认生成" });
   await confirm.waitFor({ state: "visible", timeout: 30000 });
@@ -445,6 +451,10 @@ try {
   if (process.env.EXPECT_CLASSROOM_PACK !== "false" &&
       finalSlides.some((slide) => slide?.content?.__content_contract__?.classroom_mapping_version !== 1)) {
     diagnostics.validationErrors.push("Automatic lesson did not use the new classroom semantic pack.");
+  }
+  if (contentMode === "training" && finalSlides.some((slide) =>
+    !String(slide?.ui?.id || "").startsWith("classroom_training_"))) {
+    diagnostics.validationErrors.push("Automatic training did not use the teacher workshop template.");
   }
 
   diagnostics.emptyVisualCards = finalSlides.flatMap((slide, index) =>
@@ -566,6 +576,9 @@ try {
   exitCode = 1;
   diagnostics.result = { state: "failed" };
   diagnostics.fatalError = redact({ message: error?.message || String(error), stack: error?.stack || null });
+  if (diagnostics.presentationId && !diagnostics.outline) {
+    diagnostics.outlineFailure = redact(await readOutlineFailure(apiBase, diagnostics.presentationId));
+  }
   if (page) {
     await page.screenshot({ path: resolve(outputDir, "99-failure.png"), fullPage: true }).catch(() => {});
   }
@@ -580,6 +593,9 @@ try {
     JSON.stringify(redact(diagnostics), null, 2),
     "utf8",
   );
+  const summary = summarizeProbe(diagnostics);
+  await writeFile(resolve(outputDir, "safe-summary.json"), JSON.stringify(summary, null, 2), "utf8");
+  console.log("PPT_PROBE_SUMMARY " + JSON.stringify(summary));
 }
 
 process.exitCode = exitCode;

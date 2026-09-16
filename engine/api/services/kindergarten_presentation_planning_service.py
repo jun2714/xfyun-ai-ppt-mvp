@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -34,9 +35,15 @@ class ValidatedKindergartenPlanningResult:
 class KindergartenPlanningQualityError(ValueError):
     """Raised when a lesson plan still violates hard teaching contracts."""
 
-    def __init__(self, report: KindergartenPlanQualityReport, attempts: int):
+    def __init__(
+        self,
+        report: KindergartenPlanQualityReport,
+        attempts: int,
+        plan: Optional[KindergartenLessonPlan] = None,
+    ):
         self.report = report
         self.attempts = attempts
+        self.plan = plan
         codes = ", ".join(issue.code for issue in report.errors) or "unknown"
         super().__init__(
             f"幼教课堂规划质检失败（模型调用 {attempts} 次）：{codes}"
@@ -125,8 +132,63 @@ def _repair_reveal_answer(slides, index: int):
     )
 
 
+def _link_unambiguous_reveal_pages(slides):
+    """Repair only a mismatched activity ID between existing answer-equivalent pages.
+
+    Option IDs alone (such as A/B) are not evidence of an answer match. Require
+    actual answer text and a unique match in both directions; otherwise keep the
+    quality error for the teacher. This never inserts, rewrites or drops a page.
+    """
+    def answer_text(slide):
+        game = slide.game
+        if not game or not game.answer_key:
+            return None
+        answer = game.options.get(game.answer_key)
+        if answer is None and game.answer_key in game.options.values():
+            answer = game.answer_key
+        return answer.strip() if isinstance(answer, str) and answer.strip() else None
+
+    question_ids = {
+        slide.game.activity_id for slide in slides
+        if slide.slide_type in {"guess-partial", "guess-shadow"} and slide.game
+    }
+    reveal_ids = {
+        slide.game.activity_id for slide in slides
+        if slide.slide_type == "answer-reveal" and slide.game
+    }
+    questions = [
+        (index, slide) for index, slide in enumerate(slides)
+        if slide.slide_type in {"guess-partial", "guess-shadow"}
+        and slide.game and slide.game.activity_id not in reveal_ids
+    ]
+    orphans = [
+        (index, slide) for index, slide in enumerate(slides)
+        if slide.slide_type == "answer-reveal"
+        and slide.game and slide.game.activity_id not in question_ids
+    ]
+    matches = [
+        (q_index, r_index) for q_index, question in questions for r_index, reveal in orphans
+        if r_index > q_index and answer_text(question)
+        and answer_text(question) == answer_text(reveal)
+    ]
+    linked = list(slides)
+    for q_index, r_index in matches:
+        if sum(q == q_index for q, _ in matches) != 1 or sum(r == r_index for _, r in matches) != 1:
+            continue
+        question, reveal = slides[q_index], slides[r_index]
+        linked[r_index] = reveal.model_copy(update={
+            "game": reveal.game.model_copy(update={
+                "activity_id": question.game.activity_id,
+                "answer_key": question.game.answer_key,
+                "options": dict(question.game.options),
+            }),
+        })
+    return linked
+
+
 def _repair_classroom_activity_contracts(
     plan: KindergartenLessonPlan,
+    *, max_slides: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Complete deterministic choice/reveal contracts without changing the answer."""
     slides = []
@@ -159,12 +221,14 @@ def _repair_classroom_activity_contracts(
             )
         slides.append(slide)
 
+    slides = _link_unambiguous_reveal_pages(slides)
     reveal_activity_ids = {
         slide.game.activity_id
         for slide in slides
         if slide.slide_type == "answer-reveal" and slide.game
     }
     completed = []
+    remaining_slots = None if max_slides is None else max(0, max_slides - len(slides))
     for slide in slides:
         completed.append(slide)
         if (
@@ -173,6 +237,10 @@ def _repair_classroom_activity_contracts(
             or not slide.game.answer_key
             or slide.game.activity_id in reveal_activity_ids
         ):
+            continue
+        if remaining_slots == 0:
+            # Keep the missing-reveal quality error visible. Do not add a paid
+            # page beyond the requested count or drop the teacher's closing page.
             continue
         answer = (slide.game.options or {}).get(
             slide.game.answer_key, slide.game.answer_key,
@@ -215,6 +283,8 @@ def _repair_classroom_activity_contracts(
             )
         )
         reveal_activity_ids.add(slide.game.activity_id)
+        if remaining_slots is not None:
+            remaining_slots -= 1
 
     renumbered = [
         slide.model_copy(update={"slide_no": index})
@@ -250,6 +320,37 @@ def _downgrade_contract_slide(slide):
     )
 
 
+_PROMPT_INSTRUCTION_RE = re.compile(
+    r"(帮我|请帮我|麻烦).{0,12}(生成|做|制作)|"
+    r"^(请)?(生成|做|制作)一[个份张]|"
+    r"(生成|制作|做一).{0,24}(ppt|PPT|课件|演示文稿)",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_prompt_instruction(text: str) -> bool:
+    value = (text or "").strip()
+    return bool(value and _PROMPT_INSTRUCTION_RE.search(value))
+
+
+def _visible_cover_title(
+    plan: KindergartenLessonPlan,
+    original_first,
+    content_mode: str,
+) -> str:
+    """Classroom covers stay child-facing; training covers keep the exact topic."""
+    topic_focus = plan.meta.topic.strip()
+    generated = (original_first.screen_content.title or "").strip()
+    if content_mode == "training":
+        return topic_focus
+    existing_cover = original_first.slide_type == "cover-scene"
+    if existing_cover and generated and not _looks_like_prompt_instruction(generated):
+        return generated
+    if _looks_like_prompt_instruction(topic_focus):
+        return generated if existing_cover and generated else "今天的探索开始啦"
+    return topic_focus
+
+
 def _ensure_cover_contract(
     plan: KindergartenLessonPlan,
     content_mode: str,
@@ -257,24 +358,25 @@ def _ensure_cover_contract(
     target_count: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Guarantee a real first-page cover without discarding opening content."""
-    topic_focus = plan.meta.topic
-    for separator in ("，", "。", "；", ";", "\n"):
-        topic_focus = topic_focus.split(separator, 1)[0]
-    topic_focus = topic_focus.strip()[:60] or plan.meta.topic[:60]
-    purpose = "；".join(plan.lesson_goals[:2]).strip("；")
-    cover_points = (
-        [
-            f"培训目的：{purpose or '围绕核心问题形成可落地的改进方案'}"[:64],
-            "幼儿园园本教研培训",
-        ]
-        if content_mode == "training"
-        else [
-            f"活动目标：{purpose or '在观察与互动中获得新的发现'}"[:64],
-            "幼儿园集体教学",
-        ]
-    )
-
+    # The title is native text. Never crop it at punctuation or mid-sentence.
     original_first = plan.slides[0]
+    cover_title = _visible_cover_title(plan, original_first, content_mode).strip()
+    if len(cover_title) > 80:
+        raise ValueError("封面主题超过 80 字，请缩短主题并将详细要求放入补充说明。")
+    training = content_mode == "training"
+    prefix = "培训目的：" if training else "活动目标："
+    first_goal = next((goal.strip() for goal in plan.lesson_goals if goal.strip()), "")
+    # A long goal belongs in the notes, not a cropped fragment on the cover.
+    preview = first_goal if len(first_goal) <= 30 else ""
+    preview = preview or ("围绕主题开展研讨与实践" if training else "在观察与互动中获得新的发现")
+    cover_points = [prefix + preview,
+                    "幼儿园园本教研培训" if training else "幼儿园集体教学"]
+    note = original_first.teacher_note if original_first.slide_type == "cover-scene" else ""
+    goals_note = "完整目标：\n" + "\n".join(f"- {goal}" for goal in plan.lesson_goals)
+    if goals_note not in note:
+        note = (note.rstrip() + "\n\n" + goals_note).strip()
+    if len(note) > 12000:
+        raise ValueError("封面目标和备注超过 12000 字，请将详细材料拆分到正文页。")
     cover = original_first.model_copy(
         update={
             "slide_no": 1,
@@ -287,7 +389,7 @@ def _ensure_cover_contract(
             "screen_content": original_first.screen_content.model_copy(
                 update={
                     "section": None,
-                    "title": topic_focus,
+                    "title": cover_title,
                     "points": cover_points,
                     "instruction": None,
                 }
@@ -295,12 +397,12 @@ def _ensure_cover_contract(
             "interaction": original_first.interaction.model_copy(
                 update={"type": "none", "instruction": None}
             ),
-            "teacher_note": (
-                "封面页。简要介绍本次培训主题与目标。"
-                if content_mode == "training"
-                else "封面页。简要介绍本次活动主题与目标。"
-            ),
-            "assets": [],
+            "teacher_note": note,
+            "assets": [LessonAssetSpec(
+                slot="cover-background", semantic_label=cover_title[:160],
+                description=f"围绕{cover_title}的无字封面背景，主题活动位于左侧，右侧留白。",
+                role="background", required=True, expected_count=1, qa_required=True,
+            )],
             "game": None,
             "layout_capabilities": ["cover", "single-focus"],
         }
@@ -315,7 +417,10 @@ def _ensure_cover_contract(
     else:
         slides = [cover, *plan.slides]
         if target_count is not None and target_count > 0 and len(slides) > target_count:
-            slides = slides[:target_count]
+            raise ValueError(
+                f"大纲缺少封面，补充后将超过约定的 {target_count} 页；"
+                "请在大纲中预留封面页，不能自动删除末页正文。"
+            )
     renumbered = [
         slide.model_copy(update={"slide_no": index})
         for index, slide in enumerate(slides, start=1)
@@ -338,70 +443,20 @@ def _normalize_training_contracts(
         "answer-reveal",
     }
     slides = []
-    topic_focus = plan.meta.topic
-    for separator in ("，", "。", "；", ";", "\n"):
-        topic_focus = topic_focus.split(separator, 1)[0]
-    topic_focus = topic_focus.strip()[:60] or plan.meta.topic[:60]
-
     for index, slide in enumerate(plan.slides):
-        original_points = list(slide.screen_content.points)
-        visible_chars = len(slide.screen_content.title) + sum(
-            len(point) for point in original_points
-        )
-        compacted_points = original_points
-        teacher_note = slide.teacher_note
-        char_limit = (
-            70
-            if index == 0
-            else 160
-            if slide.slide_type in {"compare", "sequence"}
-            else 140
-        )
-        if visible_chars > char_limit:
-            if len(original_points) > 4:
-                compacted_points = [
-                    (point.split("：", 1)[0] if "：" in point else point)[:24]
-                    for point in original_points[:6]
-                ]
-            else:
-                compacted_points = [point[:36] for point in original_points]
-            details = "\n".join(f"- {point}" for point in original_points)
-            teacher_note = (
-                f"{teacher_note.rstrip()}\n\n本页屏幕文案已压缩，讲解时补充：\n{details}"
-            )[:1200]
-
-        screen_title = topic_focus if index == 0 else slide.screen_content.title[:36]
         if index == 0:
-            purpose = "；".join(plan.lesson_goals[:2]).strip("；")
-            compacted_points = [
-                f"培训目的：{purpose or '围绕核心问题形成可落地的改进方案'}"[:64],
-                "幼儿园园本教研培训",
-            ]
-        updates = {
-            "screen_content": slide.screen_content.model_copy(
-                update={
-                    "title": screen_title,
-                    "points": compacted_points,
-                    "instruction": None if index == 0 else slide.screen_content.instruction,
-                }
-            ),
-            "teacher_note": teacher_note,
-        }
-        if index == 0:
-            updates.update(
-                {
-                    "slide_type": "cover-scene",
-                    "game": None,
-                    "interaction": slide.interaction.model_copy(
-                        update={"type": "none", "instruction": None}
-                    ),
-                    "layout_capabilities": ["scene", "single-focus"],
-                }
-            )
+            # Reuse the same cover contract so normalization cannot crop it again.
+            cover_plan = plan.model_copy(update={"slides": [slide.model_copy(
+                update={"slide_type": "cover-scene"})]})
+            slides.append(_ensure_cover_contract(cover_plan, "training").slides[0])
+            continue
+        # Preserve sentences in full; capacity routing can select a roomier
+        # layout or ask for a reviewed split, never silently crop copy.
+        updates = {}
         is_plain_training_sequence = (
             slide.slide_type == "sequence" and slide.game is None
         )
-        if index == 0 or is_plain_training_sequence or (
+        if is_plain_training_sequence or (
             slide.slide_type not in child_game_types and slide.game is None
         ):
             slides.append(slide.model_copy(update=updates))
@@ -458,7 +513,7 @@ def _normalize_training_contracts(
             note = (
                 f"{note.rstrip()}\n\n补充说明："
                 + "；".join(omitted)
-            )[:1200]
+            )
         slides[index] = slide.model_copy(
             update={
                 "slide_type": "compare",
@@ -515,29 +570,33 @@ def _normalize_training_contracts(
                     update={
                         "title": "问题如何解决并验证",
                         "points": [
-                            f"问题表现：{problem.screen_content.title}"[:52],
-                            f"解决动作：{action.screen_content.title}"[:52],
-                            f"验证指标：{metric}"[:52],
+                            f"问题表现：{problem.screen_content.title}",
+                            f"解决动作：{action.screen_content.title}",
+                            f"验证指标：{metric}",
                         ],
                     }
                 ),
                 "teacher_note": (
                     f"{target.teacher_note.rstrip()}\n\n原验证要点：{original_copy}"
-                )[:1200],
+                ),
                 "layout_capabilities": ["scene", "problem-solution", "sequence"],
             }
         )
 
+    if any(len(slide.teacher_note) > 12000 for slide in slides):
+        raise ValueError("教研备注超过 12000 字，请拆分材料，不能自动截断原文。")
     return plan.model_copy(update={"slides": slides})
 
 
 def _repair_machine_contracts(
     plan: KindergartenLessonPlan,
     report: KindergartenPlanQualityReport,
+    *, max_slides: Optional[int] = None,
+    content_mode: str = "classroom",
 ) -> KindergartenLessonPlan:
     """Repair recoverable hidden contracts without a second paid model call."""
-    repaired = _repair_classroom_activity_contracts(plan)
-    report = validate_kindergarten_lesson_plan(repaired)
+    repaired = _repair_classroom_activity_contracts(plan, max_slides=max_slides)
+    report = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
     if report.passed:
         return repaired
     if any(issue.code in CLASSROOM_CONTENT_ERRORS for issue in report.errors):
@@ -575,7 +634,7 @@ def _repair_machine_contracts(
     # Two bounded passes handle pair dependencies such as reveal-before-question
     # becoming reveal-slide-missing on the corresponding question page.
     for _ in range(2):
-        remaining = validate_kindergarten_lesson_plan(repaired)
+        remaining = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
         if remaining.passed:
             return repaired
         bad_slide_numbers = {
@@ -594,6 +653,14 @@ def _repair_machine_contracts(
         repaired = repaired.model_copy(update={"slides": slides})
 
     return repaired
+
+
+def _outline_for_audience(plan: KindergartenLessonPlan, content_mode: str):
+    outline = plan.to_presentation_outline()
+    for slide in outline.slides:
+        if slide.content_contract is not None:
+            slide.content_contract.visual_audience = "teacher" if content_mode == "training" else "child"
+    return outline
 
 
 async def generate_validated_kindergarten_presentation_outline(
@@ -634,6 +701,8 @@ async def generate_validated_kindergarten_presentation_outline(
         disconnect_checker=disconnect_checker,
         text_chunk_callback=text_chunk_callback,
     )
+    # The user-provided topic is authoritative, not the model's paraphrase.
+    plan = plan.model_copy(update={"meta": plan.meta.model_copy(update={"topic": topic.strip()})})
     plan = _ensure_cover_contract(
         plan,
         content_mode,
@@ -641,11 +710,11 @@ async def generate_validated_kindergarten_presentation_outline(
     )
     if content_mode == "training":
         plan = _normalize_training_contracts(plan)
-    report = validate_kindergarten_lesson_plan(plan)
+    report = validate_kindergarten_lesson_plan(plan, content_mode=content_mode)
     if report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=plan,
-            outline=plan.to_presentation_outline(),
+            outline=_outline_for_audience(plan, content_mode),
             quality=report,
             attempts=1,
         )
@@ -654,14 +723,20 @@ async def generate_validated_kindergarten_presentation_outline(
         "Kindergarten outline needs deterministic contract repair: %s",
         ", ".join(issue.code for issue in report.errors),
     )
-    repaired_plan = _repair_machine_contracts(plan, report)
-    repaired_report = validate_kindergarten_lesson_plan(repaired_plan)
+    repaired_plan = _repair_machine_contracts(
+        plan, report, max_slides=n_slides or len(plan.slides), content_mode=content_mode,
+    )
+    repaired_report = validate_kindergarten_lesson_plan(repaired_plan, content_mode=content_mode)
     if repaired_report.passed:
         return ValidatedKindergartenPlanningResult(
             plan=repaired_plan,
-            outline=repaired_plan.to_presentation_outline(),
+            outline=_outline_for_audience(repaired_plan, content_mode),
             quality=repaired_report,
             attempts=1,
         )
 
-    raise KindergartenPlanningQualityError(repaired_report, 1)
+    LOGGER.warning(
+        "Kindergarten outline rejected after local repair: %s",
+        ", ".join(issue.code for issue in repaired_report.errors),
+    )
+    raise KindergartenPlanningQualityError(repaired_report, 1, repaired_plan)

@@ -62,6 +62,7 @@ def test_asset_free_cover_does_not_disable_semantic_classroom_template():
         domain="science",
         slide_types=["cover-scene", "image-observation", "knowledge-single"],
     )
+    plan.slides[0].screen_content.points = ["活动目标：观察种子的变化", "使用类型：集体教学"]
     for slide in plan.slides[1:]:
         slide.assets = [
             LessonAssetSpec(
@@ -73,7 +74,7 @@ def test_asset_free_cover_does_not_disable_semantic_classroom_template():
 
     decision = resolve_kindergarten_template(plan, "auto")
 
-    assert decision.template == "kindergarten-classroom"
+    assert decision.template == "classroom-nature"
 
 
 def test_game_heavy_lesson_routes_to_swift():
@@ -161,3 +162,70 @@ def test_manual_dynamic_template_selection_remains_available():
 
     assert decision.template == "dynamic"
     assert decision.reason == "manual-selection"
+
+
+def _visual_plan(topic='春天的种子', domain='science'):
+    plan = _plan(topic=topic, domain=domain, slide_types=['cover-scene', 'image-observation', 'recap'])
+    plan.slides[0].screen_content.points = ['活动目标：观察变化并交流发现', '使用类型：集体教学']
+    for slide in plan.slides[1:]:
+        slide.screen_content.points = ['观察变化', '交流发现']
+        slide.assets = [LessonAssetSpec(slot='scene', semantic_label=topic, description='清楚呈现观察对象与具体活动')]
+    return plan
+
+
+def test_same_topic_uses_different_audience_templates():
+    plan = _visual_plan('幼儿种植活动的观察记录与案例研讨')
+    assert resolve_kindergarten_template(plan, 'auto', content_mode='classroom').template == 'classroom-nature'
+    teacher = resolve_kindergarten_template(plan, 'auto', content_mode='training')
+    assert teacher.template == 'training-case'
+    assert set(teacher.scores) == {'training-case', 'training-action', 'teacher-training'}
+
+
+def test_story_and_action_keywords_select_distinct_packs():
+    story = _visual_plan('小熊分享的故事', 'language')
+    assert resolve_kindergarten_template(story, 'auto').template == 'classroom-story'
+    action = resolve_kindergarten_template(story, 'auto', content_mode='training',
+                                           topic='班本课程改进计划与实施复盘', instructions='明确负责人和跟进步骤')
+    assert action.template == 'training-action'
+    assert '路线图' in action.reason
+
+
+def test_manual_pack_selection_survives_conflicting_keywords_and_long_copy():
+    plan = _visual_plan('植物观察记录与教研复盘')
+    plan.slides[1].screen_content.points = ['长文' * 200]
+    decision = resolve_kindergarten_template(plan, 'classroom-story', content_mode='training')
+    assert decision.template == 'classroom-story'
+    assert decision.reason == 'manual-selection'
+
+
+def test_automatic_routing_is_deterministic_and_does_not_mutate_page_budget():
+    plan = _visual_plan()
+    before = plan.model_dump()
+    first = resolve_kindergarten_template(plan, 'auto')
+    assert first == resolve_kindergarten_template(plan, 'auto')
+    assert plan.model_dump() == before
+    assert '观察' in first.reason
+
+
+def test_image_disabled_path_does_not_choose_image_required_variants():
+    result = resolve_kindergarten_template(_visual_plan(), 'auto', allow_classroom=False)
+    assert result.template not in {'classroom-nature', 'classroom-story', 'training-case', 'training-action'}
+
+
+def test_all_overflow_retains_outline_for_review_but_prepare_still_rejects():
+    plan = _visual_plan()
+    plan.slides[1].screen_content.points = ['不能删除' * 100]
+    before = plan.model_dump()
+    result = resolve_kindergarten_template(plan, 'auto')
+    assert '请先调整大纲' in result.reason
+    assert '第 2 页' in result.reason
+    assert plan.model_dump() == before
+
+
+def test_capacity_fallback_selects_same_audience_and_explains_reason():
+    plan = _visual_plan('交流分享', 'comprehensive')
+    plan.slides[1].screen_content.points = [f'{i}：' + '保留儿童语言和动作' * 4 for i in range(6)]
+    result = resolve_kindergarten_template(plan, 'auto', content_mode='training')
+    assert result.template in {'training-case', 'training-action'}
+    assert '正文容量不足' in result.reason
+    assert '请先调整大纲' not in result.reason

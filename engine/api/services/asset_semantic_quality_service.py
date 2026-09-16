@@ -38,6 +38,9 @@ class AssetSemanticQualityResult(BaseModel):
     overall_reason: str = Field(default="", max_length=1000)
     provider: str | None = None
     model: str | None = None
+    visible_text_detected: bool = False
+    detected_text: str = Field(default="", max_length=500)
+    subject_cropped: bool = False
 
 
 class AssetSemanticQualityError(ValueError):
@@ -87,14 +90,6 @@ class VisionAssetSemanticQualityService:
         required = tuple(
             expectation for expectation in expectations if expectation.qa_required
         )
-        if not required:
-            return AssetSemanticQualityResult(
-                passed=True,
-                provider=self.provider,
-                model=self.model,
-                overall_reason="没有需要执行视觉语义质检的资产契约。",
-            )
-
         prompt = _build_quality_prompt(required)
         try:
             timeout_seconds = max(
@@ -276,11 +271,15 @@ def _build_quality_prompt(
         "逐项检查：1) 指定主体/局部特征是否真的可见；2) 非背景主体数量是否符合"
         "expected_count；3) description 中可直接从图片验证的关键特征是否满足。"
         "如果主体被遮挡到无法教学辨认，应判 features_match=false。"
-        "背景类契约不要求 detected_count 精确。\n"
+        "背景类契约不要求 detected_count 精确。还必须检查整张图片：只要出现英文、"
+        "字母、汉字、数字、标签、标志、水印或伪文字，就将 visible_text_detected 设为 true；"
+        "主体、人物或关键动作被画面边缘截断时，将 subject_cropped 设为 true。\n"
         "返回纯 JSON：{\"passed\":false,\"checks\":[{\"planning_slot\":\"...\","
         "\"semantic_label\":\"...\",\"present\":true,\"detected_count\":1,"
         "\"features_match\":true,\"confidence\":0.95,\"reason\":\"...\"}],"
-        "\"overall_reason\":\"...\"}。checks 必须与契约逐项一一对应。\n"
+        "\"overall_reason\":\"...\",\"visible_text_detected\":false,"
+        "\"detected_text\":\"\",\"subject_cropped\":false}。checks 必须与契约逐项一一对应；"
+        "没有资产契约时 checks 返回空数组，但仍执行文字和裁切检查。\n"
         f"资产契约：{json.dumps(contracts, ensure_ascii=False)}"
     )
 
@@ -299,6 +298,14 @@ def _enforce_expectations(
     }
     normalized_checks: list[AssetSemanticCheck] = []
     failures: list[str] = []
+
+    if result.visible_text_detected:
+        failures.append(
+            "图片包含可见文字或伪文字"
+            + (f"：{result.detected_text}" if result.detected_text else "")
+        )
+    if result.subject_cropped:
+        failures.append("图片主体被边缘截断，无法完整用于教学展示")
 
     for expectation in expectations:
         key = (

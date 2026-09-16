@@ -110,3 +110,29 @@ test("rejects an image card whose audience labels are all empty", () => {
   };
   assert.equal(collectEmptyVisualCards([empty, filled], 8).length, 1);
 });
+
+
+test("cover artwork is allowed only beneath a fully opaque native title panel", () => {
+  const title = { type: "text", name: "title", runs: [{ text: "幼儿注意力培养" }],
+    position: { x: 592, y: 104 }, size: { width: 592, height: 264 } };
+  const surface = { type: "vector", closed: true, fill: { opacity: 1 },
+    points: [{ x: 544, y: 48 }, { x: 1232, y: 48 }, { x: 1232, y: 672 }, { x: 544, y: 672 }] };
+  const scene = { id: "scene", elements: [{ type: "image", name: "visual", asset_role: "background",
+    position: { x: 0, y: 0 }, size: { width: 1280, height: 720 } }] };
+  const panel = { id: "cover_panel", elements: [surface] };
+  const heading = { id: "heading", elements: [title] };
+  const slide = { content: { __content_contract__: { classroom_mapping_version: 1,
+    classroom_role: "cover-scene", screen_title: "幼儿注意力培养", screen_points: [] } },
+    ui: { components: [scene, panel, heading] } };
+  assert.deepEqual(collectClassroomMappingErrors(slide, 1), []);
+  surface.fill.opacity = 0.4;
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading overlaps/);
+  surface.fill.opacity = 1;
+  surface.points[1].x = 1000;
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading overlaps/);
+  surface.points[1].x = 1232;
+  slide.ui.components = [panel, heading, scene];
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading overlaps/);
+  slide.ui.components = [scene, heading];
+  assert.match(collectClassroomMappingErrors(slide, 1).join(""), /heading overlaps/);
+});

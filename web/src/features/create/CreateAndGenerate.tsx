@@ -86,6 +86,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
   const [streaming, setStreaming] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState<number | null>(null);
   const started = useRef(false);
+  const streamedSlidesRef = useRef<PresentationOutline["slides"]>([]);
   const outlineQuery = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const templateId = params.get("template")?.trim() || null;
@@ -115,9 +116,16 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         setPresentation(current);
         setTemplates(templateList.items);
         if (existingOutline.slides.length) {
+          streamedSlidesRef.current = existingOutline.slides;
           setOutline(existingOutline);
-          setStatus("");
+          setStatus(current.generation_metadata?.quality_warning || "");
           return;
+        }
+
+        // Reopening a failed project must not fall through to the generic
+        // outline stream and silently pay for another, differently routed plan.
+        if (current.generation_metadata?.outline_status === "failed") {
+          throw new Error(current.generation_metadata.outline_error || "大纲生成失败，请返回首页重新创建。");
         }
 
         setStreaming(true);
@@ -139,6 +147,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
             accumulated += event.chunk;
             const slides = parsePartialOutlineSlides(accumulated);
             if (slides.length) {
+              streamedSlidesRef.current = slides;
               setOutline({ slides: slides.map((slide) => ({ ...slide })) });
               setActiveSlideIndex(Math.max(0, slides.length - 1));
               setStatus(`正在生成第 ${slides.length} 页…`);
@@ -154,6 +163,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
               current.n_slides,
             );
             if (slides.length) {
+              streamedSlidesRef.current = slides;
               setOutline({ slides });
               setActiveSlideIndex(Math.max(0, slides.length - 1));
               const expected = current.n_slides || 0;
@@ -166,6 +176,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
             return;
           }
           if (event.type === "outline") {
+            streamedSlidesRef.current = event.outline.slides || [];
             setOutline(event.outline);
             setActiveSlideIndex(null);
             setStreaming(false);
@@ -179,29 +190,59 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         const finalOutline = await api<PresentationOutline>(
           `/outlines/${presentationId}`,
         );
-        setOutline(finalOutline);
-        setPresentation(await api<Presentation>(`/presentation/${presentationId}`));
+        const finalPresentation = await api<Presentation>(
+          `/presentation/${presentationId}`,
+        );
+        if (finalOutline.slides?.length) {
+          streamedSlidesRef.current = finalOutline.slides;
+          setOutline(finalOutline);
+        }
+        setPresentation(finalPresentation);
         setActiveSlideIndex(null);
         setStreaming(false);
-        setStatus("");
+        setStatus(finalPresentation.generation_metadata?.quality_warning || "");
       } catch (cause) {
         try {
           const recovered = await api<PresentationOutline>(
             `/outlines/${presentationId}`,
           );
           if (recovered.slides?.length) {
-            setOutline(recovered);
-            setPresentation(
-              await api<Presentation>(`/presentation/${presentationId}`),
+            streamedSlidesRef.current = recovered.slides;
+            const recoveredPresentation = await api<Presentation>(
+              `/presentation/${presentationId}`,
             );
+            setOutline(recovered);
+            setPresentation(recoveredPresentation);
             setActiveSlideIndex(null);
             setStreaming(false);
             setError("");
-            setStatus("");
+            setStatus(
+              recoveredPresentation.generation_metadata?.quality_warning || "",
+            );
             return;
           }
         } catch {
-          // Fall through to the visible stream error.
+          // Fall through to streamed slides or the visible stream error.
+        }
+        if (streamedSlidesRef.current.length) {
+          const warning = "大纲已生成，收尾校验未完全通过，请核对后再生成课件。";
+          setOutline({ slides: streamedSlidesRef.current });
+          setPresentation((current) =>
+            current
+              ? {
+                  ...current,
+                  generation_metadata: {
+                    ...current.generation_metadata,
+                    quality_warning: warning,
+                  },
+                }
+              : current,
+          );
+          setActiveSlideIndex(null);
+          setStreaming(false);
+          setError("");
+          setStatus(warning);
+          return;
         }
         setError(localizeError(cause));
         setStreaming(false);
@@ -210,7 +251,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
     })();
   }, [presentationId]);
 
-  if (error) {
+  if (error && outline.slides.length === 0) {
     return (
       <Shell>
         <main className="center-state">

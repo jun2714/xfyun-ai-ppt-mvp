@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>案例研讨 · 观察与证据：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#F4F7F9"/>
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,158.0 0.0,158.0" fill="#233C57"/>
+<polygon points="216.0,184.0 620.0,184.0 620.0,384.0 216.0,384.0" fill="#FFFFFF"/>
+<polygon points="824.0,184.0 1228.0,184.0 1228.0,384.0 824.0,384.0" fill="#FFFFFF"/>
+<polygon points="216.0,404.0 620.0,404.0 620.0,604.0 216.0,604.0" fill="#FFFFFF"/>
+<polygon points="824.0,404.0 1228.0,404.0 1228.0,604.0 824.0,604.0" fill="#FFFFFF"/>
+<text fill="#FFFFFF" font-size="48.0" font-weight="700"><tspan x="48.0" y="108.0">从观察记录找到支持策略</tspan></text>
+<text fill="#233C57" font-size="32.0" font-weight="700"><tspan x="48.0" y="680.0">先描述看见的行为，再讨论支持方法。</tspan></text>
+<rect x="60.0" y="190.0" width="144.0" height="188.0" rx="16" fill="#DFEAF0"/><g transform="translate(60.0 225.5) scale(0.225)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#DFEAF0" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#233C57"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#233C57"/></g><text x="132.0" y="364.0" text-anchor="middle" font-size="20" fill="#263E4C">配图示意</text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="224.0" y="222.0">观察事实：孩子三次调整积</tspan><tspan x="224.0" y="262.0">木位置，仍未搭稳。</tspan></text>
+<rect x="668.0" y="190.0" width="144.0" height="188.0" rx="16" fill="#DFEAF0"/><g transform="translate(668.0 225.5) scale(0.225)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#DFEAF0" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#233C57"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#233C57"/></g><text x="740.0" y="364.0" text-anchor="middle" font-size="20" fill="#263E4C">配图示意</text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="832.0" y="222.0">保留原话：“我想搭高一点</tspan><tspan x="832.0" y="262.0">，但是它总是倒下来。”</tspan></text>
+<rect x="60.0" y="410.0" width="144.0" height="188.0" rx="16" fill="#DFEAF0"/><g transform="translate(60.0 445.5) scale(0.225)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#DFEAF0" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#233C57"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#233C57"/></g><text x="132.0" y="584.0" text-anchor="middle" font-size="20" fill="#263E4C">配图示意</text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="224.0" y="442.0">共同讨论：哪些材料和提问</tspan><tspan x="224.0" y="482.0">能够支持孩子继续尝试？</tspan></text>
+<rect x="668.0" y="410.0" width="144.0" height="188.0" rx="16" fill="#DFEAF0"/><g transform="translate(668.0 445.5) scale(0.225)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#DFEAF0" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#233C57"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#233C57"/></g><text x="740.0" y="584.0" text-anchor="middle" font-size="20" fill="#263E4C">配图示意</text>
+<text fill="#263E4C" font-size="32.0" font-weight="400"><tspan x="832.0" y="442.0">支持策略：补充不同形状的</tspan><tspan x="832.0" y="482.0">积木，观察儿童接下来的探</tspan><tspan x="832.0" y="522.0">索。</tspan></text>
+</g>
+</svg>

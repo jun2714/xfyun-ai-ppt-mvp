@@ -42,6 +42,7 @@ def ensure_ppt_library_schema() -> None:
     try:
         with engine.begin() as connection:
             inspector = inspect(connection)
+            _ensure_slide_speaker_note_text(connection, inspector)
             if "ppt_library_items" not in inspector.get_table_names():
                 return
             columns = {column["name"] for column in inspector.get_columns("ppt_library_items")}
@@ -60,6 +61,32 @@ def ensure_ppt_library_schema() -> None:
                 print(f"Added ppt_library_items.{name}", flush=True)
     finally:
         engine.dispose()
+
+
+def _ensure_slide_speaker_note_text(connection, inspector) -> None:
+    """Teacher notes exceed VARCHAR(255); persist them as TEXT."""
+    if "slides" not in inspector.get_table_names():
+        return
+    speaker_note = next(
+        (
+            column
+            for column in inspector.get_columns("slides")
+            if column["name"] == "speaker_note"
+        ),
+        None,
+    )
+    if speaker_note is None:
+        return
+    rendered = str(speaker_note["type"]).lower().replace(" ", "")
+    if "text" in rendered and "varchar" not in rendered:
+        return
+    dialect = connection.dialect.name
+    if dialect == "mysql":
+        connection.execute(text("ALTER TABLE slides MODIFY speaker_note TEXT"))
+        print("Widened slides.speaker_note to TEXT", flush=True)
+    elif dialect == "postgresql":
+        connection.execute(text("ALTER TABLE slides ALTER COLUMN speaker_note TYPE TEXT"))
+        print("Widened slides.speaker_note to TEXT", flush=True)
 
 
 async def migrate_database_on_startup() -> None:

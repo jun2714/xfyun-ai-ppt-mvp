@@ -12,6 +12,7 @@ from models.kindergarten_lesson_plan import (
     KindergartenSlidePlan,
 )
 from services.kindergarten_planner_runtime import get_kindergarten_planner_runtime
+from services.model_request_queue import model_request_slot
 from utils.llm_client_error_handler import handle_llm_client_exceptions
 from utils.llm_utils import (
     DisconnectChecker,
@@ -67,6 +68,10 @@ KINDERGARTEN_LESSON_SYSTEM_PROMPT = """
   课堂真实的推进主线，让每一阶段都服务于同一个主题与教学目标，不得前后跳题。
 - 每一页都必须比上一页推进一步：引出新观察、加深已有认识、练习刚学内容、揭晓
   前面的问题或完成总结。禁止连续两页承担相同 teaching_goal，禁止同义改写凑页数。
+- 每个 lesson_goal 都必须在正文中有对应的观察或操作，不能只出现在封面目标里。
+  若页数不足以讲清所有目标，应在规划时收窄目标，不要遗漏目标后仍声称已经完成。
+- 全篇最多安排一页纯回顾。排序练习之后不要再连续两页换措辞复述同一组步骤；
+  结尾用一个可当场完成或课后继续的具体观察任务收束，让孩子带着新问题离开。
 - 必须遵守“先教后练”：判断、猜测、分类、配对、排序、比较等任务只能使用前面
   已经介绍或观察过的知识。不能先考孩子一个尚未出现的新概念，再在后面补讲。
 - 前面提出的问题必须在后面得到明确回应；后面的互动必须回扣前面出现过的对象、
@@ -317,34 +322,35 @@ async def generate_kindergarten_lesson_plan(
     )
 
     try:
-        content = await generate_structured_with_schema_retries(
-            client,
-            model,
-            messages=build_kindergarten_lesson_messages(
-                topic=topic,
-                age_group=age_group,
-                domain=domain,
-                duration_minutes=duration_minutes,
-                n_slides=n_slides,
-                instructions=instructions,
-                source_context=source_context,
-                content_mode=content_mode,
-            ),
-            response_format=response_format,
-            json_schema=schema,
-            strict=False,
-            validate_schema=True,
-            disconnect_checker=disconnect_checker,
-            text_chunk_callback=text_chunk_callback,
-            max_tokens=runtime.max_tokens,
-            extra_body=runtime.request_extra_body,
-            # The kindergarten planner can use a dedicated OpenAI-compatible
-            # client. Its model parameters must not be inherited from the
-            # unrelated global text provider.
-            use_provider_extra_body=False,
-            call_timeout_seconds=runtime.timeout_seconds,
-            force_stream=runtime.stream,
-        )
+        async with model_request_slot("outline"):
+            content = await generate_structured_with_schema_retries(
+                client,
+                model,
+                messages=build_kindergarten_lesson_messages(
+                    topic=topic,
+                    age_group=age_group,
+                    domain=domain,
+                    duration_minutes=duration_minutes,
+                    n_slides=n_slides,
+                    instructions=instructions,
+                    source_context=source_context,
+                    content_mode=content_mode,
+                ),
+                response_format=response_format,
+                json_schema=schema,
+                strict=False,
+                validate_schema=True,
+                disconnect_checker=disconnect_checker,
+                text_chunk_callback=text_chunk_callback,
+                max_tokens=runtime.max_tokens,
+                extra_body=runtime.request_extra_body,
+                # The kindergarten planner can use a dedicated OpenAI-compatible
+                # client. Its model parameters must not be inherited from the
+                # unrelated global text provider.
+                use_provider_extra_body=False,
+                call_timeout_seconds=runtime.timeout_seconds,
+                force_stream=runtime.stream,
+            )
         return KindergartenLessonPlan(**content)
     except Exception as exc:
         raise handle_llm_client_exceptions(exc)

@@ -923,6 +923,7 @@ def _component_content_field_schema(field: dict[str, Any]) -> dict[str, Any]:
         prompt_key = _component_image_prompt_key(element)
         schema = {
             "type": "object",
+            "x-image-style": element.get("prompt"),
             "additionalProperties": False,
             "properties": {
                 prompt_key: {

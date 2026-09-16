@@ -1,7 +1,7 @@
 from typing import Optional
 import uuid
 import copy
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Text
 from sqlmodel import Field, Column, JSON, SQLModel
 from api.v1.auth.context import get_current_owner_id
 
@@ -25,7 +25,10 @@ class SlideModel(SQLModel, table=True):
     index: int
     content: dict = Field(sa_column=Column(JSON))
     html_content: Optional[str] = None
-    speaker_note: Optional[str] = None
+    speaker_note: Optional[str] = Field(
+        default=None,
+        sa_column=Column(Text, nullable=True),
+    )
     properties: Optional[dict] = Field(sa_column=Column(JSON))
     ui: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
