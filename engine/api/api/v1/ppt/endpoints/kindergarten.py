@@ -52,6 +52,7 @@ from services.documents_loader import DocumentsLoader
 from services.kindergarten_presentation_planning_service import (
     KindergartenPlanningQualityError,
     ValidatedKindergartenPlanningResult,
+    _outline_for_audience,
     generate_validated_kindergarten_presentation_outline,
 )
 from services.kindergarten_plan_quality_service import (
@@ -233,16 +234,73 @@ async def _generate_validated_plan(
                 f"{runtime.total_timeout_seconds:g}-second outline deadline"
             ),
         ) from exc
+
+
+def _quality_failure_http(exc: KindergartenPlanningQualityError) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail={
+            "code": "KINDERGARTEN_PLAN_QUALITY_FAILED",
+            "message": "幼教课堂规划经过自动修复后仍未通过硬性质量校验",
+            "planning_attempts": exc.attempts,
+            "quality": exc.report.model_dump(mode="json"),
+        },
+    )
+
+
+def reviewable_result_from_quality_error(
+    exc: KindergartenPlanningQualityError,
+    content_mode: str,
+) -> ValidatedKindergartenPlanningResult | None:
+    """Keep a streamed outline when pages exist, instead of wiping the review UI."""
+    if exc.plan is None or len(exc.plan.slides) < 3:
+        return None
+    return ValidatedKindergartenPlanningResult(
+        plan=exc.plan,
+        outline=_outline_for_audience(exc.plan, content_mode),
+        quality=exc.report,
+        attempts=exc.attempts,
+    )
+
+
+QUALITY_REVIEW_WARNING = "大纲已保存，部分硬性校验未通过，请核对后再生成课件"
+
+
+def _quality_review_warning(
+    result: ValidatedKindergartenPlanningResult,
+) -> Optional[str]:
+    if result.quality.passed:
+        return None
+    return QUALITY_REVIEW_WARNING
+
+
+async def _generate_reviewable_plan(
+    payload: KindergartenLessonPlanRequest,
+    request: Request,
+    *,
+    text_chunk_callback=None,
+    stop_on_disconnect: bool = True,
+) -> ValidatedKindergartenPlanningResult:
+    """Return a usable plan when hard quality still fails after local repair."""
+    try:
+        return await _generate_validated_plan(
+            payload,
+            request,
+            text_chunk_callback=text_chunk_callback,
+            stop_on_disconnect=stop_on_disconnect,
+        )
     except KindergartenPlanningQualityError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "KINDERGARTEN_PLAN_QUALITY_FAILED",
-                "message": "幼教课堂规划经过自动修复后仍未通过硬性质量校验",
-                "planning_attempts": exc.attempts,
-                "quality": exc.report.model_dump(mode="json"),
-            },
-        ) from exc
+        reviewable = reviewable_result_from_quality_error(
+            exc,
+            payload.content_mode,
+        )
+        if reviewable is None:
+            raise _quality_failure_http(exc) from exc
+        LOGGER.warning(
+            "[kindergarten.plan] keeping reviewable outline after quality gate: %s",
+            exc,
+        )
+        return reviewable
 
 
 def _layout_count(template: TemplateV2) -> int:
@@ -402,6 +460,7 @@ async def _persist_kindergarten_generation_metadata(
     routing: KindergartenTemplateRoutingDecision,
     visual_style_summary: Optional[str],
     sql_session: AsyncSession,
+    quality_warning: Optional[str] = None,
 ) -> None:
     """Persist routing so a saved outline can be resumed without URL-only state."""
     theme = dict(presentation.theme or {})
@@ -421,6 +480,11 @@ async def _persist_kindergarten_generation_metadata(
         "template_scores": routing.scores,
         "outline_status": "ready",
     })
+    generation.pop("outline_error", None)
+    if quality_warning:
+        generation["quality_warning"] = quality_warning
+    else:
+        generation.pop("quality_warning", None)
     theme["kindergarten_generation"] = generation
     presentation.theme = theme
     sql_session.add(presentation)
@@ -528,7 +592,7 @@ async def create_kindergarten_lesson_plan(
     payload: KindergartenLessonPlanRequest,
     request: Request,
 ):
-    result = await _generate_validated_plan(payload, request)
+    result = await _generate_reviewable_plan(payload, request)
     return KindergartenLessonPlanResponse(
         plan=result.plan,
         outline=result.outline,
@@ -553,7 +617,7 @@ async def create_kindergarten_presentation(
     page-specific full-canvas background contract per slide, and defers paid image
     generation until after the teacher reviews the outline.
     """
-    result = await _generate_validated_plan(payload, request)
+    result = await _generate_reviewable_plan(payload, request)
     result, routing, style_summary = _apply_visual_mode(
         payload, result, available_templates=await _available_auto_templates(payload, sql_session),
     )
@@ -567,6 +631,7 @@ async def create_kindergarten_presentation(
         routing=routing,
         visual_style_summary=style_summary,
         sql_session=sql_session,
+        quality_warning=_quality_review_warning(result),
     )
     return KindergartenPresentationCreateResponse(
         presentation_id=presentation.id,
@@ -700,7 +765,7 @@ async def stream_kindergarten_presentation_outline(
             await chunk_queue.put(chunk)
 
         planning_task = asyncio.create_task(
-            _generate_validated_plan(
+            _generate_reviewable_plan(
                 payload,
                 request,
                 text_chunk_callback=on_chunk,
@@ -733,8 +798,11 @@ async def stream_kindergarten_presentation_outline(
                     ),
                 ).to_string()
             result = await planning_task
+            quality_warning = _quality_review_warning(result)
             if not disconnected:
-                yield SSEStatusResponse(status="正在校验并保存大纲").to_string()
+                yield SSEStatusResponse(
+                    status=quality_warning or "正在校验并保存大纲"
+                ).to_string()
             result, routing, style_summary = _apply_visual_mode(
                 payload, result, available_templates=await _available_auto_templates(payload, sql_session),
             )
@@ -752,6 +820,7 @@ async def stream_kindergarten_presentation_outline(
                 routing=routing,
                 visual_style_summary=style_summary,
                 sql_session=sql_session,
+                quality_warning=quality_warning,
             )
             await MEM0_PRESENTATION_MEMORY_SERVICE.store_generated_outlines(
                 presentation.id,
@@ -783,9 +852,7 @@ async def stream_kindergarten_presentation_outline(
         except KindergartenPlanningQualityError as exc:
             detail = f"幼教课堂大纲质检失败：{exc}"
             await _persist_outline_failure(presentation, detail, sql_session)
-            yield SSEErrorResponse(
-                detail=detail
-            ).to_string()
+            yield SSEErrorResponse(detail=detail).to_string()
         except Exception as exc:
             await _persist_outline_failure(
                 presentation,
@@ -818,7 +885,7 @@ async def prepare_kindergarten_presentation(
     sql_session: AsyncSession = Depends(get_async_session),
 ):
     """One-shot plan + route + prepare endpoint for API clients without review UI."""
-    result = await _generate_validated_plan(payload, request)
+    result = await _generate_reviewable_plan(payload, request)
     result, routing, style_summary = _apply_visual_mode(
         payload, result, available_templates=await _available_auto_templates(payload, sql_session),
     )
@@ -832,6 +899,7 @@ async def prepare_kindergarten_presentation(
         routing=routing,
         visual_style_summary=style_summary,
         sql_session=sql_session,
+        quality_warning=_quality_review_warning(result),
     )
     try:
         prepared = await prepare_presentation(

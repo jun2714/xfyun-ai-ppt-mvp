@@ -88,7 +88,8 @@ const apiPython = process.platform === "win32"
 shared.PYTHON_EXECUTABLE = apiPython;
 
 const children = [
-  spawn(apiPython, ["server.py", "--port", apiPort, "--reload", "true"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: false }),
+  // Windows + WatchFiles --reload can prompt "Terminate batch job" and kill the whole stack.
+  spawn(apiPython, ["server.py", "--port", apiPort, "--reload", process.platform === "win32" ? "false" : "true"], { cwd: resolve(root, "engine/api"), env: shared, stdio: "inherit", shell: false }),
   spawn("npm", ["run", "dev", "--", "-p", editorPort], { cwd: resolve(root, "engine/editor"), env: shared, stdio: "inherit", shell: process.platform === "win32" })
 ];
 

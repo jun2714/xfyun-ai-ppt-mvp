@@ -11,6 +11,8 @@ from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
 
 
 AssetRole = Literal["background", "framed-image", "cutout"]
+REPAIR_FAILED_PROMPT_KEY = "__repair_failed_prompt__"
+REPAIR_FAILED_REASON_KEY = "__repair_failed_reason__"
 GenerationMode = Literal[
     "direct-background",
     "composite-image",
@@ -276,7 +278,9 @@ def _infer_role(element: dict[str, Any], width: float, height: float) -> AssetRo
     return "framed-image"
 
 
-def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
+def extract_asset_slots(
+    slides: list[SlideModel], *, include_blocked: bool = False
+) -> list[AssetSlotRequest]:
     slots: list[AssetSlotRequest] = []
     for slide in slides:
         elements = {
@@ -294,6 +298,11 @@ def extract_asset_slots(slides: list[SlideModel]) -> list[AssetSlotRequest]:
                 isinstance(existing_url, str)
                 and existing_url.strip()
                 and "placeholder" not in existing_url.casefold()
+            ):
+                continue
+            if (
+                not include_blocked
+                and parent.get(REPAIR_FAILED_PROMPT_KEY) == prompt
             ):
                 continue
             name = _slot_name(path)

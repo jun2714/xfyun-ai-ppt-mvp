@@ -15,8 +15,8 @@ from models.sql.presentation import PresentationModel, PresentationVersion
 from models.sql.slide import SlideModel
 from models.sql.user import User  # noqa: F401 - register owner FK table
 from services.image_repair_service import (
-    claim_repair, load_slides, preserve_completed_images,
-    read_status, run_repair, task_id,
+    claim_repair, load_slides, persist_repaired_slide, preserve_completed_images,
+    read_status, run_repair, task_id, update_active_run,
 )
 from utils.datetime_utils import get_current_utc_datetime
 
@@ -86,7 +86,32 @@ def test_claim_is_idempotent_and_expired_task_requires_explicit_retry(monkeypatc
     asyncio.run(run())
 
 
-def test_disabled_image_policy_never_offers_or_starts_repair(monkeypatch):
+def test_old_repair_run_cannot_overwrite_a_newer_claim(monkeypatch):
+    monkeypatch.setenv('DISABLE_AUTH', 'true')
+
+    async def run():
+        engine, sessions = await database()
+        try:
+            async with sessions() as session:
+                deck = PresentationModel(version=PresentationVersion.V2_STANDARD, content='种子', n_slides=1,
+                    language='Chinese', image_policy=ImagePolicy.STANDARD)
+                session.add(deck); await session.commit()
+                session.add(make_slide(deck.id)); await session.commit()
+                _, old_run = await claim_repair(session, deck.id)
+                task = await session.get(AsyncTaskModel, task_id(deck.id))
+                task.updated_at = get_current_utc_datetime() - timedelta(seconds=100)
+                await session.commit()
+                _, new_run = await claim_repair(session, deck.id)
+                changed = await update_active_run(session, deck.id, old_run, message='旧任务不应写入')
+                await session.commit()
+                current = await session.get(AsyncTaskModel, task_id(deck.id))
+                assert new_run and old_run != new_run
+                assert changed == 0
+                assert current.message != '旧任务不应写入'
+                assert (current.data or {}).get('run_id') == new_run
+        finally:
+            await engine.dispose()
+    asyncio.run(run())
     monkeypatch.setenv('DISABLE_AUTH', 'true')
 
     async def run():
@@ -132,6 +157,65 @@ def test_completed_image_merge_preserves_teacher_copy_and_manual_replacement():
     manual.ui['components'][0]['elements'][0]['data'] = '/app_data/images/teacher-choice.png'
     preserve_completed_images(generated, manual)
     assert manual.content['scene']['visual']['image_url'] == '/app_data/images/teacher-choice.png'
+
+
+def test_persist_repaired_slide_writes_url_without_matching_json_bytes(monkeypatch):
+    monkeypatch.setenv('DISABLE_AUTH', 'true')
+
+    async def run():
+        engine, sessions = await database()
+        try:
+            async with sessions() as session:
+                deck = PresentationModel(version=PresentationVersion.V2_STANDARD, content='种子', n_slides=1,
+                    language='Chinese', image_policy=ImagePolicy.STANDARD)
+                session.add(deck)
+                await session.commit()
+                stored = make_slide(deck.id)
+                session.add(stored)
+                await session.commit()
+                slide_id = stored.id
+                presentation_id = stored.presentation
+                generated = make_slide(deck.id, url='/app_data/images/generated.png')
+                generated.id = slide_id
+                generated.presentation = presentation_id
+                await persist_repaired_slide(session, generated)
+                await session.commit()
+                session.expire_all()
+                latest = await session.get(SlideModel, slide_id)
+                assert latest.content['scene']['visual']['image_url'] == '/app_data/images/generated.png'
+                assert latest.ui['components'][0]['elements'][0]['data'] == '/app_data/images/generated.png'
+                assert latest.content['heading']['title'] == '小种子的春天'
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+
+
+def test_same_failed_prompt_is_not_claimed_again(monkeypatch):
+    monkeypatch.setenv('DISABLE_AUTH', 'true')
+
+    async def run():
+        engine, sessions = await database()
+        try:
+            async with sessions() as session:
+                deck = PresentationModel(version=PresentationVersion.V2_STANDARD, content='种子', n_slides=1,
+                    language='Chinese', image_policy=ImagePolicy.STANDARD)
+                session.add(deck)
+                await session.commit()
+                stored = make_slide(deck.id)
+                stored.content['scene']['visual']['__repair_failed_prompt__'] = '无字春天花园背景'
+                stored.content['scene']['visual']['__repair_failed_reason__'] = '审核未通过'
+                session.add(stored)
+                await session.commit()
+                state, run_id = await claim_repair(session, deck.id)
+                assert run_id is None
+                assert state['missing_count'] == 1
+                assert state['payable_count'] == 0
+                assert '审核' in (state['message'] or '')
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
 
 
 def test_repair_generates_only_missing_asset_and_persists_checkpoint(tmp_path, monkeypatch):

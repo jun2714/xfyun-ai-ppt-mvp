@@ -697,15 +697,13 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
         <ImageRepairBanner presentationId={presentation_id}
           disabled={!!isStreaming || loading || !presentationData || isChatSending || isChatMutating || isSmartPresentation}
           flush={flushAutoSave} onBusy={setIsRepairing} onCompleted={handleRepairCompleted} />
-        <div inert={isRepairing} className="contents">
         <PresentationHeader
           presentation_id={presentation_id}
           isPresentationSaving={isSaving}
           currentSlide={selectedSlide}
           generationMode={isSmartPresentation ? "smart" : "standard"}
         />
-        </div>
-        <div inert={isRepairing} className="flex flex-1 min-h-0 gap-3 overflow-hidden xl:gap-5 2xl:gap-6">
+        <div className="flex flex-1 min-h-0 gap-3 overflow-hidden xl:gap-5 2xl:gap-6">
           <div className="hidden h-full w-[120px] shrink-0 self-start sticky top-0 pt-[18px] md:block">
             <SidePanel
               selectedSlide={selectedSlide}

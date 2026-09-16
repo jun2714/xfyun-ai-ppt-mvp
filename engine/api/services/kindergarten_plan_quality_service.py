@@ -89,7 +89,7 @@ def _validate_unrequested_storyline(
         for term in (*_ANIMAL_STORY_ROLES, *_FANTASY_STORY_ROLES)
         if term in topic
     }
-    if re.search(r"动物|昆虫|森林朋友|生肖", topic):
+    if re.search(r"动物|动植物|昆虫|森林|自然探索|探索自然|生肖", topic):
         allowed_roles.update(_ANIMAL_STORY_ROLES)
     if re.search(r"童话|魔法|奇幻|幻想", topic):
         allowed_roles.update(_FANTASY_STORY_ROLES)

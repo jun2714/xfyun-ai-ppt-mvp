@@ -599,6 +599,11 @@ export function OutlineEditor({
               <div className="outline-complete-copy">
                 <strong>大纲已生成完成</strong>
                 <p>可以继续修改内容，也可以选择视觉方案或模板后开始生成 PPT。</p>
+                {presentation.generation_metadata?.quality_warning && (
+                  <p className="outline-template-notice">
+                    {presentation.generation_metadata.quality_warning}
+                  </p>
+                )}
                 {template === preferred && presentation.generation_metadata?.template_selection_reason
                   && !/^[a-z][a-z-]*[:;]/i.test(presentation.generation_metadata.template_selection_reason)
                   && presentation.generation_metadata.template_selection_reason !== "manual-selection" && (

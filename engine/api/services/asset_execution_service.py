@@ -13,6 +13,8 @@ from services.asset_planning_service import (
     AssetPlanItem,
     AssetSemanticExpectation,
     AssetSlotRequest,
+    REPAIR_FAILED_PROMPT_KEY,
+    REPAIR_FAILED_REASON_KEY,
     build_asset_plan,
 )
 from services.asset_semantic_quality_service import (
@@ -158,6 +160,8 @@ def _asset_url(result: str | ImageAsset) -> str:
 
 def _assign_url(slide: SlideModel, slot: AssetSlotRequest, url: str) -> None:
     target = get_dict_at_path(slide.content, slot.content_path)
+    target.pop(REPAIR_FAILED_PROMPT_KEY, None)
+    target.pop(REPAIR_FAILED_REASON_KEY, None)
     _set_asset_url(
         target,
         "image",
@@ -165,6 +169,31 @@ def _assign_url(slide: SlideModel, slot: AssetSlotRequest, url: str) -> None:
         template=_uses_template_asset_fields(slide),
     )
     set_dict_at_path(slide.content, slot.content_path, target)
+
+
+def _mark_repair_failure(slide: SlideModel, slot: AssetSlotRequest, error: Exception) -> None:
+    try:
+        target = get_dict_at_path(slide.content, slot.content_path)
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return
+    if not isinstance(target, dict):
+        return
+    target[REPAIR_FAILED_PROMPT_KEY] = slot.prompt
+    target[REPAIR_FAILED_REASON_KEY] = str(getattr(error, "detail", error) or error)[:180]
+    set_dict_at_path(slide.content, slot.content_path, target)
+
+
+def _is_moderation_error(error: Exception) -> bool:
+    text = str(getattr(error, "detail", "") or error)
+    folded = text.casefold()
+    return "审核" in text or "moderation" in folded or "safety system" in folded
+
+
+def _safer_kindergarten_prompt(prompt: str) -> str:
+    return (
+        f"{prompt}。适合3到6岁幼儿园的温馨绘本插画，画面干净明亮，"
+        "不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
+    )
 
 
 def _quality_expectations(
@@ -289,6 +318,8 @@ async def process_presentation_assets(
     on_item_completed: Callable[[list[ImageAsset]], Awaitable[None]] | None = None,
     semantic_quality_service: AssetSemanticQualityService | None = None,
     on_item_finished: Callable[[], Awaitable[None]] | None = None,
+    quality_retries: int = 1,
+    skip_semantic_quality: bool = False,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
@@ -301,7 +332,9 @@ async def process_presentation_assets(
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
     quality_service = (
-        semantic_quality_service or build_default_asset_semantic_quality_service()
+        None
+        if skip_semantic_quality
+        else (semantic_quality_service or build_default_asset_semantic_quality_service())
     )
     try:
         concurrency = max(
@@ -313,7 +346,7 @@ async def process_presentation_assets(
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
     image_options = research_ppt_image_options.get()
-    max_attempts = 2  # Only a confirmed semantic mismatch gets one scoped retry.
+    max_attempts = 1 + max(0, int(quality_retries))
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
@@ -494,6 +527,29 @@ async def process_presentation_assets(
                 finally:
                     _remove_materialized_source(materialized_source_to_cleanup)
 
+            if (
+                result is None
+                and last_error is not None
+                and _is_moderation_error(last_error)
+                and item.generation_mode not in {"sprite-sheet", "single-cutout"}
+            ):
+                try:
+                    result = await image_generation_service.generate_image(
+                        ImagePrompt(
+                            prompt=_safer_kindergarten_prompt(_request_prompt(item)),
+                            forbid_latin_text=(
+                                image_options.forbid_latin_text
+                                if image_options.enabled
+                                else True
+                            ),
+                        )
+                    )
+                    source_asset = result if isinstance(result, ImageAsset) else None
+                    last_error = None
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    result = None
+
             if result is None:
                 assert last_error is not None
                 affected_pages = sorted({slot.slide_index + 1 for slot in item.slots})
@@ -505,6 +561,13 @@ async def process_presentation_assets(
                     affected_pages,
                     last_error,
                 )
+                for slot in item.slots:
+                    slide = slides_by_index.get(slot.slide_index)
+                    if slide is not None:
+                        _mark_repair_failure(slide, slot, last_error)
+                if on_item_completed is not None:
+                    async with checkpoint_lock:
+                        await on_item_completed([])
                 return []
 
             item_assets: list[ImageAsset] = []

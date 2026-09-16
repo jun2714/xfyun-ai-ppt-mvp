@@ -25,6 +25,7 @@ export type Presentation = {
   generation_metadata?: {
     outline_status?: "pending" | "ready" | "failed";
     outline_error?: string | null;
+    quality_warning?: string | null;
     selected_template?: string | null;
     template_selection_reason?: string | null;
     visual_mode?: "template" | "ai-background";

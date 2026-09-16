@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -34,9 +35,15 @@ class ValidatedKindergartenPlanningResult:
 class KindergartenPlanningQualityError(ValueError):
     """Raised when a lesson plan still violates hard teaching contracts."""
 
-    def __init__(self, report: KindergartenPlanQualityReport, attempts: int):
+    def __init__(
+        self,
+        report: KindergartenPlanQualityReport,
+        attempts: int,
+        plan: Optional[KindergartenLessonPlan] = None,
+    ):
         self.report = report
         self.attempts = attempts
+        self.plan = plan
         codes = ", ".join(issue.code for issue in report.errors) or "unknown"
         super().__init__(
             f"幼教课堂规划质检失败（模型调用 {attempts} 次）：{codes}"
@@ -313,6 +320,37 @@ def _downgrade_contract_slide(slide):
     )
 
 
+_PROMPT_INSTRUCTION_RE = re.compile(
+    r"(帮我|请帮我|麻烦).{0,12}(生成|做|制作)|"
+    r"^(请)?(生成|做|制作)一[个份张]|"
+    r"(生成|制作|做一).{0,24}(ppt|PPT|课件|演示文稿)",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_prompt_instruction(text: str) -> bool:
+    value = (text or "").strip()
+    return bool(value and _PROMPT_INSTRUCTION_RE.search(value))
+
+
+def _visible_cover_title(
+    plan: KindergartenLessonPlan,
+    original_first,
+    content_mode: str,
+) -> str:
+    """Classroom covers stay child-facing; training covers keep the exact topic."""
+    topic_focus = plan.meta.topic.strip()
+    generated = (original_first.screen_content.title or "").strip()
+    if content_mode == "training":
+        return topic_focus
+    existing_cover = original_first.slide_type == "cover-scene"
+    if existing_cover and generated and not _looks_like_prompt_instruction(generated):
+        return generated
+    if _looks_like_prompt_instruction(topic_focus):
+        return generated if existing_cover and generated else "今天的探索开始啦"
+    return topic_focus
+
+
 def _ensure_cover_contract(
     plan: KindergartenLessonPlan,
     content_mode: str,
@@ -321,8 +359,9 @@ def _ensure_cover_contract(
 ) -> KindergartenLessonPlan:
     """Guarantee a real first-page cover without discarding opening content."""
     # The title is native text. Never crop it at punctuation or mid-sentence.
-    topic_focus = plan.meta.topic.strip()
-    if len(topic_focus) > 80:
+    original_first = plan.slides[0]
+    cover_title = _visible_cover_title(plan, original_first, content_mode).strip()
+    if len(cover_title) > 80:
         raise ValueError("封面主题超过 80 字，请缩短主题并将详细要求放入补充说明。")
     training = content_mode == "training"
     prefix = "培训目的：" if training else "活动目标："
@@ -332,7 +371,6 @@ def _ensure_cover_contract(
     preview = preview or ("围绕主题开展研讨与实践" if training else "在观察与互动中获得新的发现")
     cover_points = [prefix + preview,
                     "幼儿园园本教研培训" if training else "幼儿园集体教学"]
-    original_first = plan.slides[0]
     note = original_first.teacher_note if original_first.slide_type == "cover-scene" else ""
     goals_note = "完整目标：\n" + "\n".join(f"- {goal}" for goal in plan.lesson_goals)
     if goals_note not in note:
@@ -351,7 +389,7 @@ def _ensure_cover_contract(
             "screen_content": original_first.screen_content.model_copy(
                 update={
                     "section": None,
-                    "title": topic_focus,
+                    "title": cover_title,
                     "points": cover_points,
                     "instruction": None,
                 }
@@ -361,8 +399,8 @@ def _ensure_cover_contract(
             ),
             "teacher_note": note,
             "assets": [LessonAssetSpec(
-                slot="cover-background", semantic_label=topic_focus[:160],
-                description=f"围绕{topic_focus}的无字封面背景，主题活动位于左侧，右侧留白。",
+                slot="cover-background", semantic_label=cover_title[:160],
+                description=f"围绕{cover_title}的无字封面背景，主题活动位于左侧，右侧留白。",
                 role="background", required=True, expected_count=1, qa_required=True,
             )],
             "game": None,
@@ -701,4 +739,4 @@ async def generate_validated_kindergarten_presentation_outline(
         "Kindergarten outline rejected after local repair: %s",
         ", ".join(issue.code for issue in repaired_report.errors),
     )
-    raise KindergartenPlanningQualityError(repaired_report, 1)
+    raise KindergartenPlanningQualityError(repaired_report, 1, repaired_plan)

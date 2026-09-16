@@ -792,5 +792,16 @@ def test_cover_keeps_whole_short_goal_and_rejects_overlong_title():
     result = planning_service._ensure_cover_contract(plan, "classroom")
     assert result.slides[0].screen_content.points[0] == "活动目标：观察叶片的形状。"
     plan.meta.topic = "长主题" * 30
+    plan.slides[0].screen_content.title = "长主题" * 30
     with pytest.raises(ValueError, match="请缩短主题"):
         planning_service._ensure_cover_contract(plan, "classroom")
+
+
+def test_classroom_cover_keeps_child_title_instead_of_generation_prompt():
+    plan = _plan()
+    plan.meta.topic = "帮我生成一个以自然探索动植物为主的ppt"
+    plan.slides[0].screen_content.title = "森林里来一封信，谁是自然小侦探？"
+    result = planning_service._ensure_cover_contract(plan, "classroom")
+    assert result.slides[0].screen_content.title == "森林里来一封信，谁是自然小侦探？"
+    assert result.slides[0].slide_type == "cover-scene"
+    assert not result.slides[0].screen_content.title.lower().endswith("ppt")
