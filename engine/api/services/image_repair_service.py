@@ -29,6 +29,7 @@ from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
 LOGGER = logging.getLogger(__name__)
 TASK_TYPE = 'ppt-missing-images'
 LEASE_SECONDS = 90
+CONTINUE_REPAIR_MESSAGE = '还有图片未补齐，点击「补齐缺图」继续。'
 
 
 def task_id(presentation_id):
@@ -129,6 +130,22 @@ def copy_repair_failure_marks(source, target) -> int:
     return changed
 
 
+def clear_repair_failure_marks(slides) -> int:
+    changed = 0
+    for slide in slides:
+        if not isinstance(getattr(slide, 'content', None), dict):
+            continue
+        for _path, parent, _prompt in _asset_dicts_with_prompt(slide.content, IMAGE_PROMPT_KEYS):
+            if not isinstance(parent, dict):
+                continue
+            if REPAIR_FAILED_PROMPT_KEY not in parent and REPAIR_FAILED_REASON_KEY not in parent:
+                continue
+            parent.pop(REPAIR_FAILED_PROMPT_KEY, None)
+            parent.pop(REPAIR_FAILED_REASON_KEY, None)
+            changed += 1
+    return changed
+
+
 async def owned_presentation(session, presentation_id):
     row = await get_by_id_unscoped(session, PresentationModel, presentation_id)
     owner = get_current_owner_id()
@@ -177,7 +194,7 @@ async def expire_stale_repair_task(session, task):
             AsyncTaskModel.updated_at < get_current_utc_datetime() - timedelta(seconds=LEASE_SECONDS),
         ).execution_options(synchronize_session=False).values(
             status=AsyncTaskStatus.ERROR,
-            message='补图任务已中断；已完成图片保留，可手动继续补图。',
+            message=CONTINUE_REPAIR_MESSAGE,
         ))
         if result.rowcount:
             await session.commit()
@@ -244,10 +261,9 @@ async def read_status(session, presentation_id):
     message = task.message if task else ''
     if task and status == 'pending' and _is_stale_pending(task):
         status = 'error'
-        message = '补图任务已中断；已完成图片保留，可手动继续补图。'
-    elif status != 'pending' and blocked and not payable:
-        pages = '、'.join(str(page) for page in dict.fromkeys(item['page'] for item in blocked))
-        message = f'第 {pages} 页有图片未通过审核或质检，已停止重复生图以免重复扣费。可改画面说明后再试。'
+        message = CONTINUE_REPAIR_MESSAGE
+    elif status != 'pending' and missing:
+        message = CONTINUE_REPAIR_MESSAGE
     return dict(status=status, message=message, missing=missing, missing_count=len(missing),
                 payable_count=len(payable), blocked_count=len(blocked),
                 processed=data.get('processed', 0), total=data.get('total', 0),
@@ -258,9 +274,14 @@ async def claim_repair(session, presentation_id):
     task = await get_by_id_unscoped(session, AsyncTaskModel, task_id(presentation_id))
     await expire_stale_repair_task(session, task)
     state = await read_status(session, presentation_id)
-    if state['status'] == 'pending' or not state.get('payable_count'):
+    if state['status'] == 'pending' or not state['missing_count']:
         return state, None
     slides = await load_slides(session, presentation_id)
+    if clear_repair_failure_marks(slides):
+        for slide in slides:
+            await session.execute(update(SlideModel).where(
+                SlideModel.id == slide.id,
+            ).values(content=slide.content).execution_options(synchronize_session=False))
     total = len(build_asset_plan(slides))  # validate semantics before a paid call
     run_id = uuid.uuid4().hex
     values = dict(status=AsyncTaskStatus.PENDING, message='正在准备补齐缺图', error=None,
@@ -369,14 +390,10 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
         async with session_factory() as session:
             latest_slides = await load_slides(session, presentation_id)
             remaining = extract_asset_slots(latest_slides, include_blocked=True)
-            payable = extract_asset_slots(latest_slides)
             if not remaining:
                 message = '缺图已补齐，可继续编辑。'
-            elif not payable:
-                pages = '、'.join(str(index + 1) for index in dict.fromkeys(slot.slide_index for slot in remaining))
-                message = f'第 {pages} 页有图片未通过审核或质检，已停止重复生图以免重复扣费。可改画面说明后再试。'
             else:
-                message = f'仍有 {len(remaining)} 处缺图，已有内容已保存，可稍后继续补图。'
+                message = CONTINUE_REPAIR_MESSAGE
             await update_active_run(
                 session,
                 presentation_id,
@@ -393,7 +410,7 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
                 presentation_id,
                 run_id,
                 status=AsyncTaskStatus.ERROR,
-                message='本次补图未完成，已完成图片保留，请查看缺图位置后继续。',
+                message=CONTINUE_REPAIR_MESSAGE,
             )
             await session.commit()
     finally:

@@ -94,16 +94,15 @@ export default function ImageRepairBanner({ presentationId, disabled, flush, onB
   };
   if (disabled || (!error && !starting && !state?.missing_count && state?.status !== 'pending')) return null;
   const pages = [...new Set(state?.missing.map(item => item.page) || [])].join('、');
-  const payableCount = state?.payable_count ?? state?.missing_count ?? 0;
-  const canStart = !starting && !active.current && payableCount > 0;
+  const canStart = !starting && !active.current && !!state?.missing_count;
   return <div className="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-slate-800" role="status" aria-live="polite">
     <div className="min-w-0 flex-1">
       <p className="font-medium">{state?.status === 'pending' ? `正在补图 · 已处理 ${state.processed}/${state.total} 个请求` : `待补图片 ${state?.missing_count ?? '…'} 处${pages ? `（第 ${pages} 页）` : ''}`}</p>
-      <p>{error || state?.message || '已有文字和图片保留，只补齐尚未生成的图片。'}</p>
-      {state?.status === 'pending' && <p>正在生成缺图，不会重复提交。关闭页面后仍会继续，回来可查看进度。</p>}
+      <p>{error || state?.message || '还有图片未补齐，点击「补齐缺图」继续。'}</p>
+      {state?.status === 'pending' && <p>正在补图，完成后可继续编辑。</p>}
     </div>
     <button className="border border-teal-700 bg-teal-700 px-4 py-2 text-white disabled:opacity-50" disabled={!canStart} onClick={() => void start()}>
-      {starting ? '正在保存课件…' : active.current ? '正在补图…' : payableCount ? '补齐缺图' : '请改提示词后再试'}
+      {starting ? '正在保存课件…' : active.current ? '正在补图…' : '补齐缺图'}
     </button>
   </div>;
 }

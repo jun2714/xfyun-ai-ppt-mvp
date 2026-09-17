@@ -191,7 +191,7 @@ def test_persist_repaired_slide_writes_url_without_matching_json_bytes(monkeypat
     asyncio.run(run())
 
 
-def test_same_failed_prompt_is_not_claimed_again(monkeypatch):
+def test_explicit_retry_claims_previously_failed_slot(monkeypatch):
     monkeypatch.setenv('DISABLE_AUTH', 'true')
 
     async def run():
@@ -207,11 +207,17 @@ def test_same_failed_prompt_is_not_claimed_again(monkeypatch):
                 stored.content['scene']['visual']['__repair_failed_reason__'] = '审核未通过'
                 session.add(stored)
                 await session.commit()
+                slide_id = stored.id
+                preview = await read_status(session, deck.id)
+                assert preview['missing_count'] == 1
+                assert '补齐缺图' in (preview['message'] or '')
+                assert '审核' not in (preview['message'] or '')
                 state, run_id = await claim_repair(session, deck.id)
-                assert run_id is None
-                assert state['missing_count'] == 1
-                assert state['payable_count'] == 0
-                assert '审核' in (state['message'] or '')
+                assert run_id
+                assert state['status'] == 'pending'
+                session.expire_all()
+                latest = await session.get(SlideModel, slide_id)
+                assert '__repair_failed_prompt__' not in (latest.content['scene']['visual'] or {})
         finally:
             await engine.dispose()
 
