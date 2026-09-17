@@ -25,9 +25,11 @@ class FakeImageService:
         self.outputs = list(outputs)
         self.calls = 0
         self.prompts = []
+        self.aspect_ratios = []
 
     async def generate_image(self, prompt):
         self.prompts.append(prompt.prompt)
+        self.aspect_ratios.append(prompt.aspect_ratio)
         output = self.outputs[self.calls]
         self.calls += 1
         return ImageAsset(path=str(output), is_uploaded=False)
@@ -65,6 +67,8 @@ def test_teacher_art_direction_survives_execution_and_is_not_reused_for_children
     assert "professional educational editorial" not in prompts["teacher"]
     assert "ages 3-6" not in prompts["teacher"]
     assert "ages 3-6" in prompts["child"]
+    assert "完整入画" in prompts["teacher"]
+    assert "do not crop heads" in prompts["child"]
 
 
 def test_education_image_without_semantic_slots_still_runs_text_and_crop_qa():
@@ -538,3 +542,102 @@ def test_kindergarten_asset_prompt_requires_one_illustration_medium():
     assert "never photography" in prompt
     assert "photorealism" in prompt
     assert "mixed media" in prompt
+    assert "do not crop heads" in prompt
+
+
+def test_teacher_wide_banner_prompt_uses_real_frame_and_full_bodies():
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="teacher-training",
+        layout="scene_top",
+        index=0,
+        content={
+            "main": {"visual": {"image_prompt": "教师围坐研讨观察记录"}},
+            "__content_contract__": {
+                "visual_audience": "teacher",
+                "classroom_mapping_version": 1,
+            },
+        },
+        ui={
+            "components": [
+                {
+                    "id": "main",
+                    "elements": [
+                        {
+                            "type": "image",
+                            "name": "visual",
+                            "fit": "cover",
+                            "asset_role": "framed-image",
+                            "position": {"x": 48, "y": 174},
+                            "size": {"width": 1184, "height": 220},
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    item = asset_execution_service.build_asset_plan([slide])[0]
+    prompt = asset_execution_service._request_prompt(item)
+    assert "1184:220" in prompt
+    assert "完整入画" in prompt
+    assert "半截身子" in prompt
+    assert "横向宽画幅" in prompt
+    assert asset_execution_service._provider_aspect_ratio(item.slots[0]) == "21:9"
+
+
+def test_cover_framed_image_is_padded_instead_of_center_cropped(tmp_path, monkeypatch):
+    source = Image.new("RGB", (100, 100), "white")
+    source.putpixel((50, 2), (255, 0, 0))
+    source.putpixel((50, 97), (0, 0, 255))
+    path = tmp_path / "square.png"
+    source.save(path)
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="teacher-training",
+        layout="scene_top",
+        index=0,
+        content={
+            "main": {"visual": {"image_prompt": "教师围坐研讨观察记录"}},
+            "__content_contract__": {
+                "visual_audience": "teacher",
+                "classroom_mapping_version": 1,
+            },
+        },
+        ui={
+            "components": [
+                {
+                    "id": "main",
+                    "elements": [
+                        {
+                            "type": "image",
+                            "name": "visual",
+                            "fit": "cover",
+                            "asset_role": "framed-image",
+                            "position": {"x": 48, "y": 174},
+                            "size": {"width": 1184, "height": 220},
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    service = FakeImageService(tmp_path, [path])
+
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service, [slide], semantic_quality_service=None
+        )
+    )
+
+    fitted = Image.open(generated[-1].path)
+    pixels = set(fitted.getdata())
+    assert abs(fitted.width / fitted.height - 1184 / 220) < 0.02
+    assert (255, 0, 0, 255) in pixels
+    assert (0, 0, 255, 255) in pixels
+    assert service.aspect_ratios == ["21:9"]
+    assert "完整入画" in service.prompts[0]

@@ -22,7 +22,7 @@ CHINESE_PEOPLE_INSTRUCTION = (
     "不要出现欧美面孔。"
 )
 
-ImageAspectRatio = Literal["16:9", "4:3", "3:2", "1:1", "3:4", "2:3", "9:16"]
+ImageAspectRatio = Literal["16:9", "21:9", "4:3", "3:2", "1:1", "3:4", "2:3", "9:16"]
 ImageOutputSize = Literal["0.5K", "1K", "2K", "4K"]
 
 

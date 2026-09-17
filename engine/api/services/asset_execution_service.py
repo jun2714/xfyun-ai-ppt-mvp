@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 import logging
 import os
 
-from models.image_prompt import ImagePrompt
+from models.image_prompt import ImageAspectRatio, ImagePrompt
 from models.sql.image_asset import ImageAsset
 from models.sql.asset_generation_trace import AssetGenerationTrace
 from models.sql.slide import SlideModel
@@ -27,7 +27,7 @@ from services.research_ppt_generation_context import research_ppt_image_options
 from services.sprite_sheet_service import (
     create_transparent_cutout,
     crop_sprite_sheet,
-    crop_to_aspect_ratio,
+    fit_to_aspect_ratio,
 )
 from services.asset_trace_service import record_asset_generation_trace
 # Kept as a module export for compatibility with existing validation tests and
@@ -84,6 +84,77 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
     )
 
 
+def _slot_frame_ratio(slot: AssetSlotRequest) -> str:
+    if slot.width > 0 and slot.height > 0:
+        return f"{int(slot.width)}:{int(slot.height)}"
+    return slot.aspect_ratio or "16:9"
+
+
+def _frame_value(slot: AssetSlotRequest) -> float:
+    text = _slot_frame_ratio(slot)
+    parts = text.split(":", 1)
+    try:
+        return float(parts[0]) / float(parts[1])
+    except (ValueError, ZeroDivisionError, IndexError):
+        return 1.0
+
+
+_PROVIDER_RATIOS: tuple[tuple[int, int], ...] = (
+    (21, 9),
+    (16, 9),
+    (4, 3),
+    (3, 2),
+    (1, 1),
+    (3, 4),
+    (2, 3),
+    (9, 16),
+)
+
+
+def _provider_aspect_ratio(slot: AssetSlotRequest) -> ImageAspectRatio:
+    value = _frame_value(slot)
+    numerator, denominator = min(
+        _PROVIDER_RATIOS,
+        key=lambda pair: abs(value - pair[0] / pair[1]),
+    )
+    return f"{numerator}:{denominator}"  # type: ignore[return-value]
+
+
+def _build_image_prompt(
+    item: AssetPlanItem,
+    *,
+    prompt_text: str,
+    forbid_latin_text: bool,
+) -> ImagePrompt:
+    return ImagePrompt(
+        prompt=prompt_text,
+        forbid_latin_text=forbid_latin_text,
+        aspect_ratio=_provider_aspect_ratio(item.slots[0]) if item.slots else None,
+    )
+
+
+def _framing_direction(slot: AssetSlotRequest) -> str:
+    ratio = _frame_value(slot)
+    frame = _slot_frame_ratio(slot)
+    if slot.visual_audience == "teacher":
+        direction = (
+            f" 目标画面比例 {frame}。人物、教具和关键动作必须完整入画，"
+            "头顶、手和躯干不要贴边或被截断；不要大头特写或只画半截身子。"
+        )
+        if ratio >= 2.2:
+            return direction + " 使用横向宽画幅构图，人物并排或围坐，大半身可见。"
+        if ratio >= 1.4:
+            return direction + " 使用横向中景构图，人物站立或围坐完整可见。"
+        return direction
+    direction = (
+        f" Compose for a {frame} frame. Keep the full teaching subject inside the "
+        "image with margin; do not crop heads, hands, feet or key body parts."
+    )
+    if ratio >= 2.2:
+        return direction + " Use a wide landscape arrangement so people stand side by side."
+    return direction
+
+
 def _request_prompt(item: AssetPlanItem) -> str:
     kindergarten_direction = _kindergarten_visual_direction(item)
     teacher = _is_teacher_visual(item)
@@ -112,11 +183,12 @@ def _request_prompt(item: AssetPlanItem) -> str:
         subjects = "；".join(slot.prompt for slot in item.slots) if teacher else "; ".join(
             slot.prompt for slot in item.slots
         )
-        framing = (
-            f" 目标图片框比例为 {item.slots[0].aspect_ratio}。全部教学主体完整入画，"
-            "主体四周留出至少约一成边距，不用特写截断关键器官；"
+        clue = (
             "明确要求局部猜谜时，按契约展示线索，不提前揭示答案。"
+            if teacher
+            else " When a local guessing cue is required, show the clue only and do not reveal the answer."
         )
+        framing = _framing_direction(item.slots[0]) + clue
         if teacher:
             return f"生成一个连贯场景，画面中包含：{subjects}。{framing}{kindergarten_direction}"
         return (
@@ -125,6 +197,7 @@ def _request_prompt(item: AssetPlanItem) -> str:
         )
 
     slot = item.slots[0]
+    framing = _framing_direction(slot)
     if item.generation_mode == "direct-background":
         if teacher:
             safe_area = (
@@ -133,8 +206,8 @@ def _request_prompt(item: AssetPlanItem) -> str:
                 else ""
             )
             return (
-                f"{slot.prompt}。铺满16:9课件背景，不要边框。{safe_area}"
-                f"{kindergarten_direction}"
+                f"{slot.prompt}。铺满16:9课件背景，人物若出现须完整入画。{safe_area}"
+                f"{framing}{kindergarten_direction}"
             )
         safe_area = (
             f" Keep a quiet text-safe area on the {slot.text_safe_area}."
@@ -143,20 +216,20 @@ def _request_prompt(item: AssetPlanItem) -> str:
         )
         return (
             f"{slot.prompt}. Full-bleed presentation background, aspect ratio "
-            f"{slot.aspect_ratio}, no border.{safe_area}{kindergarten_direction}"
+            f"{slot.aspect_ratio}, no border.{safe_area}{framing}{kindergarten_direction}"
         )
     if item.generation_mode == "single-cutout":
         if teacher:
             return (
                 f"{slot.prompt}。一个完整居中主体，四周留白，纯色对比背景，便于抠图。"
-                f"{kindergarten_direction}"
+                f"{framing}{kindergarten_direction}"
             )
         return (
             f"{slot.prompt}. One complete centered subject, generous margin, solid "
             f"plain contrasting background suitable for local background removal."
-            f"{kindergarten_direction}"
+            f"{framing}{kindergarten_direction}"
         )
-    return f"{slot.prompt}{kindergarten_direction}"
+    return f"{slot.prompt}{framing}{kindergarten_direction}"
 
 
 def _asset_url(result: str | ImageAsset) -> str:
@@ -199,7 +272,7 @@ def _is_moderation_error(error: Exception) -> bool:
 def _safer_kindergarten_prompt(prompt: str) -> str:
     return (
         f"{prompt}。适合3到6岁幼儿园的温馨绘本插画，画面干净明亮，"
-        "不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
+        "人物和主体完整入画，不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
     )
 
 
@@ -373,11 +446,14 @@ async def process_presentation_assets(
                 quality_warning = None
                 try:
                     result = await image_generation_service.generate_image(
-                        ImagePrompt(
-                            prompt=_request_prompt(item),
-                            forbid_latin_text=image_options.forbid_latin_text
-                            if image_options.enabled
-                            else True,
+                        _build_image_prompt(
+                            item,
+                            prompt_text=_request_prompt(item),
+                            forbid_latin_text=(
+                                image_options.forbid_latin_text
+                                if image_options.enabled
+                                else True
+                            ),
                         )
                     )
                     source_asset = result if isinstance(result, ImageAsset) else None
@@ -434,10 +510,15 @@ async def process_presentation_assets(
                         )
                         if materialized:
                             materialized_source_to_cleanup = local_source
-                        normalized_path = crop_to_aspect_ratio(
+                        crop_fill = (
+                            item.slots[0].role == "background"
+                            or item.generation_mode == "direct-background"
+                        )
+                        normalized_path = fit_to_aspect_ratio(
                             local_source,
                             image_generation_service.output_directory,
-                            item.slots[0].aspect_ratio,
+                            _slot_frame_ratio(item.slots[0]),
+                            crop=crop_fill,
                         )
                         if normalized_path != local_source:
                             result = ImageAsset(
@@ -446,7 +527,7 @@ async def process_presentation_assets(
                                 extras={
                                     "source_asset_request_id": item.request_id,
                                     "generation_mode": item.generation_mode,
-                                    "aspect_ratio": item.slots[0].aspect_ratio,
+                                    "aspect_ratio": _slot_frame_ratio(item.slots[0]),
                                 },
                             )
 
@@ -542,8 +623,9 @@ async def process_presentation_assets(
             ):
                 try:
                     result = await image_generation_service.generate_image(
-                        ImagePrompt(
-                            prompt=_safer_kindergarten_prompt(_request_prompt(item)),
+                        _build_image_prompt(
+                            item,
+                            prompt_text=_safer_kindergarten_prompt(_request_prompt(item)),
                             forbid_latin_text=(
                                 image_options.forbid_latin_text
                                 if image_options.enabled

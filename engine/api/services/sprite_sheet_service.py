@@ -67,6 +67,31 @@ def crop_to_aspect_ratio(
     output_directory: str,
     aspect_ratio: str,
 ) -> str:
+    return fit_to_aspect_ratio(source_path, output_directory, aspect_ratio, crop=True)
+
+
+def _pad_color(image: Image.Image) -> tuple[int, int, int, int]:
+    width, height = image.size
+    samples = [
+        image.getpixel((0, 0)),
+        image.getpixel((width - 1, 0)),
+        image.getpixel((0, height - 1)),
+        image.getpixel((width - 1, height - 1)),
+    ]
+    channels = [
+        sum(sample[index] for sample in samples) // 4
+        for index in range(min(3, len(samples[0])))
+    ]
+    return (channels[0], channels[1], channels[2], 255)
+
+
+def fit_to_aspect_ratio(
+    source_path: str,
+    output_directory: str,
+    aspect_ratio: str,
+    *,
+    crop: bool = True,
+) -> str:
     match = aspect_ratio.split(":", 1)
     if len(match) != 2:
         return source_path
@@ -78,19 +103,30 @@ def crop_to_aspect_ratio(
     current_ratio = source.width / source.height
     if abs(current_ratio - target_ratio) < 0.01:
         return source_path
-    if current_ratio > target_ratio:
-        target_width = round(source.height * target_ratio)
-        left = (source.width - target_width) // 2
-        box = (left, 0, left + target_width, source.height)
+    if crop:
+        if current_ratio > target_ratio:
+            target_width = round(source.height * target_ratio)
+            left = (source.width - target_width) // 2
+            box = (left, 0, left + target_width, source.height)
+        else:
+            target_height = round(source.width / target_ratio)
+            top = (source.height - target_height) // 2
+            box = (0, top, source.width, top + target_height)
+        fitted = source.crop(box)
+    elif current_ratio > target_ratio:
+        new_width = source.width
+        new_height = max(1, round(source.width / target_ratio))
+        fitted = Image.new("RGBA", (new_width, new_height), _pad_color(source))
+        fitted.paste(source, (0, (new_height - source.height) // 2))
     else:
-        target_height = round(source.width / target_ratio)
-        top = (source.height - target_height) // 2
-        box = (0, top, source.width, top + target_height)
-    cropped = source.crop(box)
+        new_height = source.height
+        new_width = max(1, round(source.height * target_ratio))
+        fitted = Image.new("RGBA", (new_width, new_height), _pad_color(source))
+        fitted.paste(source, ((new_width - source.width) // 2, 0))
     destination = Path(output_directory)
     destination.mkdir(parents=True, exist_ok=True)
     output = destination / f"{uuid.uuid4()}.png"
-    cropped.save(output, format="PNG")
+    fitted.save(output, format="PNG")
     return str(output)
 
 

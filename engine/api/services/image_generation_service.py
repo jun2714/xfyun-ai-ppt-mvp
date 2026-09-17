@@ -129,7 +129,7 @@ class ImageGenerationService:
         try:
             async def request_with_timeout():
                 async with asyncio.timeout(get_image_generation_timeout_seconds()):
-                    return await self._call_image_provider(image_prompt)
+                    return await self._call_image_provider(prompt, image_prompt)
 
             # Every entry point shares the same admission budget. Provider time
             # starts only after admission; a timeout never auto-retries upstream.
@@ -163,9 +163,24 @@ class ImageGenerationService:
                 raise
             raise normalized_error from e
 
-    async def _call_image_provider(self, image_prompt: str) -> str:
+    async def _call_image_provider(self, prompt: ImagePrompt, image_prompt: str) -> str:
         if self.is_stock_provider_selected():
             return await self.image_gen_func(image_prompt)
+        if self.image_gen_func in {
+            self.generate_image_gemini_flash,
+            self.generate_image_nanobanana_pro,
+        }:
+            model = (
+                os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+                if is_gemini_flash_selected()
+                else "gemini-3-pro-image-preview"
+            )
+            return await self._generate_image_google(
+                image_prompt,
+                self.output_directory,
+                model,
+                aspect_ratio=prompt.aspect_ratio,
+            )
         return await self.image_gen_func(image_prompt, self.output_directory)
 
     async def generate_image_openai(
@@ -288,12 +303,20 @@ class ImageGenerationService:
         return image_path
 
     async def _generate_image_google(
-        self, prompt: str, output_directory: str, model: str
+        self,
+        prompt: str,
+        output_directory: str,
+        model: str,
+        *,
+        aspect_ratio: str | None = None,
     ) -> str:
         """Base method for Google image generation models."""
         # DMX exposes Gemini's native generateContent protocol, not OpenAI's
         # /images/generations endpoint. Keeping the base URL configurable also
         # preserves direct Google compatibility for other deployments.
+        image_config = (
+            types.ImageConfig(aspect_ratio=aspect_ratio) if aspect_ratio else None
+        )
         client = genai.Client(
             api_key=os.getenv("GOOGLE_API_KEY"),
             http_options={
@@ -308,7 +331,10 @@ class ImageGenerationService:
             async with client.aio as async_client:
                 response = await async_client.models.generate_content(
                     model=model, contents=prompt,
-                    config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE"],
+                        image_config=image_config,
+                    ),
                 )
         finally:
             client.close()

@@ -87,6 +87,44 @@ def test_gemini_cancellation_closes_async_transport_without_background_thread(mo
     assert state["options"]["retry_options"] == {"attempts": 1}
 
 
+def test_gemini_image_config_receives_requested_aspect_ratio(monkeypatch, tmp_path):
+    state = {}
+
+    class Client:
+        def __init__(self, **kwargs):
+            self.aio = self
+            self.models = self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def close(self):
+            return None
+
+        async def generate_content(self, **kwargs):
+            state["config"] = kwargs["config"]
+            part = type("Part", (), {"inline_data": None})()
+            return type("Response", (), {"parts": [part], "candidates": []})()
+
+    monkeypatch.setattr(images.genai, "Client", Client)
+    service = images.ImageGenerationService.__new__(images.ImageGenerationService)
+
+    with pytest.raises(images.HTTPException):
+        asyncio.run(
+            service._generate_image_google(
+                "课堂观察",
+                str(tmp_path),
+                "test-model",
+                aspect_ratio="21:9",
+            )
+        )
+
+    assert state["config"].image_config.aspect_ratio == "21:9"
+
+
 def test_serialized_image_wait_does_not_start_provider_timeout(monkeypatch):
     state = {"budgets": 0, "calls": 0}
     async def run():
