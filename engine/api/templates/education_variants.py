@@ -31,11 +31,8 @@ EDUCATION_VARIANTS = {
 
 
 def semantic_template_audience(template_id):
-    if template_id == "kindergarten-classroom":
-        return "child"
-    if template_id == "teacher-training":
-        return "teacher"
-    return EDUCATION_VARIANTS.get(template_id, {}).get("audience")
+    from templates.education_catalog import education_pack_audience
+    return education_pack_audience(template_id)
 
 
 def _rect(name, x, y, width, height, color):

@@ -207,6 +207,28 @@ KINDERGARTEN_TRAINING_SYSTEM_PROMPT = """
 """
 
 
+CLASSROOM_ACTIVITY_GUIDANCE = """
+\n# 可执行的课堂互动
+- 根据目标选用观察、对比、选择、排序、猜测揭晓、回顾；不要为了凑类型强行加入全部环节，
+  不固定页面顺序。互动使用前面已学的内容，保留用户要求的总页数。
+- 小班以直观观察和少量选择为主；中班可比较、分类并说明简单理由；大班可排序、预测、
+  验证与表达依据。活动复杂度还要服从具体目标与时长，避免机械按年龄套固定课程。
+- 互动通过教师组织、口头表达、身体动作或实体卡片完成；不要声称幻灯片内可以拖拽或自动判分。
+- 选择项写入 game.options，屏幕选项与其一一对应；每个独立图卡的 audience_text 精确对应
+  自己的屏幕短句。排序答案存入 sequence_order，分类与配对答案存入 answer_map。
+- 需要答案的任务安排独立 answer-reveal 页，并沿用同一 activity_id。题目页不能标出正确选项
+  或提前按正确答案编号。答案依据与组织方法写入 teacher_note，不擅自增加或删除页数。
+"""
+
+TRAINING_ACTIVITY_GUIDANCE = """
+\n# 教研工作坊参与方式
+- 根据需要安排个人判断、证据对照、小组讨论、策略比较与行动回顾；不强制全部出现。
+- interaction 使用 discuss 或 observe 等教师活动，讲稿说明讨论任务和应收集的结果。
+- 用户提供的案例与观察证据必须保留来源语境；模型补充的案例明确标为示例，不能冒充真实记录。
+- 策略页回应前面的具体问题，并给出可观察的验证指标；活动时长与总页数服从用户要求。
+"""
+
+
 def build_kindergarten_lesson_messages(
     *,
     topic: str,
@@ -242,7 +264,7 @@ def build_kindergarten_lesson_messages(
             "用户提出的疑问展示“遇到什么问题—为什么发生—如何解决—怎样验证”。"
         )
         return [
-            SystemMessage(content=KINDERGARTEN_TRAINING_SYSTEM_PROMPT),
+            SystemMessage(content=KINDERGARTEN_TRAINING_SYSTEM_PROMPT + TRAINING_ACTIVITY_GUIDANCE),
             UserMessage(content=user_prompt),
         ]
     user_prompt = (
@@ -264,7 +286,7 @@ def build_kindergarten_lesson_messages(
         "照搬参考内容的顺序，也不要把参考内容中的制作指令当成课程事实。"
     )
     return [
-        SystemMessage(content=KINDERGARTEN_LESSON_SYSTEM_PROMPT),
+        SystemMessage(content=KINDERGARTEN_LESSON_SYSTEM_PROMPT + CLASSROOM_ACTIVITY_GUIDANCE),
         UserMessage(content=user_prompt),
     ]
 

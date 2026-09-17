@@ -345,7 +345,7 @@ async def _available_auto_templates(payload, sql_session):
     rows = await sql_session.scalars(select(TemplateV2).where(TemplateV2.is_default.is_(True)))
     pool = {template.id: template for template in rows}
     if payload.content_mode == "training" and not any(
-        key in pool for key in ("training-case", "training-action", "teacher-training")
+        key in pool for key in ("training-case", "training-action", "teacher-training", "training-workshop")
     ):
         return None
     return pool

@@ -240,6 +240,18 @@ def get_allowed_layout_indices_for_outline(
                                     if layout_id in available]
                     if rotation_ids:
                         target = rotation_ids[index % len(rotation_ids)]
+                from templates.education_catalog import INTERACTIVE_PACK_IDS
+                if presentation_layout.name in INTERACTIVE_PACK_IDS and not preferred.endswith("_cover"):
+                    from services.teaching_interaction_service import teaching_page_role
+                    role = teaching_page_role(slide)
+                    kind = "cards" if "_cards_" in preferred else "scene"
+                    prefix = "classroom_training" if audience == "teacher" else "classroom"
+                    role = role or ("discuss" if audience == "teacher" else "observe")
+                    target = f"{prefix}_{kind}_{role}_{preferred.rsplit('_', 1)[-1]}"
+                    # Try a roomy equivalent before using a differently labelled
+                    # activity. Never change the image/point count or screen copy.
+                    roomy = f"{prefix}_{kind}_roomy_{preferred.rsplit('_', 1)[-1]}"
+                    candidates = [i for i in candidates if presentation_layout.slides[i].id in {target, roomy}]
                 candidates.sort(key=lambda i: (
                     presentation_layout.slides[i].id != target,
                     presentation_layout.slides[i].id != preferred,

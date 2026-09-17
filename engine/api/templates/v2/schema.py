@@ -482,6 +482,10 @@ def _template_layout_schema(layout: dict[str, Any], slide_index: int) -> dict[st
             "properties": properties,
             "required": required,
         }
+        metadata = layout.get("metadata") or {}
+        capabilities = metadata.get("capabilities") or []
+        if "teacher-led" in capabilities:
+            schema["x-teaching-activity"] = True
 
     return {
         "slide": slide_index,

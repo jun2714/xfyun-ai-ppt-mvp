@@ -206,6 +206,9 @@ class KindergartenLessonPlan(BaseModel):
                         interaction_type=slide.interaction.type,
                         activity_id=activity_id,
                         answer_key=answer_key,
+                        game_options=dict(slide.game.options) if slide.game else {},
+                        game_answer_map=dict(slide.game.answer_map) if slide.game else {},
+                        game_sequence_order=list(slide.game.sequence_order) if slide.game else [],
                         required_asset_semantics=required_semantics,
                         asset_contracts=[
                             SlideAssetContract(

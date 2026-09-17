@@ -247,6 +247,7 @@ def _resolve_education_pack(plan, content_mode, instructions, topic, available_t
     from templates.education_variants import build_education_variant
     from templates.kindergarten_classroom import build_classroom_template
     from templates.teacher_training import build_training_template
+    from templates.education_catalog import EDUCATION_PACKS, INTERACTIVE_PACK_IDS, build_education_pack
     from templates.v2.schema import get_template_schema
     from models.presentation_layout import PresentationLayoutModel, SlideLayoutModel
     from utils.layout_compatibility import LayoutCompatibilityError, get_allowed_layout_indices_for_outline
@@ -280,6 +281,29 @@ def _resolve_education_pack(plan, content_mode, instructions, topic, available_t
                         "classroom-story": "课堂以阅读讲述或情绪表达为主，推荐绘本分镜版式"})
     for key, words in terms.items():
         scores[key] += min(8, sum(word in text for word in words) * 2)
+    # New packs declare their routing signals in the catalog. Topic/interaction
+    # evidence is required; age/domain alone must not turn a lesson into a game.
+    for key in INTERACTIVE_PACK_IDS:
+        spec = EDUCATION_PACKS[key]
+        if spec.audience != ("teacher" if teacher else "child"):
+            continue
+        matched = [word for word in spec.keywords if word in text]
+        actions = sum(slide.interaction.type in spec.interactions for slide in plan.slides)
+        score = min(18, len(matched) * 6) + min(12, actions * 3)
+        signals = []
+        if matched:
+            signals.append("主题包含" + "、".join(matched[:3]))
+        if actions:
+            signals.append(f"含 {actions} 个参与活动")
+        if score:
+            if plan.meta.domain in spec.domains:
+                score += 4
+                signals.append("教学领域适合")
+            if plan.meta.age_group in spec.age_groups:
+                score += 1
+        scores[key] = score
+        reasons[key] = ("推荐教研工作坊" if teacher else "推荐游戏探索") + (
+            "：" + "；".join(signals) if signals else "；作为同用途容量备选")
     # No strong signal: retain a neutral audience-appropriate pack.
     eligible = list(scores)
     if available_templates is not None:
@@ -304,9 +328,7 @@ def _resolve_education_pack(plan, content_mode, instructions, topic, available_t
     outline = plan.to_presentation_outline()
     failures = []
     for key in ranked:
-        template = available_templates[key] if available_templates is not None else (build_training_template() if key == "teacher-training" else
-                    build_classroom_template() if key == "kindergarten-classroom" else
-                    build_education_variant(key))
+        template = available_templates[key] if available_templates is not None else build_education_pack(key)
         schemas = get_template_schema(template.layouts)["layouts"]
         layout = PresentationLayoutModel(name=key, slides=[
             SlideLayoutModel(id=entry["layout_id"], json_schema=entry["schema"]) for entry in schemas

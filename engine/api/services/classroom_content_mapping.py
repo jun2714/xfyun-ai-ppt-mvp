@@ -192,5 +192,10 @@ def build_classroom_content(schema, outline):
     note = contract.teacher_note or ""
     if contract.interaction_instruction and contract.interaction_instruction not in note:
         note += "\n课堂操作：" + contract.interaction_instruction
+    if schema.get("x-teaching-activity") and unchanged:
+        from services.teaching_interaction_service import interaction_speaker_notes
+        guidance = interaction_speaker_notes(outline)
+        if guidance and guidance not in note:
+            note += "\n" + guidance
     result["__speaker_note__"] = note.strip()
     return result

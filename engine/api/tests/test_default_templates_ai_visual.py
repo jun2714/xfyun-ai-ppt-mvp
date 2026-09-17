@@ -1,7 +1,7 @@
 import asyncio
 
 from templates import default_templates
-from templates.education_variants import EDUCATION_VARIANTS
+from templates.education_catalog import EDUCATION_PACKS
 
 
 class _FakeSession:
@@ -48,6 +48,6 @@ def test_startup_imports_internal_ai_visual_template_without_disk_template(tmp_p
     asyncio.run(default_templates.import_default_templates_on_startup(tmp_path))
 
     ids = [template.id for template in session.added]
-    assert ids == ["ai-visual", "kindergarten-classroom", "teacher-training", *EDUCATION_VARIANTS]
+    assert ids == ["ai-visual", *EDUCATION_PACKS]
     assert session.added[0].assets["template_metadata"]["internal_visual_mode"] == "ai-background"
-    assert session.commits == 7
+    assert session.commits == 1 + len(EDUCATION_PACKS)

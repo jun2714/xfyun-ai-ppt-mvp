@@ -12,6 +12,8 @@ const DISPLAY_NAMES: Record<string, string> = {
   "classroom-story": "故事表达 · 阅读与分享",
   "training-case": "案例研讨 · 观察与证据",
   "training-action": "行动复盘 · 实施与改进",
+  "classroom-game": "游戏探索 · 观察与挑战",
+  "training-workshop": "教研工作坊 · 证据与共创",
   dynamic: "动感橙黑",
   executive: "柔光紫",
   general: "通用模板",
@@ -107,7 +109,7 @@ export function TemplateLibrary() {
         <TemplateReturnLink />
         <span>模板中心</span>
         <h1>选择一套合适的设计</h1>
-        <p>课堂可选自然观察、故事表达，教研可选案例研讨、行动复盘；点击预览版式，再回到大纲选择使用。</p>
+        <p>课堂可选自然观察、故事表达、游戏探索；教研可选案例研讨、行动复盘、教研工作坊。点击预览版式，再回到大纲选择使用。</p>
       </div>
       <a className="primary" href="/templates/new">制作模板 <ArrowRightIcon /></a>
     </header>

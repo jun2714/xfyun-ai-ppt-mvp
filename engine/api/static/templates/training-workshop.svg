@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>教研工作坊 · 证据与共创：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#F5F4F8"/>
+<polygon points="0.0,0.0 16.0,0.0 16.0,720.0 0.0,720.0" fill="#65518A"/>
+<polygon points="48.0,154.0 1232.0,154.0 1232.0,157.0 48.0,157.0" fill="#65518A"/>
+<polygon points="40.0,180.0 784.0,180.0 784.0,318.66666666666663 40.0,318.66666666666663" fill="#FFFFFF"/>
+<polygon points="40.0,326.66666666666663 784.0,326.66666666666663 784.0,465.33333333333326 40.0,465.33333333333326" fill="#FFFFFF"/>
+<polygon points="40.0,473.3333333333333 784.0,473.3333333333333 784.0,612.0 40.0,612.0" fill="#FFFFFF"/>
+<text fill="#302B48" font-size="32.0" font-weight="700"><tspan x="1010.0" y="67.0">交流研讨</tspan></text>
+<text fill="#302B48" font-size="48.0" font-weight="700"><tspan x="48.0" y="78.0">从观察事实到支持行动</tspan></text>
+<text fill="#302B48" font-size="32.0" font-weight="400"><tspan x="48.0" y="672.0">小组讨论：下次观察哪些变化？</tspan></text>
+<rect x="824.0" y="184.0" width="408.0" height="424.0" rx="16" fill="#E6E0EE"/><g transform="translate(824.0 263.25) scale(0.6375)"><rect x="90" y="45" width="460" height="280" rx="14" fill="#FFFFFF"/><path d="M145 110H490M145 165H445M145 220H470" stroke="#E6E0EE" stroke-width="16"/><rect x="145" y="267" width="70" height="28" fill="#65518A"/><rect x="240" y="240" width="70" height="55" fill="#C4AB76"/><path d="M392 250L464 295H360Z" fill="#65518A"/></g><text x="1028.0" y="594.0" text-anchor="middle" font-size="20" fill="#302B48">配图位置 · 版式示意</text>
+<text fill="#302B48" font-size="32.0" font-weight="400"><tspan x="48.0" y="216.0">记录儿童的原话与动作，区分事实和推断。</tspan></text>
+<text fill="#302B48" font-size="32.0" font-weight="400"><tspan x="48.0" y="362.66666666666663">比较不同解释，为每种解释寻找证据。</tspan></text>
+<text fill="#302B48" font-size="32.0" font-weight="400"><tspan x="48.0" y="509.3333333333333">共同提出可验证的支持行动。</tspan></text>
+</g>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">
+<title>游戏探索 · 观察与挑战：版式示意</title>
+<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<polygon points="0.0,0.0 1280.0,0.0 1280.0,720.0 0.0,720.0" fill="#FFF8ED"/>
+<polygon points="48.0,14.0 148.0,14.0 148.0,20.0 48.0,20.0" fill="#C75330"/>
+<polygon points="32.0,630.0 1248.0,630.0 1248.0,712.0 32.0,712.0" fill="#F7DFC4"/>
+<text fill="#20374D" font-size="32.0" font-weight="700"><tspan x="1010.0" y="67.0">观察发现</tspan></text>
+<text fill="#20374D" font-size="48.0" font-weight="700"><tspan x="48.0" y="78.0">谁生活在海洋里？</tspan></text>
+<text fill="#20374D" font-size="32.0" font-weight="400"><tspan x="48.0" y="672.0">先观察，再和同伴交流理由。</tspan></text>
+<rect x="48.0" y="180.0" width="720.0" height="430.0" rx="16" fill="#F7DFC4"/><g transform="translate(57.777777777777715 179.99999999999997) scale(1.0944444444444446)"><path d="M90 160Q230 30 390 160Q230 290 90 160Z" fill="#C75330"/><path d="M375 160L485 80V240Z" fill="#C75330"/><circle cx="167" cy="147" r="9" fill="#20374D"/><circle cx="525" cy="65" r="15" fill="none" stroke="#C75330" stroke-width="5"/></g><text x="408.0" y="596.0" text-anchor="middle" font-size="20" fill="#20374D">配图位置 · 版式示意</text>
+<text fill="#20374D" font-size="32.0" font-weight="400"><tspan x="808.0" y="212.0">观察海龟的外壳</tspan></text>
+<text fill="#20374D" font-size="32.0" font-weight="400"><tspan x="808.0" y="360.66666666666663">看看海豚的身体</tspan></text>
+<text fill="#20374D" font-size="32.0" font-weight="400"><tspan x="808.0" y="509.3333333333333">说说自己的发现</tspan></text>
+</g>
+</svg>
