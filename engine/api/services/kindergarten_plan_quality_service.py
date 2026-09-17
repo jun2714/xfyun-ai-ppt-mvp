@@ -39,6 +39,11 @@ CLASSROOM_CONTENT_ERRORS = {
     "question-reveals-answer", "game-contract-missing",
     "reveal-slide-missing", "reveal-before-question", "question-slide-missing",
     "topic-replaced-by-unrequested-storyline",
+    "reveal-contract-mismatch", "duplicate-activity-page", "orphan-reveal",
+    "sequence-items-invalid", "answer-map-invalid", "answer-not-in-options",
+    "answer-key-missing", "options-too-few", "answer-map-missing",
+    "sequence-order-missing", "reveal-answer-missing", "options-ambiguous",
+    "reveal-visible-answer-mismatch",
 }
 
 _ANIMAL_STORY_ROLES = (
@@ -158,19 +163,20 @@ def _validate_slide(
         )
         return issues
 
-    if slide.slide_type == "answer-reveal" and (
-        slide.game is None or not slide.game.answer_key
-    ):
+    if slide.slide_type == "answer-reveal" and slide.game is None:
         issues.append(
             _error(
                 slide,
                 "reveal-answer-missing",
-                "答案揭晓页必须携带与题目页一致的 activity_id 和 answer_key。",
+                "答案揭晓页必须携带与题目页一致的活动契约。",
             )
         )
 
     if slide.game:
         game = slide.game
+        values = [value.strip() for value in game.options.values()]
+        if any(not value for value in values) or len(values) != len(set(values)):
+            issues.append(_error(slide, "options-ambiguous", "选项内容为空或重复，无法确定唯一的答案对应关系。"))
         if game.type in {"guess", "memory", "choice"}:
             if not game.answer_key:
                 issues.append(
@@ -218,6 +224,19 @@ def _validate_slide(
                     "排序活动必须提供至少 2 项的正确 sequence_order。",
                 )
             )
+        if game.type == "sequence" and game.sequence_order:
+            order = [_option_text(game, item) for item in game.sequence_order]
+            if (len(set(order)) != len(order) or any(not item for item in order)
+                    or (game.options and set(order) != set(values))):
+                issues.append(_error(slide, "sequence-items-invalid", "排序答案必须包含每个选项且仅出现一次，不能漏项、重复或引用不存在的对象。"))
+        if game.type in {"matching", "classification"} and game.answer_map:
+            sources = [_option_text(game, key) for key in game.answer_map]
+            targets = {_option_text(game, value) for value in game.answer_map.values()}
+            if (len(set(sources)) != len(sources)
+                    or any(not key.strip() or not value.strip() for key, value in game.answer_map.items())
+                    or (game.options and (any(source not in values for source in sources)
+                                          or set(values) - set(sources) - targets))):
+                issues.append(_error(slide, "answer-map-invalid", "配对或分类答案包含空内容、重复对象、不存在的对象或遗漏的题目对象。"))
 
     required_assets = [asset for asset in slide.assets if asset.required]
     if slide.slide_type in {
@@ -265,7 +284,9 @@ def _validate_slide(
                 )
             )
 
-    if slide.interaction.type == "guess" or slide.slide_type in {"guess-partial", "guess-shadow"}:
+    if slide.slide_type != "answer-reveal" and (slide.interaction.type == "guess" or
+            slide.slide_type in {"guess-partial", "guess-shadow"} or
+            (slide.game and slide.slide_type != "memory-show")):
         visible = "\n".join([slide.screen_content.title, *slide.screen_content.points,
                              slide.screen_content.instruction or ""])
         if re.search(r"答案[是为：:]|正确[选答]项?[是为：:]|先出现的是|先长出的是", visible):
@@ -310,62 +331,82 @@ def _validate_slide(
     return issues
 
 
-def _validate_activity_pairs(
-    plan: KindergartenLessonPlan,
-) -> list[KindergartenPlanIssue]:
-    issues: list[KindergartenPlanIssue] = []
-    question_activities: dict[str, KindergartenSlidePlan] = {}
-    reveal_activities: dict[str, KindergartenSlidePlan] = {}
+def _option_text(game, value):
+    return game.options.get(value, value).strip()
 
-    for slide in plan.slides:
+
+def is_activity_question(slide):
+    return bool(slide.game and slide.slide_type not in {
+        "answer-reveal", "memory-show", "cover-scene", "recap", "ending-scene",
+    })
+
+
+def _answer_signature(game):
+    if game.type == "sequence":
+        return tuple(_option_text(game, item) for item in game.sequence_order)
+    if game.type in {"matching", "classification"}:
+        return tuple(sorted((_option_text(game, key), _option_text(game, value))
+                            for key, value in game.answer_map.items()))
+    return _option_text(game, game.answer_key or "")
+
+
+def _validate_activity_pairs(plan: KindergartenLessonPlan) -> list[KindergartenPlanIssue]:
+    issues = []
+    questions, reveals = {}, {}
+    for index, slide in enumerate(plan.slides):
         if not slide.game:
             continue
-        activity_id = slide.game.activity_id
-        if slide.slide_type in {"guess-partial", "guess-shadow"}:
-            question_activities[activity_id] = slide
-        elif slide.slide_type == "answer-reveal":
-            reveal_activities[activity_id] = slide
-
-    for activity_id, question in question_activities.items():
-        reveal = reveal_activities.get(activity_id)
-        if reveal is None:
-            issues.append(
-                _error(
-                    question,
-                    "reveal-slide-missing",
-                    f"活动 {activity_id} 没有对应的答案揭晓页。",
-                )
-            )
+        if slide.slide_type == "answer-reveal":
+            group = reveals
+        elif is_activity_question(slide):
+            group = questions
+        else:
             continue
-        if reveal.slide_no <= question.slide_no:
-            issues.append(
-                _error(
-                    reveal,
-                    "reveal-before-question",
-                    f"活动 {activity_id} 的答案页必须出现在题目页之后。",
-                )
-            )
-        if question.game and reveal.game:
-            if question.game.answer_key != reveal.game.answer_key:
-                issues.append(
-                    _error(
-                        reveal,
-                        "reveal-answer-mismatch",
-                        f"活动 {activity_id} 的题目页与答案页 answer_key 不一致。",
-                    )
-                )
+        group.setdefault(slide.game.activity_id, []).append((index, slide))
 
-    for activity_id, reveal in reveal_activities.items():
-        if activity_id not in question_activities:
-            issues.append(
-                KindergartenPlanIssue(
-                    severity="warning",
-                    code="orphan-reveal",
-                    message=f"答案页活动 {activity_id} 没有找到对应的猜测题目页。",
-                    slide_no=reveal.slide_no,
-                )
-            )
+    for group in (questions, reveals):
+        for activity_id, entries in group.items():
+            if len(entries) > 1:
+                issues.append(_error(entries[1][1], "duplicate-activity-page",
+                    f"活动 {activity_id} 有多张题目页或多张揭晓页，请为不同题目使用独立活动标识。"))
 
+    for activity_id, entries in questions.items():
+        answers = reveals.get(activity_id, [])
+        if not answers:
+            issues.append(_error(entries[0][1], "reveal-slide-missing",
+                f"活动 {activity_id} 没有对应的答案揭晓页。"))
+            continue
+        if len(entries) != 1 or len(answers) != 1:
+            continue
+        q_index, question = entries[0]
+        r_index, reveal = answers[0]
+        if r_index <= q_index:
+            issues.append(_error(reveal, "reveal-before-question",
+                f"活动 {activity_id} 的答案页必须出现在题目页之后。"))
+        q, r = question.game, reveal.game
+        if q.type in {"guess", "memory", "choice"} and q.answer_key:
+            expected = _option_text(q, q.answer_key)
+            visible = "\n".join([reveal.screen_content.title, *reveal.screen_content.points,
+                                  reveal.screen_content.instruction or ""])
+            if expected not in visible and any(
+                value != expected and re.search(
+                    r"(?:正确答案[是为：:]?|答案[是为：:]|原来是)\s*" + re.escape(value), visible)
+                for value in q.options.values()
+            ):
+                issues.append(_error(reveal, "reveal-visible-answer-mismatch",
+                    f"活动 {activity_id} 的揭晓正文明确写了另一个选项，不能只修改内部答案编号。"))
+        if q.type != r.type or set(q.options.values()) != set(r.options.values()):
+            issues.append(_error(reveal, "reveal-contract-mismatch",
+                f"活动 {activity_id} 的题目和揭晓页使用了不同活动类型或选项内容。"))
+        elif _answer_signature(q) != _answer_signature(r):
+            code = "reveal-answer-mismatch" if q.type in {"guess", "memory", "choice"} else "reveal-contract-mismatch"
+            issues.append(_error(reveal, code,
+                f"活动 {activity_id} 的题目与揭晓答案不一致，请核对实际答案内容、顺序或分类对应。"))
+
+    for activity_id, entries in reveals.items():
+        if activity_id not in questions:
+            issues.append(_error(entries[0][1], "orphan-reveal",
+                f"答案页活动 {activity_id} 没有对应题目页。"))
     return issues
 
 

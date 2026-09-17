@@ -88,3 +88,45 @@ def test_background_provider_error_keeps_saved_pages_and_does_not_replay(monkeyp
         finally:
             await engine.dispose()
     asyncio.run(run())
+
+
+def test_background_quality_failure_keeps_review_link_without_generating_images(monkeypatch):
+    async def run():
+        engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(SQLModel.metadata.create_all)
+            sessions = async_sessionmaker(engine, expire_on_commit=False)
+            async with sessions() as session:
+                deck = PresentationModel(version=PresentationVersion.V2_STANDARD,
+                    content='海洋动物', n_slides=3, language='Chinese',
+                    outlines={'slides': [{'content': '保存题目'}, {'content': '保存答案'}, {'content': '保存回顾'}]})
+                task = AsyncTaskModel(type=endpoint.ASYNC_TASK_TYPE_KINDERGARTEN_COMPLETE,
+                    status=AsyncTaskStatus.PENDING)
+                session.add(deck)
+                session.add(task)
+                await session.commit()
+                deck_id, task_id = deck.id, task.id
+            detail = dict(code='KINDERGARTEN_PLAN_REVIEW_REQUIRED', message='第 2 页答案不一致',
+                          presentation_id=str(deck_id), outline_path=f'/presentations/{deck_id}/outline',
+                          quality={'passed': False, 'errors': [{'code': 'reveal-contract-mismatch'}]})
+            prepare = AsyncMock(side_effect=HTTPException(status_code=422, detail=detail))
+            consume = AsyncMock()
+            monkeypatch.setattr(endpoint, 'async_session_maker', sessions)
+            monkeypatch.setattr(endpoint, 'prepare_kindergarten_presentation', prepare)
+            monkeypatch.setattr(endpoint, '_consume_presentation_stream', consume)
+            await endpoint._run_kindergarten_complete_task(task_id, {'topic': '海洋动物', 'n_slides': 3})
+            consume.assert_not_awaited()
+            assert prepare.await_count == 1
+            async with sessions() as session:
+                saved = await session.get(AsyncTaskModel, task_id)
+                assert saved.status == AsyncTaskStatus.ERROR
+                assert saved.data['stage'] == 'review_required'
+                assert saved.data['outline_path'] == detail['outline_path']
+                assert saved.data['presentation_id'] == str(deck_id)
+                assert not saved.data['quality']['passed']
+                assert len((await session.get(PresentationModel, deck_id)).outlines['slides']) == 3
+                assert not list(await session.scalars(select(SlideModel)))
+        finally:
+            await engine.dispose()
+    asyncio.run(run())

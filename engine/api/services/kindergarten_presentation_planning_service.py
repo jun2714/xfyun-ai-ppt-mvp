@@ -123,6 +123,12 @@ def _repair_reveal_answer(slides, index: int):
     question = _question_for_activity(slides, slide.game.activity_id)
     if not question or not question.game or not question.game.answer_key:
         return slide
+    # Correct a stale hidden key only when visible copy already supports the
+    # question's answer. Never turn contradictory teaching content into a pass.
+    answer = question.game.options.get(question.game.answer_key, question.game.answer_key)
+    visible = "\n".join([slide.screen_content.title, *slide.screen_content.points])
+    if not answer or answer not in visible or slide.game.options != question.game.options:
+        return slide
     return slide.model_copy(
         update={
             "game": slide.game.model_copy(
@@ -191,36 +197,7 @@ def _repair_classroom_activity_contracts(
     *, max_slides: Optional[int] = None,
 ) -> KindergartenLessonPlan:
     """Complete deterministic choice/reveal contracts without changing the answer."""
-    slides = []
-    for slide in plan.slides:
-        game = slide.game
-        if (
-            game
-            and game.type in {"guess", "choice"}
-            and game.answer_key
-            and game.options
-            and game.answer_key not in game.options
-            and game.answer_key not in game.options.values()
-        ):
-            option_key = "答案"
-            suffix = 2
-            while option_key in game.options:
-                option_key = f"答案{suffix}"
-                suffix += 1
-            slide = slide.model_copy(
-                update={
-                    "game": game.model_copy(
-                        update={
-                            "options": {
-                                **game.options,
-                                option_key: game.answer_key,
-                            }
-                        }
-                    )
-                }
-            )
-        slides.append(slide)
-
+    slides = list(plan.slides)
     slides = _link_unambiguous_reveal_pages(slides)
     reveal_activity_ids = {
         slide.game.activity_id
@@ -235,6 +212,8 @@ def _repair_classroom_activity_contracts(
             slide.slide_type not in {"guess-partial", "guess-shadow"}
             or not slide.game
             or not slide.game.answer_key
+            or (slide.game.options and slide.game.answer_key not in slide.game.options
+                and slide.game.answer_key not in slide.game.options.values())
             or slide.game.activity_id in reveal_activity_ids
         ):
             continue
@@ -651,6 +630,9 @@ def _repair_machine_contracts(
     for _ in range(2):
         remaining = validate_kindergarten_lesson_plan(repaired, content_mode=content_mode)
         if remaining.passed:
+            return repaired
+        if any(issue.code in CLASSROOM_CONTENT_ERRORS or issue.code == "reveal-answer-mismatch"
+               for issue in remaining.errors):
             return repaired
         bad_slide_numbers = {
             issue.slide_no

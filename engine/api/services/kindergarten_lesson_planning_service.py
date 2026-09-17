@@ -218,6 +218,9 @@ CLASSROOM_ACTIVITY_GUIDANCE = """
   自己的屏幕短句。排序答案存入 sequence_order，分类与配对答案存入 answer_map。
 - 需要答案的任务安排独立 answer-reveal 页，并沿用同一 activity_id。题目页不能标出正确选项
   或提前按正确答案编号。答案依据与组织方法写入 teacher_note，不擅自增加或删除页数。
+- 每道独立题目使用独立 activity_id，题目页和揭晓页的 game.type、选项实际内容与答案必须一致。
+  排序两页都提供完整 sequence_order，每个对象仅出现一次；分类与配对两页都提供完整 answer_map。
+  这两类结构化答案不需要虚构一个 answer_key，揭晓正文必须表达对应的正确结果。
 """
 
 TRAINING_ACTIVITY_GUIDANCE = """

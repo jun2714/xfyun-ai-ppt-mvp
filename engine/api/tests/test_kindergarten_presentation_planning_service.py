@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from types import SimpleNamespace
 import uuid
 
@@ -9,6 +10,47 @@ from services.kindergarten_lesson_planning_service import (
     resolve_kindergarten_slide_count,
 )
 from api.v1.ppt.endpoints import kindergarten as kindergarten_endpoint
+
+
+@pytest.mark.parametrize("visible_wrong", [True, False])
+def test_conflicting_answers_stop_real_planning_pipeline_without_paid_retry(monkeypatch, visible_wrong):
+    plan = _plan(reveal_answer="A")
+    if visible_wrong:
+        plan.slides[2].screen_content.title = "原来是小猫！"
+    else:
+        plan.slides[2].screen_content.title = "一起看看答案"
+    original_question = plan.slides[1].model_dump()
+    original_reveal = plan.slides[2].model_dump()
+    calls = []
+
+    async def provider(**kwargs):
+        calls.append(kwargs)
+        return plan
+
+    monkeypatch.setattr(planning_service, "generate_kindergarten_lesson_plan", provider)
+    with pytest.raises(planning_service.KindergartenPlanningQualityError) as caught:
+        asyncio.run(planning_service.generate_validated_kindergarten_presentation_outline(
+            topic="认识森林动物", age_group="4-5岁", domain="science",
+            duration_minutes=20, n_slides=3, instructions=None, source_context=None))
+    assert len(calls) == 1
+    assert caught.value.plan.slides[1].model_dump() == original_question
+    assert caught.value.plan.slides[2].model_dump() == original_reveal
+    assert caught.value.plan.slides[1].game is not None
+
+
+def test_automatic_prepare_rejects_review_only_result_with_saved_outline_link():
+    from fastapi import HTTPException
+    plan = _plan(reveal_answer="A")
+    report = planning_service.validate_kindergarten_lesson_plan(plan)
+    result = planning_service.ValidatedKindergartenPlanningResult(
+        plan=plan, outline=plan.to_presentation_outline(), quality=report, attempts=1)
+    deck_id = uuid.uuid4()
+    with pytest.raises(HTTPException) as caught:
+        kindergarten_endpoint._require_automatic_quality(result, deck_id)
+    assert caught.value.status_code == 422
+    assert caught.value.detail['presentation_id'] == str(deck_id)
+    assert caught.value.detail['outline_path'].endswith('/outline')
+    assert '第 3 页' in caught.value.detail['message']
 
 
 def test_auto_slide_count_is_classroom_sized_and_explicit_choice_wins():
@@ -665,7 +707,7 @@ def test_answer_mismatch_is_repaired_without_second_model_call(monkeypatch):
     assert reveal.answer_key == "B"
 
 
-def test_missing_reveal_and_unlisted_answer_are_completed_locally():
+def test_unlisted_answer_is_not_invented_as_an_extra_option():
     from services.kindergarten_plan_quality_service import validate_kindergarten_lesson_plan
 
     plan = _plan()
@@ -690,12 +732,9 @@ def test_missing_reveal_and_unlisted_answer_are_completed_locally():
     repaired = planning_service._repair_machine_contracts(plan, report)
     repaired_report = validate_kindergarten_lesson_plan(repaired)
 
-    assert repaired_report.passed
-    assert len(repaired.slides) == 3
-    assert repaired.slides[1].game.options["答案"] == "小松鼠"
-    assert repaired.slides[2].slide_type == "answer-reveal"
-    assert repaired.slides[2].game.activity_id == repaired.slides[1].game.activity_id
-    assert repaired.slides[2].screen_content.points == ["正确答案：小松鼠"]
+    assert not repaired_report.passed
+    assert len(repaired.slides) == 2
+    assert repaired.model_dump() == plan.model_dump()
 
 
 def test_answer_in_question_cannot_be_hidden_by_removing_game_metadata():

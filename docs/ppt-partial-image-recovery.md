@@ -11,6 +11,18 @@
 
 外层 TeachNova 页面可直接使用 `status=completed` 和 `data.presentation_id` 打开课件，同时展示 `message` 或 `data.warnings`。不要仅因 `has_warnings=true` 改成“重新生成整套 PPT”。
 
+## 教学质量未通过
+
+自动生成没有老师确认步骤，因此与普通缺图区分处理：
+
+- 当排序漏项、分类对应冲突、题目与揭晓答案不一致等硬性检查未通过时，先保存大纲，停止页面与生图请求。
+- 同步 prepare 返回 HTTP 422，`detail.code=KINDERGARTEN_PLAN_REVIEW_REQUIRED`，保留 `presentation_id`、`outline_path` 和逐页 `quality.errors`。
+- 异步任务返回 `status=error`、`data.stage=review_required`，同样保留上述入口与质量报告。调用方应显示“检查大纲”，链接到 `outline_path`；此时尚无完整 PPT，不能显示“打开课件”。
+- 不通过自动添加答案选项、删除游戏契约或重复付费请求掩盖错误。仅当揭晓正文已经支持题目的答案、选项字典一致时，允许修正错误的内部答案编号。
+- 可编辑大纲路径继续保留供老师核对。本轮自动阻断适用于无人工审核的 prepare/完整生成路径，不代表系统已经能自动判定全部教学事实正确。
+
+本轮本地环境没有模型服务凭据、可用远程测试地址与 Linux 导出转换器。代码回归包含真实 SQLite 中的大纲和任务保留、停止后续生成的检查；不代表已经通过真实生图、PowerPoint 或 WPS 成品验收。
+
 ## 编辑器补图
 
 编辑器读取缺图位置，并展示页码及“补齐缺图”按钮。补图遵循以下规则：
