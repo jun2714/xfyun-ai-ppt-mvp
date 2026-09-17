@@ -67,7 +67,8 @@ def test_teacher_evidence_layout_preserves_copy_at_projectable_size(count):
     assert "专业清晰的教育编辑插画" in result["scene"]["visual"]["image_prompt"]
     assert "禁止英文" in result["scene"]["visual"]["image_prompt"]
     assert "统一二维儿童绘本" not in result["scene"]["visual"]["image_prompt"]
-    assert all(point not in result["scene"]["visual"]["image_prompt"] for point in points)
+    assert "仅用于理解教学关系" in result["scene"]["visual"]["image_prompt"]
+    assert all(point in result["scene"]["visual"]["image_prompt"] for point in points)
     layout = next(layout for layout in template.layouts["layouts"] if layout["id"] == layout_id)
     ui = _apply_template_content_to_ui(copy.deepcopy(layout), result)
     boxes = _collect_non_decorative_text_elements(ui["components"])

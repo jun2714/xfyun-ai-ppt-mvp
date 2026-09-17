@@ -72,10 +72,12 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
         return ""
     return (
         " Use one consistent 2D children's picture-book illustration style across the "
-        "whole deck: soft hand-painted gouache and colored-pencil texture, warm cream, "
-        "mint and coral palette, rounded friendly Chinese child characters, bright and "
-        "imaginative for ages 3-6, with a large clearly recognizable subject and one "
-        "delightful visual surprise. This must be an illustration, never photography, "
+        "whole deck: preserve the selected template medium and palette, while keeping "
+        "the subject's natural colors. Make it bright and imaginative for ages 3-6, "
+        "with clearly recognizable teaching subjects. Include people only when the "
+        "asset requests them. Never merge human bodies with animal parts; classroom "
+        "imitation means normal children making gestures, not physical transformation. "
+        "This must be an illustration, never photography, "
         "photorealism, a camera image, 3D render, corporate stock art or mixed media. "
         "Keep factual features accurate. Avoid black abstract textures, horror, dense "
         "background clutter, text, letters, numbers, logos, watermarks or pseudo-text."
@@ -110,11 +112,16 @@ def _request_prompt(item: AssetPlanItem) -> str:
         subjects = "；".join(slot.prompt for slot in item.slots) if teacher else "; ".join(
             slot.prompt for slot in item.slots
         )
+        framing = (
+            f" 目标图片框比例为 {item.slots[0].aspect_ratio}。全部教学主体完整入画，"
+            "主体四周留出至少约一成边距，不用特写截断关键器官；"
+            "明确要求局部猜谜时，按契约展示线索，不提前揭示答案。"
+        )
         if teacher:
-            return f"生成一个连贯场景，画面中包含：{subjects}。{kindergarten_direction}"
+            return f"生成一个连贯场景，画面中包含：{subjects}。{framing}{kindergarten_direction}"
         return (
             f"Create one coherent scene containing: {subjects}."
-            f"{kindergarten_direction}"
+            f"{framing}{kindergarten_direction}"
         )
 
     slot = item.slots[0]

@@ -371,6 +371,21 @@ def _ensure_cover_contract(
     preview = preview or ("围绕主题开展研讨与实践" if training else "在观察与互动中获得新的发现")
     cover_points = [prefix + preview,
                     "幼儿园园本教研培训" if training else "幼儿园集体教学"]
+    # A playful title may not name the subject. Carry grounded lesson goals and
+    # body asset labels into the cover instead of inventing scenery from it.
+    cover_description = (
+        f"围绕{cover_title}的无字封面背景，主题对象完整位于左侧，右侧留白。"
+        f"课程主题：{plan.meta.topic}。"
+    )
+    cover_context = [
+        f"本课观察对象：{asset.semantic_label}"
+        for slide in plan.slides if slide.slide_type != "cover-scene"
+        for asset in slide.assets if asset.required
+    ]
+    cover_context.extend(f"本课目标：{goal}" for goal in plan.lesson_goals)
+    for part in dict.fromkeys(cover_context):
+        if len(cover_description) + len(part) + 1 <= 800:
+            cover_description += "\n" + part
     note = original_first.teacher_note if original_first.slide_type == "cover-scene" else ""
     goals_note = "完整目标：\n" + "\n".join(f"- {goal}" for goal in plan.lesson_goals)
     if goals_note not in note:
@@ -400,7 +415,7 @@ def _ensure_cover_contract(
             "teacher_note": note,
             "assets": [LessonAssetSpec(
                 slot="cover-background", semantic_label=cover_title[:160],
-                description=f"围绕{cover_title}的无字封面背景，主题活动位于左侧，右侧留白。",
+                description=cover_description,
                 role="background", required=True, expected_count=1, qa_required=True,
             )],
             "game": None,
@@ -447,7 +462,7 @@ def _normalize_training_contracts(
         if index == 0:
             # Reuse the same cover contract so normalization cannot crop it again.
             cover_plan = plan.model_copy(update={"slides": [slide.model_copy(
-                update={"slide_type": "cover-scene"})]})
+                update={"slide_type": "cover-scene"}), *plan.slides[1:]]})
             slides.append(_ensure_cover_contract(cover_plan, "training").slides[0])
             continue
         # Preserve sentences in full; capacity routing can select a roomier

@@ -230,7 +230,7 @@ def build_education_variant(template_id):
         elif template_id == "training-action":
             paper.append(_rect("result", p["x"] - 8, p["y"] - 4, z["width"] + 16, z["height"] + 8, "#FFFFFF"))
     picture_styles = {
-        "classroom-nature": "自然观察手册插画，草木绿和浅米色，水彩叶脉与自然形态细节清楚。",
+        "classroom-nature": "自然观察手册插画，浅色纸张质感、细腻水彩与清晰轮廓；主体本色准确，场景与装饰仅取自本页教学对象，不固定植物装饰。",
         "classroom-story": "绘本分镜插画，深青色清晰轮廓、明黄与珊瑚色，角色动作和表情鲜明。",
         "training-case": "教育案例档案插画，雾蓝灰与深蓝，突出真实观察行为和客观证据。",
         "training-action": "教育行动指南插画，陶土红、暖白和浅棕，突出教师实施支持的具体动作。",
