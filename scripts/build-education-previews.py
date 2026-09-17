@@ -53,7 +53,7 @@ def text_box(element,value):
  return f'<text fill="{color}" font-size="{size}" font-weight="{weight}">'+''.join(f'<tspan x="{x}" y="{top+size+i*lineheight}">{escape(line)}</tspan>' for i,line in enumerate(lines))+'</text>'
 for key,spec in {**EDUCATION_VARIANTS, **ACTIVITY_STYLES}.items():
  template=build_activity_template(key) if key in ACTIVITY_STYLES else build_education_variant(key)
- suffix={'classroom-nature':'scene_left_3','classroom-story':'cards_3','training-case':'cards_4','training-action':'cards_3', 'classroom-game':'scene_observe_3', 'training-workshop':'scene_discuss_3'}[key]
+ suffix={'classroom-nature':'scene_left_3','classroom-story':'cards_3','training-case':'scene_left_4','training-action':'scene_right_3', 'classroom-game':'scene_observe_3', 'training-workshop':'scene_discuss_3'}[key]
  layout=next(x for x in template.layouts['layouts'] if x['id'].endswith(suffix))
  title,points,cue=samples[key]
  result=['<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img">',f'<title>{escape(spec["name"])}：版式示意</title>','<g font-family="Noto Sans CJK SC, Microsoft YaHei, sans-serif">']

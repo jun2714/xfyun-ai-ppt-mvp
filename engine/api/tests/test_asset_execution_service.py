@@ -38,6 +38,50 @@ class FakeImageService:
         return "fake-image-model"
 
 
+def test_moderation_rejection_is_not_retried_through_an_unchecked_fallback(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+    from unittest.mock import AsyncMock
+    class RejectedService(FakeImageService):
+        async def generate_image(self, prompt):
+            self.calls += 1
+            raise HTTPException(400, 'moderation rejected the image request')
+    monkeypatch.setattr(asset_execution_service, 'record_asset_generation_trace', AsyncMock())
+    service = RejectedService(tmp_path, [])
+    slide = _cutout_slide(with_semantic_contract=True)
+    image = slide.ui['components'][0]['elements'][0]
+    image.update(asset_mode='composite-image', asset_role='framed-image')
+    quality = FakeSemanticQualityService([True])
+    asyncio.run(asset_execution_service.process_presentation_assets(
+        service, [slide], semantic_quality_service=quality))
+    assert service.calls == 1
+    assert quality.calls == []
+    assert not slide.content['main']['subject'].get('image_url')
+    assert 'moderation' in slide.content['main']['subject']['__repair_failed_reason__']
+
+
+def test_teaching_image_without_quality_configuration_does_not_spend_a_generation(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+    monkeypatch.setattr(asset_execution_service, 'record_asset_generation_trace', AsyncMock())
+    monkeypatch.setattr(asset_execution_service, 'build_default_asset_semantic_quality_service', lambda: None)
+    slide = _cutout_slide(with_semantic_contract=True)
+    service = FakeImageService(tmp_path, [])
+    asyncio.run(asset_execution_service.process_presentation_assets(service, [slide]))
+    assert service.calls == 0
+    assert not slide.content['main']['subject'].get('image_url')
+    assert '质检服务未配置' in slide.content['main']['subject']['__repair_failed_reason__']
+
+
+def test_sprite_sheet_requests_the_whole_grid_ratio_instead_of_one_cell():
+    from dataclasses import replace
+    from services.asset_planning_service import AssetPlanItem
+    slot = asset_execution_service.build_asset_plan([_cutout_slide()])[0].slots[0]
+    slot = replace(slot, width=300, height=400)
+    item = AssetPlanItem(request_id='grid', generation_mode='sprite-sheet',
+                         slots=(slot, slot), grid_columns=2, grid_rows=1)
+    prompt = asset_execution_service._build_image_prompt(item, prompt_text='two complete subjects', forbid_latin_text=True)
+    assert prompt.aspect_ratio == '3:2'  # Two portrait cells need a landscape sheet.
+
+
 def test_visual_quality_rejects_visible_text_and_cropped_subject_without_contracts():
     result = _enforce_expectations(
         AssetSemanticQualityResult(
@@ -207,6 +251,7 @@ def test_semantic_qa_retries_only_failed_asset_and_accepts_null_description(
     assert traces[0].error["type"] == "AssetSemanticQualityError"
     assert traces[0].error["semantic_quality"]["passed"] is False
     assert traces[1].retry_of == plan[0].request_id
+    assert "上次画面质检未通过" in service.prompts[1]
     assert len(generated) == 2  # accepted source plus derived transparent cutout
     assert "image_url" in slide.content["main"]["subject"]
 
@@ -394,7 +439,7 @@ def test_independent_assets_use_bounded_concurrency(tmp_path, monkeypatch):
     assert all("image_url" in slide.content["main"]["subject"] for slide in slides)
 
 
-def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
+def test_visual_qa_timeout_does_not_attach_unverified_teaching_image(
     tmp_path,
     monkeypatch,
 ):
@@ -422,8 +467,9 @@ def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
     )
 
     assert service.calls == 1
-    assert slide.content["main"]["subject"]["image_url"]
-    assert traces[-1].status == "succeeded_with_warning"
+    assert not slide.content["main"]["subject"].get("image_url")
+    assert "质检未完成" in slide.content["main"]["subject"]["__repair_failed_reason__"]
+    assert traces[-1].status == "failed"
 
 
 def test_second_known_quality_failure_stays_missing_instead_of_using_bad_image(
@@ -627,14 +673,15 @@ def test_cover_framed_image_is_padded_instead_of_center_cropped(tmp_path, monkey
         },
     )
     service = FakeImageService(tmp_path, [path])
-
+    quality = FakeSemanticQualityService([True])
     generated, _plan = asyncio.run(
         asset_execution_service.process_presentation_assets(
-            service, [slide], semantic_quality_service=None
+            service, [slide], semantic_quality_service=quality
         )
     )
 
     fitted = Image.open(generated[-1].path)
+    assert quality.calls[0]['image'] == str(path)  # Inspect original edges before padding.
     pixels = set(fitted.getdata())
     assert abs(fitted.width / fitted.height - 1184 / 220) < 0.02
     assert (255, 0, 0, 255) in pixels

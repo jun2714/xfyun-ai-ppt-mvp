@@ -253,6 +253,6 @@ def test_capacity_fallback_selects_same_audience_and_explains_reason():
     plan = _visual_plan('交流分享', 'comprehensive')
     plan.slides[1].screen_content.points = [f'{i}：' + '保留儿童语言和动作' * 4 for i in range(6)]
     result = resolve_kindergarten_template(plan, 'auto', content_mode='training')
-    assert result.template in {'training-case', 'training-action'}
+    assert result.template in {'training-case', 'training-action', 'training-workshop'}
     assert '正文容量不足' in result.reason
     assert '请先调整大纲' not in result.reason

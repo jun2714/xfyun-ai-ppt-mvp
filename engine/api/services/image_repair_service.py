@@ -25,6 +25,7 @@ from services.owner_scope import get_by_id_unscoped
 from utils.datetime_utils import get_current_utc_datetime
 from utils.dict_utils import get_dict_at_path
 from utils.process_slides import IMAGE_PROMPT_KEYS, _asset_dicts_with_prompt
+from services.image_replacement_service import replaceable_images, replacement_snapshot, prepare_replacement, merge_replacement, preserve_replacement_result
 
 LOGGER = logging.getLogger(__name__)
 TASK_TYPE = 'ppt-missing-images'
@@ -71,7 +72,7 @@ def preserve_completed_images(source, target):
     A changed prompt, removed field, or manually replaced image always wins.
     """
     from services.asset_execution_service import _assign_url
-    changed = 0
+    changed = preserve_replacement_result(source, target)
     for slot in extract_asset_slots([target]):
         try:
             old = get_dict_at_path(source.content, slot.content_path)
@@ -250,7 +251,9 @@ async def read_status(session, presentation_id):
         else extract_asset_slots(slides)
     )
     payable_keys = {(item.slide_index, item.slot_name, item.prompt) for item in payable}
-    missing = [dict(page=s.slide_index + 1, slot=s.slot_name) for s in slots]
+    by_index = {slide.index: slide for slide in slides}
+    missing = [dict(page=s.slide_index + 1, slot=s.slot_name,
+                    reason=get_dict_at_path(by_index[s.slide_index].content, s.content_path).get(REPAIR_FAILED_REASON_KEY)) for s in slots]
     blocked = [
         dict(page=s.slide_index + 1, slot=s.slot_name)
         for s in slots
@@ -262,22 +265,33 @@ async def read_status(session, presentation_id):
     if task and status == 'pending' and _is_stale_pending(task):
         status = 'error'
         message = CONTINUE_REPAIR_MESSAGE
-    elif status != 'pending' and missing:
+    elif status != 'pending' and missing and not data.get('replacement'):
         message = CONTINUE_REPAIR_MESSAGE
+    replaceable = [] if presentation.image_policy == ImagePolicy.DISABLED else [
+        {key: item[key] for key in ('key', 'page', 'slot', 'url')}
+        for item in replaceable_images(slides)
+    ]
     return dict(status=status, message=message, missing=missing, missing_count=len(missing),
                 payable_count=len(payable), blocked_count=len(blocked),
                 processed=data.get('processed', 0), total=data.get('total', 0),
-                run_id=data.get('run_id'), stage=data.get('stage', 'idle'))
+                run_id=data.get('run_id'), stage=data.get('stage', 'idle'),
+                replaceable=replaceable, replacements=data.get('replacements', []))
 
 
-async def claim_repair(session, presentation_id):
+async def claim_repair(session, presentation_id, replacement=None):
     task = await get_by_id_unscoped(session, AsyncTaskModel, task_id(presentation_id))
     await expire_stale_repair_task(session, task)
     state = await read_status(session, presentation_id)
-    if state['status'] == 'pending' or not state['missing_count']:
+    if state['status'] == 'pending' or (not state['missing_count'] and replacement is None):
         return state, None
     slides = await load_slides(session, presentation_id)
-    if clear_repair_failure_marks(slides):
+    snapshot = None
+    if replacement is not None:
+        if not state['replaceable']:
+            raise HTTPException(400, '当前没有可替换的生成图片。')
+        snapshot = replacement_snapshot(slides, replacement['key'], replacement['expected_url'])
+        slides, _ = prepare_replacement(slides, snapshot)
+    elif clear_repair_failure_marks(slides):
         for slide in slides:
             await session.execute(update(SlideModel).where(
                 SlideModel.id == slide.id,
@@ -285,7 +299,7 @@ async def claim_repair(session, presentation_id):
     total = len(build_asset_plan(slides))  # validate semantics before a paid call
     run_id = uuid.uuid4().hex
     values = dict(status=AsyncTaskStatus.PENDING, message='正在准备补齐缺图', error=None,
-                  data=dict(run_id=run_id, total=total, processed=0, stage='queued'),
+                  data=dict(run_id=run_id, total=total, processed=0, stage='queued', replacement=snapshot),
                   updated_at=get_current_utc_datetime())
     existing = await get_by_id_unscoped(session, AsyncTaskModel, task_id(presentation_id))
     if existing:
@@ -320,7 +334,7 @@ async def persist_repaired_slide(session, generated):
     ).values(content=merged.content, ui=merged.ui).execution_options(synchronize_session=False))
 
 
-async def run_repair(presentation_id, run_id, owner_id, session_factory=None, image_service=None):
+async def run_repair(presentation_id, run_id, owner_id, session_factory=None, image_service=None, quality_service=None):
     from services.database import async_session_maker
     from services.image_generation_service import ImageGenerationService
     from services.asset_execution_service import process_presentation_assets
@@ -329,6 +343,9 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
     token = set_current_owner_id(owner_id)
     heartbeat = None
     processed = 0
+    snapshot = None
+    replacement_slot = None
+    replacements = []
     async def touch():
         while True:
             await asyncio.sleep(15)
@@ -341,6 +358,12 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
         async with session_factory() as session:
             await owned_presentation(session, presentation_id)
             slides = [s.model_copy(deep=True) for s in await load_slides(session, presentation_id)]
+            task = await get_by_id_unscoped(session, AsyncTaskModel, task_id(presentation_id))
+            if not task or task.status != AsyncTaskStatus.PENDING or _task_run_id(task) != str(run_id):
+                return
+            snapshot = (task.data or {}).get('replacement')
+            if snapshot:
+                slides, replacement_slot = prepare_replacement(slides, snapshot)
         heartbeat = asyncio.create_task(touch())
         async def checkpoint(assets):
             async with session_factory() as session:
@@ -348,10 +371,27 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
                 rowcount = await update_active_run(session, presentation_id, run_id)
                 if not rowcount:
                     raise RuntimeError('补图任务已中断，停止写入旧任务结果')
+                # Editor save endpoints acquire the same deck lock before reading
+                # slide JSON. Keep this transaction short; no provider work here.
+                await session.execute(select(PresentationModel).where(
+                    PresentationModel.id == presentation_id).with_for_update())
                 session.add_all(assets)
                 for slide in slides:
                     try:
-                        await persist_repaired_slide(session, slide)
+                        if snapshot:
+                            latest = await get_by_id_unscoped(session, SlideModel, slide.id)
+                            if latest is not None:
+                                merged = latest.model_copy(deep=True)
+                                event = merge_replacement(slide, merged, snapshot, replacement_slot)
+                                if event:
+                                    await session.execute(update(SlideModel).where(SlideModel.id == latest.id).values(
+                                        content=merged.content, ui=merged.ui).execution_options(synchronize_session=False))
+                                    replacements.append(event)
+                                    task = await get_by_id_unscoped(session, AsyncTaskModel, task_id(presentation_id))
+                                    await update_active_run(session, presentation_id, run_id,
+                                        data={**(task.data or {}), 'replacements': list(replacements)})
+                        else:
+                            await persist_repaired_slide(session, slide)
                     except Exception:
                         LOGGER.exception(
                             "Failed to persist repaired slide %s for presentation %s",
@@ -379,7 +419,8 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
             service, slides, presentation_id=presentation_id,
             on_item_completed=checkpoint, on_item_finished=finished,
             quality_retries=0,
-            skip_semantic_quality=True,
+            require_semantic_quality=True,
+            semantic_quality_service=quality_service,
         ))
         done, _ = await asyncio.wait([generation, heartbeat], return_when=asyncio.FIRST_COMPLETED)
         if heartbeat in done:
@@ -390,19 +431,25 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
         async with session_factory() as session:
             latest_slides = await load_slides(session, presentation_id)
             remaining = extract_asset_slots(latest_slides, include_blocked=True)
-            if not remaining:
+            if snapshot:
+                success = bool(replacements)
+                reason = get_dict_at_path(slides[0].content, replacement_slot.content_path).get(REPAIR_FAILED_REASON_KEY)
+                message = '所选图片已替换，原有文字和版面保持不变。' if success else '新图未采用，原图已保留。' + (reason or '图片在处理期间发生变化，请重新选择。')
+            elif not remaining:
+                success = True
                 message = '缺图已补齐，可继续编辑。'
             else:
+                success = False
                 message = CONTINUE_REPAIR_MESSAGE
             await update_active_run(
                 session,
                 presentation_id,
                 run_id,
-                status=AsyncTaskStatus.COMPLETED if not remaining else AsyncTaskStatus.ERROR,
+                status=AsyncTaskStatus.COMPLETED if success else AsyncTaskStatus.ERROR,
                 message=message,
             )
             await session.commit()
-    except Exception:
+    except Exception as exc:
         LOGGER.exception("Missing-image repair failed: presentation_id=%s", presentation_id)
         async with session_factory() as session:
             await update_active_run(
@@ -410,7 +457,7 @@ async def run_repair(presentation_id, run_id, owner_id, session_factory=None, im
                 presentation_id,
                 run_id,
                 status=AsyncTaskStatus.ERROR,
-                message=CONTINUE_REPAIR_MESSAGE,
+                message=('新图未采用，原图已保留。' + str(getattr(exc, 'detail', exc))[:180]) if snapshot else CONTINUE_REPAIR_MESSAGE,
             )
             await session.commit()
     finally:

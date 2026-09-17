@@ -119,3 +119,30 @@ def test_training_deck_rotates_genuinely_different_scene_compositions():
     assert any("_scene_left_" in layout_id for layout_id in chosen)
     assert any("_scene_right_" in layout_id for layout_id in chosen)
     assert max(chosen.count(layout_id) for layout_id in set(chosen)) <= 3
+
+
+@pytest.mark.parametrize('key', ['teacher-training', 'training-case', 'training-action'])
+def test_teacher_variants_have_distinct_uncropped_projectable_scene_frames(key):
+    from templates.education_variants import build_education_variant
+    template = build_training_template() if key == 'teacher-training' else build_education_variant(key)
+    geometries = {}
+    for layout in template.layouts['layouts']:
+        if '_scene_' not in layout['id']:
+            continue
+        scene = next(c for c in layout['components'] if c['id'] == 'scene')['elements'][0]
+        p, size = scene['position'], scene['size']
+        assert scene['fit'] == 'contain'
+        assert min(size.values()) >= 288
+        assert 0.75 <= size['width'] / size['height'] <= 2.5
+        assert p['x'] >= 0 and p['y'] >= 0
+        assert p['x'] + size['width'] <= 1280
+        assert p['y'] + size['height'] <= 720
+        for text in _collect_non_decorative_text_elements(layout['components']):
+            q, box = text['position'], text['size']
+            assert (p['x'] + size['width'] <= q['x'] or q['x'] + box['width'] <= p['x'] or
+                    p['y'] + size['height'] <= q['y'] or q['y'] + box['height'] <= p['y'])
+        if layout['id'].endswith('_3'):
+            kind = layout['id'].split('_scene_')[1].rsplit('_', 1)[0]
+            geometries[kind] = (p['x'], p['y'], size['width'], size['height'])
+    assert len(set(geometries.values())) == (3 if key == 'teacher-training' else 4)
+    assert geometries['left'][0] < 640 < geometries['right'][0]

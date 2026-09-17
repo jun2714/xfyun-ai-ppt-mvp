@@ -1,6 +1,6 @@
 "use client";
 import ImageRepairBanner from './ImageRepairBanner';
-import { mergeRepairedImages } from '../utils/mergeRepairedImages';
+import { mergeRepairedImages, type ImageReplacementResult } from '../utils/mergeRepairedImages';
 import { DashboardApi } from '../../services/api/dashboard';
 import { setPresentationData } from '@/store/slices/presentationGeneration';
 import React, {
@@ -426,11 +426,11 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
     });
   }, []);
 
-  const handleRepairCompleted = useCallback(async () => {
+  const handleRepairCompleted = useCallback(async (replacements: ImageReplacementResult[] = []) => {
     const latest = await DashboardApi.getPresentation(presentation_id, { cache: 'no-store' });
     const current = presentationDataRef.current;
     if (current) {
-      const merged = mergeRepairedImages(current, latest);
+      const merged = mergeRepairedImages(current, latest, replacements);
       presentationDataRef.current = merged;
       dispatch(setPresentationData(merged));
     }

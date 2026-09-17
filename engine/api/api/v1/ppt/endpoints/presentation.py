@@ -2865,7 +2865,9 @@ async def update_presentation(
     slides: Annotated[Optional[List[SlideModel]], Body()] = None,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    # Serialize editor saves with background image checkpoints for this deck.
+    presentation = (await sql_session.scalars(select(PresentationModel).where(
+        PresentationModel.id == id).with_for_update().execution_options(populate_existing=True))).first()
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
@@ -2940,7 +2942,12 @@ async def update_presentation_slide(
             detail="Slide and presentation IDs must be valid UUIDs",
         ) from exc
 
-    stored_slide = await sql_session.get(SlideModel, slide_id)
+    presentation = (await sql_session.scalars(select(PresentationModel).where(
+        PresentationModel.id == presentation_id).with_for_update().execution_options(populate_existing=True))).first()
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    stored_slide = (await sql_session.scalars(select(SlideModel).where(
+        SlideModel.id == slide_id).execution_options(populate_existing=True))).first()
     if not stored_slide:
         raise HTTPException(status_code=404, detail="Slide not found")
 

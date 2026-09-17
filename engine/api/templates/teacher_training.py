@@ -45,28 +45,9 @@ def build_training_template():
                         element["font"]["bold"] = False
         if "_scene_" not in layout["id"]:
             continue
-        count = int(layout["id"].rsplit("_", 1)[-1])
-        if count == 0:
-            continue
-        rows = count if count <= 3 else (count + 1) // 2
-        scene_left = "_scene_left_" in layout["id"]
         for component in layout["components"]:
-            for element in component["elements"]:
-                if component["id"] == "scene":
-                    element["position"] = {
-                        "x": 48 if scene_left else 802,
-                        "y": 174,
-                    }
-                    element["size"] = {"width": 430, "height": 430}
-                elif component["id"].startswith("point_"):
-                    index = int(component["id"].split("_")[-1])
-                    column, row = (0, index) if count <= 3 else divmod(index, rows)
-                    text_x = 520 if scene_left else 48
-                    element["position"] = {"x": text_x + column * 366, "y": 174 + row * 430 / rows}
-                    element["size"] = {"width": 712 if count <= 3 else 346,
-                                       "height": 430 / rows - 12}
-                    element["alignment"]["vertical"] = "top"
-                    element["font"]["bold"] = False
+            if component["id"].startswith("point_"):
+                component["elements"][0]["font"]["bold"] = False
 
     # A real third composition for teacher decks. The earlier pack exposed many
     # layout ids but collapsed both left/right scene layouts into identical
@@ -81,26 +62,11 @@ def build_training_template():
         layout = copy.deepcopy(source)
         layout["id"] = layout["id"].replace("_scene_left_", "_scene_top_")
         layout["description"] = "园本教研：上方完整案例场景，下方分栏呈现观察或行动要点。"
-        components = {component["id"]: component for component in layout["components"]}
-        scene = components["scene"]["elements"][0]
-        scene["position"] = {"x": 48, "y": 174}
-        scene["size"] = {"width": 1184, "height": 220}
-        columns = count if count <= 3 else 2
-        rows = (count + columns - 1) // columns
-        width = (1184 - 24 * (columns - 1)) / columns
-        height = (210 - 12 * (rows - 1)) / rows
-        for index in range(count):
-            row, column = divmod(index, columns)
-            text = components[f"point_{index}"]["elements"][0]
-            text["position"] = {
-                "x": 48 + column * (width + 24),
-                "y": 410 + row * (height + 12),
-            }
-            text["size"] = {"width": width, "height": height}
-            text["alignment"]["vertical"] = "top"
-            text["font"]["bold"] = False
         top_layouts.append(layout)
     template.layouts["layouts"].extend(top_layouts)
+    from templates.teaching_geometry import arrange_teacher_scene
+    for layout in template.layouts["layouts"]:
+        arrange_teacher_scene(layout)
     template.layouts = SlideLayouts.model_validate(template.layouts).model_dump(
         mode="json", by_alias=True, exclude_none=True,
     )

@@ -136,14 +136,14 @@ class VisionAssetSemanticQualityService:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {"url": image_url, "detail": "low"},
+                            "image_url": {"url": image_url, "detail": "high"},
                         },
                     ],
                 }
             ],
             response_format={"type": "json_object"},
             temperature=0,
-            max_tokens=800,
+            max_tokens=1800,
         )
         content = response.choices[0].message.content or "{}"
         return AssetSemanticQualityResult.model_validate(json.loads(content))

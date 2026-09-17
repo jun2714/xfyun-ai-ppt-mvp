@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 import logging
 import os
+from dataclasses import replace
 
 from models.image_prompt import ImageAspectRatio, ImagePrompt
 from models.sql.image_asset import ImageAsset
@@ -126,10 +127,14 @@ def _build_image_prompt(
     prompt_text: str,
     forbid_latin_text: bool,
 ) -> ImagePrompt:
+    slot = item.slots[0] if item.slots else None
+    if slot and item.generation_mode == "sprite-sheet":
+        slot = replace(slot, width=slot.width * (item.grid_columns or 1),
+                       height=slot.height * (item.grid_rows or 1))
     return ImagePrompt(
         prompt=prompt_text,
         forbid_latin_text=forbid_latin_text,
-        aspect_ratio=_provider_aspect_ratio(item.slots[0]) if item.slots else None,
+        aspect_ratio=_provider_aspect_ratio(slot) if slot else None,
     )
 
 
@@ -263,19 +268,6 @@ def _mark_repair_failure(slide: SlideModel, slot: AssetSlotRequest, error: Excep
     set_dict_at_path(slide.content, slot.content_path, target)
 
 
-def _is_moderation_error(error: Exception) -> bool:
-    text = str(getattr(error, "detail", "") or error)
-    folded = text.casefold()
-    return "审核" in text or "moderation" in folded or "safety system" in folded
-
-
-def _safer_kindergarten_prompt(prompt: str) -> str:
-    return (
-        f"{prompt}。适合3到6岁幼儿园的温馨绘本插画，画面干净明亮，"
-        "人物和主体完整入画，不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
-    )
-
-
 def _quality_expectations(
     slots: tuple[AssetSlotRequest, ...],
 ) -> tuple[AssetSemanticExpectation, ...]:
@@ -399,23 +391,18 @@ async def process_presentation_assets(
     semantic_quality_service: AssetSemanticQualityService | None = None,
     on_item_finished: Callable[[], Awaitable[None]] | None = None,
     quality_retries: int = 1,
-    skip_semantic_quality: bool = False,
+    require_semantic_quality: bool = False,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
-    A semantic mismatch gets one scoped retry. A visual-QA outage does not discard
-    an image that the provider already generated successfully. A provider failure
+    A semantic mismatch gets one scoped retry with corrective feedback. A provider failure
     for one optional visual also no longer destroys the entire deck: that slot keeps
     its placeholder, the failure stays in the asset trace, and the remaining slides
     and images continue to completion so the teacher can still edit the PPT.
     """
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
-    quality_service = (
-        None
-        if skip_semantic_quality
-        else (semantic_quality_service or build_default_asset_semantic_quality_service())
-    )
+    quality_service = semantic_quality_service or build_default_asset_semantic_quality_service()
     try:
         concurrency = max(
             1,
@@ -430,6 +417,9 @@ async def process_presentation_assets(
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
+            quality_required = require_semantic_quality or any(
+                slot.education_visual or slot.requires_semantic_qa for slot in item.slots
+            )
             last_error: Exception | None = None
             result: str | ImageAsset | None = None
             source_asset: ImageAsset | None = None
@@ -445,10 +435,15 @@ async def process_presentation_assets(
                 materialized_source_to_cleanup: str | None = None
                 quality_warning = None
                 try:
+                    if quality_required and quality_service is None:
+                        raise RuntimeError("图片质检服务未配置，本次未请求生图；请配置质检服务后再试。")
+                    prompt_text = _request_prompt(item)
+                    if isinstance(last_error, AssetSemanticQualityError):
+                        prompt_text += "\n上次画面质检未通过，请修正以下问题并保留原教学对象：" + str(last_error)[:800]
                     result = await image_generation_service.generate_image(
                         _build_image_prompt(
                             item,
-                            prompt_text=_request_prompt(item),
+                            prompt_text=prompt_text,
                             forbid_latin_text=(
                                 image_options.forbid_latin_text
                                 if image_options.enabled
@@ -535,7 +530,10 @@ async def process_presentation_assets(
                         await _validate_semantic_quality(
                             quality_service,
                             item,
-                            result,
+                            # Padding must not make an already-cropped subject
+                            # appear safely away from the new canvas edge.
+                            source_asset if source_asset is not None and item.slots[0].role == "framed-image"
+                            and item.generation_mode not in {"sprite-sheet", "single-cutout"} else result,
                             derived_outputs,
                         )
                     except AssetSemanticQualityError as exc:
@@ -543,7 +541,9 @@ async def process_presentation_assets(
                         # explicitly. Never place known text/cropped/wrong imagery
                         # into an otherwise usable deck.
                         raise
-                    except Exception as exc:  # visual-QA timeout or provider outage
+                    except Exception as exc:  # No unverified teaching image is attached.
+                        if quality_required:
+                            raise RuntimeError("图片已生成，但质检未完成，暂未采用。请稍后检查质检服务。") from exc
                         quality_warning = exc
 
                     if item.generation_mode in {"sprite-sheet", "single-cutout"}:
@@ -614,30 +614,6 @@ async def process_presentation_assets(
                     break
                 finally:
                     _remove_materialized_source(materialized_source_to_cleanup)
-
-            if (
-                result is None
-                and last_error is not None
-                and _is_moderation_error(last_error)
-                and item.generation_mode not in {"sprite-sheet", "single-cutout"}
-            ):
-                try:
-                    result = await image_generation_service.generate_image(
-                        _build_image_prompt(
-                            item,
-                            prompt_text=_safer_kindergarten_prompt(_request_prompt(item)),
-                            forbid_latin_text=(
-                                image_options.forbid_latin_text
-                                if image_options.enabled
-                                else True
-                            ),
-                        )
-                    )
-                    source_asset = result if isinstance(result, ImageAsset) else None
-                    last_error = None
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-                    result = None
 
             if result is None:
                 assert last_error is not None

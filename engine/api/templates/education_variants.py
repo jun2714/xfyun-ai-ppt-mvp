@@ -169,6 +169,11 @@ def build_education_variant(template_id):
                 caption["alignment"]["vertical"] = "top"
             continue
 
+        if teacher:
+            from templates.teaching_geometry import arrange_teacher_scene
+            arrange_teacher_scene(layout)
+            continue
+
         count = int(layout["id"].rsplit("_", 1)[-1])
         scene = components["scene"]["elements"][0]
         top_scene = "_scene_top_" in layout["id"]
