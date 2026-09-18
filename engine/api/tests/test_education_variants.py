@@ -204,8 +204,9 @@ def test_teacher_variants_include_a_distinct_top_scene(template_id, count):
     scene = next(component for component in ui["components"] if component["id"] == "scene")
     image = scene["elements"][0]
 
-    assert image["size"]["width"] == 1184
-    assert image["size"]["height"] <= 220
+    assert image["fit"] == 'contain'
+    assert image["size"]["height"] >= 288
+    assert image["size"]["width"] / image["size"]["height"] <= 2.5
     assert all(
         component["elements"][0]["position"]["y"] >= 410
         for component in ui["components"]

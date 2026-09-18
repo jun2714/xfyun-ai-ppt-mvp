@@ -178,7 +178,34 @@ def test_same_topic_uses_different_audience_templates():
     assert resolve_kindergarten_template(plan, 'auto', content_mode='classroom').template == 'classroom-nature'
     teacher = resolve_kindergarten_template(plan, 'auto', content_mode='training')
     assert teacher.template == 'training-case'
-    assert set(teacher.scores) == {'training-case', 'training-action', 'teacher-training'}
+    assert set(teacher.scores) == {'training-case', 'training-action', 'teacher-training', 'training-workshop'}
+
+
+def test_interactive_packs_require_relevant_signals_and_preserve_audience():
+    plan = _visual_plan('海洋动物分类游戏与选择挑战', 'science')
+    for slide in plan.slides[1:]:
+        slide.interaction.type = 'choose'
+    before = plan.model_dump()
+    game = resolve_kindergarten_template(plan, 'auto')
+    assert game.template == 'classroom-game'
+    assert '主题包含' in game.reason
+    assert plan.model_dump() == before
+    teacher = resolve_kindergarten_template(plan, 'auto', content_mode='training',
+        topic='观察证据工作坊：小组讨论与共创', instructions='开展策略比较')
+    assert teacher.template == 'training-workshop'
+    assert 'classroom-game' not in teacher.scores
+    assert resolve_kindergarten_template(_visual_plan('植物的自然观察'), 'auto').template == 'classroom-nature'
+
+
+def test_lesson_conversion_retains_full_interaction_answer_contract():
+    from models.kindergarten_lesson_plan import LessonGameSpec
+    plan = _visual_plan()
+    plan.slides[1].game = LessonGameSpec(type='sequence', activity_id='growth',
+        options={'a': '发芽', 'b': '种子'}, sequence_order=['b', 'a'], answer_map={'b': 'a'})
+    contract = plan.to_presentation_outline().slides[1].content_contract
+    assert contract.game_options == {'a': '发芽', 'b': '种子'}
+    assert contract.game_sequence_order == ['b', 'a']
+    assert contract.game_answer_map == {'b': 'a'}
 
 
 def test_story_and_action_keywords_select_distinct_packs():
@@ -226,6 +253,6 @@ def test_capacity_fallback_selects_same_audience_and_explains_reason():
     plan = _visual_plan('交流分享', 'comprehensive')
     plan.slides[1].screen_content.points = [f'{i}：' + '保留儿童语言和动作' * 4 for i in range(6)]
     result = resolve_kindergarten_template(plan, 'auto', content_mode='training')
-    assert result.template in {'training-case', 'training-action'}
+    assert result.template in {'training-case', 'training-action', 'training-workshop'}
     assert '正文容量不足' in result.reason
     assert '请先调整大纲' not in result.reason

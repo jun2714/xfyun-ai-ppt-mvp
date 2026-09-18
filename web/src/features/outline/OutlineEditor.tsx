@@ -24,6 +24,8 @@ const DISPLAY_NAMES: Record<string, string> = {
   "classroom-story": "故事表达 · 阅读与分享",
   "training-case": "案例研讨 · 观察与证据",
   "training-action": "行动复盘 · 实施与改进",
+  "classroom-game": "游戏探索 · 观察与挑战",
+  "training-workshop": "教研工作坊 · 证据与共创",
   swift: "简洁明快",
   standard: "标准清晰",
   momentum: "活力节奏",
@@ -367,6 +369,14 @@ export function OutlineEditor({
           title,
         }),
       });
+      try {
+        await api("/presentation/generate-slides/async", {
+          method: "POST",
+          body: JSON.stringify({ presentation_id: presentation.id }),
+        });
+      } catch {
+        // The stream page still attaches to the worker if this call races.
+      }
       location.href = `/presentations/${presentation.id}/edit?stream=true`;
     } catch (cause) {
       setError(localizeError(cause));

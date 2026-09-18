@@ -62,7 +62,11 @@ export const PresentationCard = ({
       slide_count: presentation?.slides?.length || 0,
       presentation_type: presentationType,
     });
-    router.push(`/presentation?id=${id}&type=${presentationType}`);
+    router.push(
+      `/presentation?id=${id}&type=${presentationType}${
+        isGenerating ? "&stream=true" : ""
+      }`
+    );
   };
 
 
@@ -115,7 +119,16 @@ export const PresentationCard = ({
     Boolean(firstSlide?.html_content) ||
     (Array.isArray(firstSlide?.ui?.components) &&
       firstSlide.ui.components.length > 0);
-  const isIncomplete = !hasRenderableFirstSlide;
+  const deckStatus = presentation?.generation_metadata?.deck_status;
+  const isGenerating =
+    deckStatus === "generating" || deckStatus === "queued";
+  const deckProgress = Math.max(
+    8,
+    Math.min(100, Number(presentation?.generation_metadata?.deck_progress) || 8)
+  );
+  const deckMessage =
+    presentation?.generation_metadata?.deck_message || "正在生成课件…";
+  const isIncomplete = !hasRenderableFirstSlide && !isGenerating;
   const displayTitle =
     (title || "").replace(/[\s?？�]/g, "").length > 0
       ? title
@@ -153,7 +166,19 @@ export const PresentationCard = ({
           : `relative aspect-video overflow-hidden bg-white ${viewMode === "list" ? "m-3 w-[170px] shrink-0 rounded-lg border border-[#EDEEEF]" : "w-full border-b border-[#EDEEEF]"}`
         }>
 
-          {isIncomplete ? (
+          {isGenerating ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#F7F6FF] px-5 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-[#5146E5]" aria-hidden="true" />
+              <p className="text-sm font-semibold text-[#5146E5]">正在生成</p>
+              <p className="text-xs text-[#667085]">{deckMessage}</p>
+              <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-[#E8E4F6]">
+                <i
+                  className="block h-full rounded-full bg-[#7A5AF8] transition-all duration-500"
+                  style={{ width: `${deckProgress}%` }}
+                />
+              </span>
+            </div>
+          ) : isIncomplete ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#FAFAFA] px-5 text-center text-[#667085]">
               <AlertTriangle className="h-8 w-8 text-[#F79009]" aria-hidden="true" />
               <p className="text-sm font-semibold">生成未完成</p>

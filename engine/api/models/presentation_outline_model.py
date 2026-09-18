@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from constants.presentation import MAX_NUMBER_OF_SLIDES, MAX_OUTLINE_CONTENT_WORDS
@@ -84,6 +84,10 @@ class SlideContentContract(BaseModel):
     ] = "none"
     activity_id: Optional[str] = Field(default=None, max_length=120)
     answer_key: Optional[str] = Field(default=None, max_length=300)
+    # Preserve the plan's answer contract for speaker notes, never screen text.
+    game_options: Dict[str, str] = Field(default_factory=dict)
+    game_answer_map: Dict[str, str] = Field(default_factory=dict)
+    game_sequence_order: List[str] = Field(default_factory=list, max_length=12)
     # Lesson planning normally needs far fewer than twelve assets. The extra four
     # slots are deliberately reserved for presentation-stage visual contracts such
     # as an AI-generated background, without discarding teaching-object semantics.

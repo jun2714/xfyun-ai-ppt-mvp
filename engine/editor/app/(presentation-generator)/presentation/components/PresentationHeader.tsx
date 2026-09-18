@@ -501,7 +501,7 @@ const PresentationHeader = ({
             type="button"
             onClick={goToProjects}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#EDEEEF] bg-white px-3 py-1.5 text-sm font-semibold text-[#333333] transition-colors hover:border-[#C9C3F7] hover:bg-[#F7F6FF] hover:text-[#5146E5]"
-            aria-label="返回我的项目"
+            aria-label="返回我的项目，生成中的课件会在后台继续"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             返回
@@ -523,6 +523,11 @@ const PresentationHeader = ({
             <ToolTip content="重命名演示文稿">{titleBlock}</ToolTip>
           ) : (
             titleBlock
+          )}
+          {isStreaming && (
+            <span className="hidden shrink-0 items-center rounded-full bg-[#F4F1FF] px-2.5 py-1 text-xs font-semibold text-[#5146E5] sm:inline-flex">
+              正在生成，离开后也会继续
+            </span>
           )}
          
         </div>

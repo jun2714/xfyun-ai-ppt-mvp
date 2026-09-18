@@ -92,19 +92,28 @@ def _prompt(assets, title, points, *, training=False, template_style=None):
     return (
         f"本页教学主题仅供理解画面，不得把主题绘制成文字：{title}。"
         f"必须看到的教学对象与动作：{subjects or title}。"
+        f"仅用于理解教学关系的文案（不作为图内文字）：{'；'.join(points)}。"
         f"{style}"
-        "主体完整、特征准确、背景简洁；不要摄影、3D、文字、字母、数字、标签或水印。"
+        "以本页对象及其真实生活环境决定场景，模板配色不是物种或背景要求。"
+        "科学观察中的动物保持真实身体结构和完整轮廓；模仿动作不意味着人兽融合。"
+        "未要求人物时无需添加教师或儿童合影。各主体间留出间隔，四周留足安全边距。"
+        "主体完整、特征准确、背景简洁；明确要求局部猜谜时只展示约定线索。"
+        "不要摄影、3D、文字、字母、数字、标签或水印。"
     )
 
 
-def _cover_prompt(title, *, training=False, template_style=None):
+def _cover_prompt(title, *, assets=(), training=False, template_style=None):
     style = template_style or (
         "浅米白、松石绿、雾蓝的教育编辑插画" if training
         else "奶油白与薄荷绿的柔和水粉绘本插画"
     )
     return (
         f"幼儿园课件封面背景。主题仅供理解场景，绝不能画成文字：{title}。"
+        "教学对象与场景依据（不绘制为文字）："
+        + "；".join(f"{asset.semantic_label}：{asset.description or ''}" for asset in assets)
+        + "。"
         f"{style}。根据主题选择相关幼儿活动、教具和环境，画面温暖、主体准确。"
+        "标题中的悬念道具不能替代实际教学对象，人物不是必需元素。"
         "16:9 全幅插画，主要人物和教学对象放在左侧及左下方；"
         "右侧约一半为浅色安静背景，将由编辑器覆盖原生标题面板。"
         "只生成无字背景，不要绘制标题、面板、标语、汉字、英文、字母、数字、"
@@ -144,12 +153,13 @@ def build_classroom_content(schema, outline):
             elif component.startswith("card_"):
                 index = int(component.split("_")[-1])
                 value = (points[index] if key == "text" else
-                         _image_value(field, _prompt([bound[index]], title, [points[index]], training=training,
+                         _image_value(field, _prompt([bound[index]], points[index], [points[index]], training=training,
                                                      template_style=field.get("x-image-style"))))
             elif component == "scene" and key == "visual":
                 # Edited content supersedes stale asset instructions in scene mode.
                 image_prompt = (
-                    _cover_prompt(title, training=training, template_style=field.get("x-image-style"))
+                    _cover_prompt(title, assets=contract.asset_contracts if unchanged else [],
+                                  training=training, template_style=field.get("x-image-style"))
                     if layout_id == "classroom_cover" else
                     _prompt(contract.asset_contracts if unchanged else [], title, points,
                             training=training, template_style=field.get("x-image-style"))
@@ -182,5 +192,10 @@ def build_classroom_content(schema, outline):
     note = contract.teacher_note or ""
     if contract.interaction_instruction and contract.interaction_instruction not in note:
         note += "\n课堂操作：" + contract.interaction_instruction
+    if schema.get("x-teaching-activity") and unchanged:
+        from services.teaching_interaction_service import interaction_speaker_notes
+        guidance = interaction_speaker_notes(outline)
+        if guidance and guidance not in note:
+            note += "\n" + guidance
     result["__speaker_note__"] = note.strip()
     return result

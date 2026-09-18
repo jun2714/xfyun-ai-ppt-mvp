@@ -7,6 +7,7 @@ import { PresentationGenerationApi } from "../../services/api/presentation-gener
 import { LoadingState } from "../types/index";
 
 import { MixpanelEvent, trackEvent } from "@/utils/mixpanel";
+import { notifyTeachnovaDeckGenerating } from "@/utils/teachnovaEmbed";
 import { sanitizeAnalyticsError } from "@/utils/analytics";
 import {
   limitOutlines,
@@ -126,6 +127,24 @@ export const usePresentationGeneration = (
           template_id: selectedTemplateId,
           outline_count: preparedOutlines.length,
         });
+        let taskId = "";
+        try {
+          const job = await PresentationGenerationApi.generateSlidesAsync(
+            presentationId
+          );
+          taskId = String(job?.id || "");
+        } catch (startError) {
+          console.warn("background slide generation start failed", startError);
+        }
+        notifyTeachnovaDeckGenerating({
+          presentationId,
+          taskId,
+          topic: title || "",
+        });
+        notify.success(
+          "课件正在后台生成",
+          "可以返回我的项目继续其他工作，生成进度会实时显示。"
+        );
         dispatch(clearPresentationData());
         clearTheme();
         router.replace(

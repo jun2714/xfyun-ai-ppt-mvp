@@ -74,6 +74,12 @@ from models.sse_response import (
 from services.database import get_async_session
 from services.database import async_session_maker
 from services.owner_scope import get_by_id_unscoped, get_owned_by_id
+from services.prepared_deck_generation import (
+    cancel_prepared_deck_job,
+    ensure_prepared_deck_job,
+    follow_prepared_deck_job,
+    generating_this_deck,
+)
 from services.concurrent_service import CONCURRENT_SERVICE
 from models.sql.presentation import PresentationModel, PresentationVersion
 from models.sql.template_v2 import TemplateV2
@@ -163,6 +169,11 @@ BLANK_PRESENTATION_SLIDE_UI: dict[str, Any] = {
 
 
 class PresentationPrepareResponse(BaseModel):
+    presentation_id: uuid.UUID
+    task_id: Optional[str] = None
+
+
+class GeneratePreparedSlidesRequest(BaseModel):
     presentation_id: uuid.UUID
 
 
@@ -2193,6 +2204,38 @@ async def prepare_presentation(
     return PresentationPrepareResponse(presentation_id=presentation.id)
 
 
+@PRESENTATION_ROUTER.post("/generate-slides/async", response_model=AsyncTaskModel)
+async def generate_prepared_slides_async(
+    payload: GeneratePreparedSlidesRequest,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    presentation = await get_by_id_unscoped(
+        sql_session,
+        PresentationModel,
+        payload.presentation_id,
+    )
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    if not presentation.structure or not presentation.outlines:
+        raise HTTPException(
+            status_code=400,
+            detail="Presentation not prepared for stream",
+        )
+    return await ensure_prepared_deck_job(
+        payload.presentation_id,
+        topic=presentation.title or "",
+        n_slides=presentation.n_slides or 0,
+    )
+
+
+@PRESENTATION_ROUTER.post(
+    "/generate-slides/{task_id}/cancel",
+    response_model=AsyncTaskModel,
+)
+async def cancel_prepared_slides_generation(task_id: str):
+    return await cancel_prepared_deck_job(task_id)
+
+
 async def _stream_smart_presentation(
     presentation: PresentationModel,
     sql_session: AsyncSession,
@@ -2532,6 +2575,32 @@ async def stream_presentation(
             media_type="text/event-stream",
         )
 
+    if not generating_this_deck(id):
+        if not existing_slides:
+            if not presentation.structure:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Presentation not prepared for stream",
+                )
+            if not presentation.outlines:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Outlines can not be empty",
+                )
+        task = await ensure_prepared_deck_job(
+            id,
+            topic=presentation.title or "",
+            n_slides=presentation.n_slides or 0,
+        )
+        return StreamingResponse(
+            safe_sse_stream(
+                follow_prepared_deck_job(id, task.id),
+                logger=logger,
+                error_detail="Failed to follow presentation generation.",
+            ),
+            media_type="text/event-stream",
+        )
+
     image_generation_service = ImageGenerationService(get_images_directory())
 
     if existing_slides:
@@ -2865,7 +2934,9 @@ async def update_presentation(
     slides: Annotated[Optional[List[SlideModel]], Body()] = None,
     sql_session: AsyncSession = Depends(get_async_session),
 ):
-    presentation = await sql_session.get(PresentationModel, id)
+    # Serialize editor saves with background image checkpoints for this deck.
+    presentation = (await sql_session.scalars(select(PresentationModel).where(
+        PresentationModel.id == id).with_for_update().execution_options(populate_existing=True))).first()
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
@@ -2940,7 +3011,12 @@ async def update_presentation_slide(
             detail="Slide and presentation IDs must be valid UUIDs",
         ) from exc
 
-    stored_slide = await sql_session.get(SlideModel, slide_id)
+    presentation = (await sql_session.scalars(select(PresentationModel).where(
+        PresentationModel.id == presentation_id).with_for_update().execution_options(populate_existing=True))).first()
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    stored_slide = (await sql_session.scalars(select(SlideModel).where(
+        SlideModel.id == slide_id).execution_options(populate_existing=True))).first()
     if not stored_slide:
         raise HTTPException(status_code=404, detail="Slide not found")
 

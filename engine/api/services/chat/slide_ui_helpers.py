@@ -384,13 +384,18 @@ def _normalize_generated_image_fit(
     element: dict[str, Any],
     asset_url: str | None,
 ) -> None:
-    if element.get("is_icon") is True or element.get("fit") == "cover":
+    # Explicit fitting is part of the template/teacher's composition. Never
+    # turn a full-subject illustration into a cropped image during binding.
+    if element.get("is_icon") is True or element.get("fit") in {"contain", "cover", "fill"}:
         return
     if _has_image_clip_path(element):
         return
     if _looks_like_svg_asset_reference(asset_url):
         return
-    element["fit"] = "cover"
+    element["fit"] = (
+        "contain" if element.get("asset_role") in {"framed-image", "cutout"}
+        else "cover"
+    )
 
 
 def _has_image_clip_path(element: dict[str, Any]) -> bool:

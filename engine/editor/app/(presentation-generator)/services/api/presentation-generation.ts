@@ -445,6 +445,32 @@ export class PresentationGenerationApi {
     }
   }
 
+  static async generateSlidesAsync(presentationId: string): Promise<{
+    id?: string;
+    status?: string;
+    message?: string;
+    data?: Record<string, unknown>;
+  }> {
+    try {
+      const response = await fetch(
+        getApiUrl(`/api/v1/ppt/presentation/generate-slides/async`),
+        {
+          method: "POST",
+          headers: getHeader(),
+          body: JSON.stringify({ presentation_id: presentationId }),
+          cache: "no-cache",
+        }
+      );
+      return await ApiResponseHandler.handleResponse(
+        response,
+        "Failed to start slide generation"
+      );
+    } catch (error) {
+      console.error("error starting slide generation", error);
+      throw error;
+    }
+  }
+
   static async getOutlines(presentationId: string): Promise<{ slides: { content: string }[] }> {
     try {
       const response = await fetch(

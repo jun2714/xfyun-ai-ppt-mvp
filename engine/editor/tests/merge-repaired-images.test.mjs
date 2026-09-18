@@ -40,3 +40,31 @@ test('manual image and changed prompt win over a late repair result', async () =
   changed.slides[0].content.scene.visual.image_prompt = '老师的新提示词';
   assert.equal(mergeRepairedImages(changed, remote).slides[0].content.scene.visual.image_url, '');
 });
+
+test('explicit replacement changes only the selected image and preserves local text and geometry', async () => {
+  const { mergeRepairedImages } = await loadMerge();
+  const local = deck('老师的新标题', '/app_data/images/old.png');
+  const remote = deck('旧标题', '/app_data/images/new.png');
+  const previous_ui = structuredClone(local.slides[0].ui.components[0].elements[0]);
+  local.slides[0].speaker_note = '老师的新讲稿';
+  local.slides[0].ui.components[0].elements[0].position = { x: 84, y: 180 };
+  const event = { slide_id: 'slide-1', path: ['scene', 'visual'], previous_url: '/app_data/images/old.png', previous_ui, url: '/app_data/images/new.png' };
+  const result = mergeRepairedImages(local, remote, [event]);
+  assert.equal(result.slides[0].content.scene.visual.image_url, event.url);
+  assert.equal(result.slides[0].content.heading.title, '老师的新标题');
+  assert.equal(result.slides[0].speaker_note, '老师的新讲稿');
+  const image = result.slides[0].ui.components[0].elements[0];
+  assert.equal(image.data, event.url);
+  assert.equal(image.fit, 'contain');
+  assert.equal(image.crop_scale, 1);
+  assert.deepEqual(image.position, { x: 84, y: 180 });
+  assert.equal(local.slides[0].content.scene.visual.image_url, event.previous_url);
+  for (const field of ['data', 'prompt', 'crop_scale']) {
+    const edited = structuredClone(local);
+    edited.slides[0].ui.components[0].elements[0][field] = field === 'crop_scale' ? 2 : 'manual';
+    assert.notEqual(mergeRepairedImages(edited, remote, [event]).slides[0].ui.components[0].elements[0].data, event.url);
+  }
+  const changed = structuredClone(local);
+  changed.slides[0].content.scene.visual.image_prompt = '老师新的主题';
+  assert.equal(mergeRepairedImages(changed, remote, [event]).slides[0].content.scene.visual.image_url, event.previous_url);
+});

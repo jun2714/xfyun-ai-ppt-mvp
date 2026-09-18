@@ -1,4 +1,6 @@
-from models.kindergarten_lesson_plan import KindergartenLessonPlan
+import pytest
+
+from models.kindergarten_lesson_plan import KindergartenLessonPlan, LessonGameSpec
 from services.kindergarten_plan_quality_service import (
     validate_kindergarten_lesson_plan,
 )
@@ -122,6 +124,86 @@ def test_valid_kindergarten_plan_passes_hard_quality_gates():
 
     assert report.passed is True
     assert report.errors == []
+
+
+def _activity_plan(kind):
+    plan = _valid_plan()
+    question, reveal = plan.slides[1:3]
+    question.slide_type = {"sequence": "sequence", "classification": "classification",
+                           "matching": "matching", "memory": "memory-missing"}.get(kind, "other")
+    question.interaction.type = "choose" if kind == "choice" else "observe"
+    question.screen_content.title = "一起观察再回答"
+    reveal.screen_content.title = "看看我们的发现"
+    payload = dict(type=kind, activity_id="activity-1", options={"a": "种子", "b": "发芽", "c": "长叶"})
+    if kind == "sequence":
+        payload["sequence_order"] = ["a", "b", "c"]
+    elif kind in {"matching", "classification"}:
+        payload["answer_map"] = {"a": "开始", "b": "生长", "c": "生长"}
+    else:
+        payload["answer_key"] = "b"
+    question.game = LessonGameSpec(**payload)
+    reveal.game = question.game.model_copy(deep=True)
+    return plan
+
+
+@pytest.mark.parametrize("kind", ["choice", "memory", "sequence", "classification", "matching"])
+def test_each_activity_requires_its_own_later_reveal(kind):
+    plan = _activity_plan(kind)
+    assert validate_kindergarten_lesson_plan(plan).passed
+    plan.slides.pop(2)
+    assert "reveal-slide-missing" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+@pytest.mark.parametrize("kind", ["sequence", "classification", "matching"])
+def test_structured_answers_must_match_across_pages(kind):
+    plan = _activity_plan(kind)
+    if kind == "sequence":
+        plan.slides[2].game.sequence_order = ["c", "b", "a"]
+    else:
+        plan.slides[2].game.answer_map["a"] = "生长"
+    assert "reveal-contract-mismatch" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+@pytest.mark.parametrize("order", [["a", "a", "c"], ["a", "b"], ["a", "b", "unknown"]])
+def test_sorting_cannot_repeat_omit_or_invent_objects(order):
+    plan = _activity_plan("sequence")
+    plan.slides[1].game.sequence_order = order
+    assert "sequence-items-invalid" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+def test_option_letters_are_not_answer_semantics():
+    plan = _valid_plan()
+    plan.slides[2].game.options = {"A": "小兔子", "B": "小猫"}
+    assert "reveal-answer-mismatch" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+    plan.slides[2].game.answer_key = "A"
+    assert validate_kindergarten_lesson_plan(plan).passed
+
+
+def test_duplicate_pages_cannot_overwrite_previous_activity_validation():
+    plan = _valid_plan()
+    plan.slides.append(plan.slides[2].model_copy(deep=True))
+    assert "duplicate-activity-page" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+def test_answer_text_is_allowed_on_reveal_but_not_choice_question():
+    plan = _activity_plan("choice")
+    plan.slides[2].screen_content.title = "答案是发芽"
+    assert validate_kindergarten_lesson_plan(plan).passed
+    plan.slides[1].screen_content.title = "答案是发芽"
+    assert "question-reveals-answer" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+def test_correct_hidden_key_cannot_mask_wrong_visible_answer():
+    plan = _valid_plan()
+    plan.slides[2].screen_content.title = "原来是小猫！"
+    assert "reveal-visible-answer-mismatch" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
+
+
+@pytest.mark.parametrize("mapping", [{"a": "开始"}, {"unknown": "开始"}, {"a": ""}])
+def test_classification_cannot_omit_or_invent_objects(mapping):
+    plan = _activity_plan("classification")
+    plan.slides[1].game.answer_map = mapping
+    assert "answer-map-invalid" in {i.code for i in validate_kindergarten_lesson_plan(plan).errors}
 
 
 def test_reveal_answer_mismatch_is_blocked():

@@ -25,15 +25,61 @@ class FakeImageService:
         self.outputs = list(outputs)
         self.calls = 0
         self.prompts = []
+        self.aspect_ratios = []
 
     async def generate_image(self, prompt):
         self.prompts.append(prompt.prompt)
+        self.aspect_ratios.append(prompt.aspect_ratio)
         output = self.outputs[self.calls]
         self.calls += 1
         return ImageAsset(path=str(output), is_uploaded=False)
 
     def configured_model_name(self):
         return "fake-image-model"
+
+
+def test_moderation_rejection_is_not_retried_through_an_unchecked_fallback(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+    from unittest.mock import AsyncMock
+    class RejectedService(FakeImageService):
+        async def generate_image(self, prompt):
+            self.calls += 1
+            raise HTTPException(400, 'moderation rejected the image request')
+    monkeypatch.setattr(asset_execution_service, 'record_asset_generation_trace', AsyncMock())
+    service = RejectedService(tmp_path, [])
+    slide = _cutout_slide(with_semantic_contract=True)
+    image = slide.ui['components'][0]['elements'][0]
+    image.update(asset_mode='composite-image', asset_role='framed-image')
+    quality = FakeSemanticQualityService([True])
+    asyncio.run(asset_execution_service.process_presentation_assets(
+        service, [slide], semantic_quality_service=quality))
+    assert service.calls == 1
+    assert quality.calls == []
+    assert not slide.content['main']['subject'].get('image_url')
+    assert 'moderation' in slide.content['main']['subject']['__repair_failed_reason__']
+
+
+def test_teaching_image_without_quality_configuration_does_not_spend_a_generation(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+    monkeypatch.setattr(asset_execution_service, 'record_asset_generation_trace', AsyncMock())
+    monkeypatch.setattr(asset_execution_service, 'build_default_asset_semantic_quality_service', lambda: None)
+    slide = _cutout_slide(with_semantic_contract=True)
+    service = FakeImageService(tmp_path, [])
+    asyncio.run(asset_execution_service.process_presentation_assets(service, [slide]))
+    assert service.calls == 0
+    assert not slide.content['main']['subject'].get('image_url')
+    assert '质检服务未配置' in slide.content['main']['subject']['__repair_failed_reason__']
+
+
+def test_sprite_sheet_requests_the_whole_grid_ratio_instead_of_one_cell():
+    from dataclasses import replace
+    from services.asset_planning_service import AssetPlanItem
+    slot = asset_execution_service.build_asset_plan([_cutout_slide()])[0].slots[0]
+    slot = replace(slot, width=300, height=400)
+    item = AssetPlanItem(request_id='grid', generation_mode='sprite-sheet',
+                         slots=(slot, slot), grid_columns=2, grid_rows=1)
+    prompt = asset_execution_service._build_image_prompt(item, prompt_text='two complete subjects', forbid_latin_text=True)
+    assert prompt.aspect_ratio == '3:2'  # Two portrait cells need a landscape sheet.
 
 
 def test_visual_quality_rejects_visible_text_and_cropped_subject_without_contracts():
@@ -65,6 +111,8 @@ def test_teacher_art_direction_survives_execution_and_is_not_reused_for_children
     assert "professional educational editorial" not in prompts["teacher"]
     assert "ages 3-6" not in prompts["teacher"]
     assert "ages 3-6" in prompts["child"]
+    assert "完整入画" in prompts["teacher"]
+    assert "do not crop heads" in prompts["child"]
 
 
 def test_education_image_without_semantic_slots_still_runs_text_and_crop_qa():
@@ -203,6 +251,7 @@ def test_semantic_qa_retries_only_failed_asset_and_accepts_null_description(
     assert traces[0].error["type"] == "AssetSemanticQualityError"
     assert traces[0].error["semantic_quality"]["passed"] is False
     assert traces[1].retry_of == plan[0].request_id
+    assert "上次画面质检未通过" in service.prompts[1]
     assert len(generated) == 2  # accepted source plus derived transparent cutout
     assert "image_url" in slide.content["main"]["subject"]
 
@@ -390,7 +439,7 @@ def test_independent_assets_use_bounded_concurrency(tmp_path, monkeypatch):
     assert all("image_url" in slide.content["main"]["subject"] for slide in slides)
 
 
-def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
+def test_visual_qa_timeout_keeps_the_generated_teaching_image(
     tmp_path,
     monkeypatch,
 ):
@@ -418,8 +467,9 @@ def test_visual_qa_timeout_keeps_generated_image_instead_of_blank(
     )
 
     assert service.calls == 1
-    assert slide.content["main"]["subject"]["image_url"]
+    assert slide.content["main"]["subject"].get("image_url")
     assert traces[-1].status == "succeeded_with_warning"
+    assert traces[-1].error["visual_qa_warning"]["type"] == "TimeoutError"
 
 
 def test_second_known_quality_failure_stays_missing_instead_of_using_bad_image(
@@ -538,3 +588,103 @@ def test_kindergarten_asset_prompt_requires_one_illustration_medium():
     assert "never photography" in prompt
     assert "photorealism" in prompt
     assert "mixed media" in prompt
+    assert "do not crop heads" in prompt
+
+
+def test_teacher_wide_banner_prompt_uses_real_frame_and_full_bodies():
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="teacher-training",
+        layout="scene_top",
+        index=0,
+        content={
+            "main": {"visual": {"image_prompt": "教师围坐研讨观察记录"}},
+            "__content_contract__": {
+                "visual_audience": "teacher",
+                "classroom_mapping_version": 1,
+            },
+        },
+        ui={
+            "components": [
+                {
+                    "id": "main",
+                    "elements": [
+                        {
+                            "type": "image",
+                            "name": "visual",
+                            "fit": "cover",
+                            "asset_role": "framed-image",
+                            "position": {"x": 48, "y": 174},
+                            "size": {"width": 1184, "height": 220},
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    item = asset_execution_service.build_asset_plan([slide])[0]
+    prompt = asset_execution_service._request_prompt(item)
+    assert "1184:220" in prompt
+    assert "完整入画" in prompt
+    assert "半截身子" in prompt
+    assert "横向宽画幅" in prompt
+    assert asset_execution_service._provider_aspect_ratio(item.slots[0]) == "21:9"
+
+
+def test_cover_framed_image_is_padded_instead_of_center_cropped(tmp_path, monkeypatch):
+    source = Image.new("RGB", (100, 100), "white")
+    source.putpixel((50, 2), (255, 0, 0))
+    source.putpixel((50, 97), (0, 0, 255))
+    path = tmp_path / "square.png"
+    source.save(path)
+
+    async def record(_trace):
+        return None
+
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    slide = SlideModel(
+        presentation="00000000-0000-0000-0000-000000000001",
+        layout_group="teacher-training",
+        layout="scene_top",
+        index=0,
+        content={
+            "main": {"visual": {"image_prompt": "教师围坐研讨观察记录"}},
+            "__content_contract__": {
+                "visual_audience": "teacher",
+                "classroom_mapping_version": 1,
+            },
+        },
+        ui={
+            "components": [
+                {
+                    "id": "main",
+                    "elements": [
+                        {
+                            "type": "image",
+                            "name": "visual",
+                            "fit": "cover",
+                            "asset_role": "framed-image",
+                            "position": {"x": 48, "y": 174},
+                            "size": {"width": 1184, "height": 220},
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    service = FakeImageService(tmp_path, [path])
+    quality = FakeSemanticQualityService([True])
+    generated, _plan = asyncio.run(
+        asset_execution_service.process_presentation_assets(
+            service, [slide], semantic_quality_service=quality
+        )
+    )
+
+    fitted = Image.open(generated[-1].path)
+    assert quality.calls[0]['image'] == str(path)  # Inspect original edges before padding.
+    pixels = set(fitted.getdata())
+    assert abs(fitted.width / fitted.height - 1184 / 220) < 0.02
+    assert (255, 0, 0, 255) in pixels
+    assert (0, 0, 255, 255) in pixels
+    assert service.aspect_ratios == ["21:9"]
+    assert "完整入画" in service.prompts[0]

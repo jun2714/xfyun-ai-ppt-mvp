@@ -9,7 +9,8 @@ from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from models.research_plan_source import ResearchPlanSource
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -114,6 +115,13 @@ class KindergartenLessonPlanRequest(BaseModel):
     # plan successfully but fail when the prepared deck is saved.
     instructions: Optional[str] = Field(default=None, max_length=1000)
     source_context: Optional[str] = Field(default=None, max_length=30000)
+    research_plan: Optional[ResearchPlanSource] = None
+
+    @model_validator(mode="after")
+    def validate_research_mode(self):
+        if self.research_plan is not None and self.content_mode != "training":
+            raise ValueError("research_plan仅用于教师教研课件")
+        return self
 
 
 class KindergartenLessonPlanResponse(BaseModel):
@@ -176,6 +184,8 @@ class KindergartenPlannerRuntimeResponse(BaseModel):
 async def _planning_source_context(
     payload: KindergartenLessonPlanRequest,
 ) -> Optional[str]:
+    if payload.research_plan is not None:
+        return payload.research_plan.planning_context()
     source_parts: list[str] = []
     if payload.source_context and payload.source_context.strip():
         source_parts.append(payload.source_context.strip())
@@ -271,7 +281,23 @@ def _quality_review_warning(
 ) -> Optional[str]:
     if result.quality.passed:
         return None
-    return QUALITY_REVIEW_WARNING
+    details = "；".join(
+        (f"第 {issue.slide_no} 页：" if issue.slide_no else "") + issue.message
+        for issue in result.quality.errors
+    )
+    return QUALITY_REVIEW_WARNING + ("。" + details if details else "")
+
+
+def _require_automatic_quality(result, presentation_id):
+    if result.quality.passed:
+        return
+    raise HTTPException(status_code=422, detail={
+        "code": "KINDERGARTEN_PLAN_REVIEW_REQUIRED",
+        "message": _quality_review_warning(result),
+        "presentation_id": str(presentation_id),
+        "outline_path": f"/presentations/{presentation_id}/outline",
+        "quality": result.quality.model_dump(mode="json"),
+    })
 
 
 async def _generate_reviewable_plan(
@@ -345,7 +371,7 @@ async def _available_auto_templates(payload, sql_session):
     rows = await sql_session.scalars(select(TemplateV2).where(TemplateV2.is_default.is_(True)))
     pool = {template.id: template for template in rows}
     if payload.content_mode == "training" and not any(
-        key in pool for key in ("training-case", "training-action", "teacher-training")
+        key in pool for key in ("training-case", "training-action", "teacher-training", "training-workshop")
     ):
         return None
     return pool
@@ -901,6 +927,9 @@ async def prepare_kindergarten_presentation(
         sql_session=sql_session,
         quality_warning=_quality_review_warning(result),
     )
+    # The automatic path has no teacher review step. Save the paid outline and
+    # stop before page/image generation if the teaching contract is invalid.
+    _require_automatic_quality(result, presentation.id)
     try:
         prepared = await prepare_presentation(
             presentation_id=presentation.id,
@@ -1416,6 +1445,19 @@ async def _run_kindergarten_complete_task(
                     return
                 detail = friendly_complete_generation_detail(_exception_detail(exc))
                 task_data = task.data if isinstance(task.data, dict) else {}
+                if (isinstance(exc, HTTPException) and isinstance(exc.detail, dict)
+                        and exc.detail.get("code") == "KINDERGARTEN_PLAN_REVIEW_REQUIRED"):
+                    task.status = AsyncTaskStatus.ERROR
+                    task.message = exc.detail["message"]
+                    task.error = APIErrorModel.from_exception(exc).model_dump(mode="json")
+                    task.data = kindergarten_complete_task_data(
+                        topic=topic, stage="review_required", progress=20,
+                        presentation_id=exc.detail["presentation_id"], previous=task_data,
+                    )
+                    task.data["outline_path"] = exc.detail["outline_path"]
+                    task.data["quality"] = exc.detail["quality"]
+                    await _save_complete_task(sql_session, task)
+                    return
                 saved_id = task_data.get("presentation_id")
                 expected = int(task_data.get("n_slides") or 0)
                 report = None

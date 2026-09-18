@@ -150,6 +150,34 @@ export class LibraryService {
     throw lastError ?? new Error("上传案例失败");
   }
 
+  static async update(itemId: string, payload: {
+    title: string;
+    category: string;
+    age_group: string;
+    season?: string;
+    scene?: string;
+    description?: string;
+  }): Promise<LibraryItem> {
+    const form = new FormData();
+    form.append("title", payload.title.trim());
+    if (payload.description !== undefined) {
+      form.append("description", payload.description);
+    }
+    form.append("category", payload.category);
+    form.append("age_group", payload.age_group);
+    form.append("season", payload.season || "不限");
+    form.append("scene", payload.scene || "其他");
+    const response = await fetch(
+      getApiUrl(`/api/v1/ppt/library/${encodeURIComponent(itemId)}`),
+      {
+        method: "PUT",
+        headers: getHeaderForFormData(),
+        body: form,
+      },
+    );
+    return ApiResponseHandler.handleResponse(response, "更新案例失败");
+  }
+
   static async get(itemId: string): Promise<LibraryItem> {
     const response = await fetch(
       getApiUrl(`/api/v1/ppt/library/${encodeURIComponent(itemId)}`),

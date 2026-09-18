@@ -4,8 +4,9 @@ import asyncio
 from collections.abc import Awaitable, Callable
 import logging
 import os
+from dataclasses import replace
 
-from models.image_prompt import ImagePrompt
+from models.image_prompt import ImageAspectRatio, ImagePrompt
 from models.sql.image_asset import ImageAsset
 from models.sql.asset_generation_trace import AssetGenerationTrace
 from models.sql.slide import SlideModel
@@ -27,7 +28,7 @@ from services.research_ppt_generation_context import research_ppt_image_options
 from services.sprite_sheet_service import (
     create_transparent_cutout,
     crop_sprite_sheet,
-    crop_to_aspect_ratio,
+    fit_to_aspect_ratio,
 )
 from services.asset_trace_service import record_asset_generation_trace
 # Kept as a module export for compatibility with existing validation tests and
@@ -72,14 +73,91 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
         return ""
     return (
         " Use one consistent 2D children's picture-book illustration style across the "
-        "whole deck: soft hand-painted gouache and colored-pencil texture, warm cream, "
-        "mint and coral palette, rounded friendly Chinese child characters, bright and "
-        "imaginative for ages 3-6, with a large clearly recognizable subject and one "
-        "delightful visual surprise. This must be an illustration, never photography, "
+        "whole deck: preserve the selected template medium and palette, while keeping "
+        "the subject's natural colors. Make it bright and imaginative for ages 3-6, "
+        "with clearly recognizable teaching subjects. Include people only when the "
+        "asset requests them. Never merge human bodies with animal parts; classroom "
+        "imitation means normal children making gestures, not physical transformation. "
+        "This must be an illustration, never photography, "
         "photorealism, a camera image, 3D render, corporate stock art or mixed media. "
         "Keep factual features accurate. Avoid black abstract textures, horror, dense "
         "background clutter, text, letters, numbers, logos, watermarks or pseudo-text."
     )
+
+
+def _slot_frame_ratio(slot: AssetSlotRequest) -> str:
+    if slot.width > 0 and slot.height > 0:
+        return f"{int(slot.width)}:{int(slot.height)}"
+    return slot.aspect_ratio or "16:9"
+
+
+def _frame_value(slot: AssetSlotRequest) -> float:
+    text = _slot_frame_ratio(slot)
+    parts = text.split(":", 1)
+    try:
+        return float(parts[0]) / float(parts[1])
+    except (ValueError, ZeroDivisionError, IndexError):
+        return 1.0
+
+
+_PROVIDER_RATIOS: tuple[tuple[int, int], ...] = (
+    (21, 9),
+    (16, 9),
+    (4, 3),
+    (3, 2),
+    (1, 1),
+    (3, 4),
+    (2, 3),
+    (9, 16),
+)
+
+
+def _provider_aspect_ratio(slot: AssetSlotRequest) -> ImageAspectRatio:
+    value = _frame_value(slot)
+    numerator, denominator = min(
+        _PROVIDER_RATIOS,
+        key=lambda pair: abs(value - pair[0] / pair[1]),
+    )
+    return f"{numerator}:{denominator}"  # type: ignore[return-value]
+
+
+def _build_image_prompt(
+    item: AssetPlanItem,
+    *,
+    prompt_text: str,
+    forbid_latin_text: bool,
+) -> ImagePrompt:
+    slot = item.slots[0] if item.slots else None
+    if slot and item.generation_mode == "sprite-sheet":
+        slot = replace(slot, width=slot.width * (item.grid_columns or 1),
+                       height=slot.height * (item.grid_rows or 1))
+    return ImagePrompt(
+        prompt=prompt_text,
+        forbid_latin_text=forbid_latin_text,
+        aspect_ratio=_provider_aspect_ratio(slot) if slot else None,
+    )
+
+
+def _framing_direction(slot: AssetSlotRequest) -> str:
+    ratio = _frame_value(slot)
+    frame = _slot_frame_ratio(slot)
+    if slot.visual_audience == "teacher":
+        direction = (
+            f" 目标画面比例 {frame}。人物、教具和关键动作必须完整入画，"
+            "头顶、手和躯干不要贴边或被截断；不要大头特写或只画半截身子。"
+        )
+        if ratio >= 2.2:
+            return direction + " 使用横向宽画幅构图，人物并排或围坐，大半身可见。"
+        if ratio >= 1.4:
+            return direction + " 使用横向中景构图，人物站立或围坐完整可见。"
+        return direction
+    direction = (
+        f" Compose for a {frame} frame. Keep the full teaching subject inside the "
+        "image with margin; do not crop heads, hands, feet or key body parts."
+    )
+    if ratio >= 2.2:
+        return direction + " Use a wide landscape arrangement so people stand side by side."
+    return direction
 
 
 def _request_prompt(item: AssetPlanItem) -> str:
@@ -110,14 +188,21 @@ def _request_prompt(item: AssetPlanItem) -> str:
         subjects = "；".join(slot.prompt for slot in item.slots) if teacher else "; ".join(
             slot.prompt for slot in item.slots
         )
+        clue = (
+            "明确要求局部猜谜时，按契约展示线索，不提前揭示答案。"
+            if teacher
+            else " When a local guessing cue is required, show the clue only and do not reveal the answer."
+        )
+        framing = _framing_direction(item.slots[0]) + clue
         if teacher:
-            return f"生成一个连贯场景，画面中包含：{subjects}。{kindergarten_direction}"
+            return f"生成一个连贯场景，画面中包含：{subjects}。{framing}{kindergarten_direction}"
         return (
             f"Create one coherent scene containing: {subjects}."
-            f"{kindergarten_direction}"
+            f"{framing}{kindergarten_direction}"
         )
 
     slot = item.slots[0]
+    framing = _framing_direction(slot)
     if item.generation_mode == "direct-background":
         if teacher:
             safe_area = (
@@ -126,8 +211,8 @@ def _request_prompt(item: AssetPlanItem) -> str:
                 else ""
             )
             return (
-                f"{slot.prompt}。铺满16:9课件背景，不要边框。{safe_area}"
-                f"{kindergarten_direction}"
+                f"{slot.prompt}。铺满16:9课件背景，人物若出现须完整入画。{safe_area}"
+                f"{framing}{kindergarten_direction}"
             )
         safe_area = (
             f" Keep a quiet text-safe area on the {slot.text_safe_area}."
@@ -136,20 +221,20 @@ def _request_prompt(item: AssetPlanItem) -> str:
         )
         return (
             f"{slot.prompt}. Full-bleed presentation background, aspect ratio "
-            f"{slot.aspect_ratio}, no border.{safe_area}{kindergarten_direction}"
+            f"{slot.aspect_ratio}, no border.{safe_area}{framing}{kindergarten_direction}"
         )
     if item.generation_mode == "single-cutout":
         if teacher:
             return (
                 f"{slot.prompt}。一个完整居中主体，四周留白，纯色对比背景，便于抠图。"
-                f"{kindergarten_direction}"
+                f"{framing}{kindergarten_direction}"
             )
         return (
             f"{slot.prompt}. One complete centered subject, generous margin, solid "
             f"plain contrasting background suitable for local background removal."
-            f"{kindergarten_direction}"
+            f"{framing}{kindergarten_direction}"
         )
-    return f"{slot.prompt}{kindergarten_direction}"
+    return f"{slot.prompt}{framing}{kindergarten_direction}"
 
 
 def _asset_url(result: str | ImageAsset) -> str:
@@ -181,19 +266,6 @@ def _mark_repair_failure(slide: SlideModel, slot: AssetSlotRequest, error: Excep
     target[REPAIR_FAILED_PROMPT_KEY] = slot.prompt
     target[REPAIR_FAILED_REASON_KEY] = str(getattr(error, "detail", error) or error)[:180]
     set_dict_at_path(slide.content, slot.content_path, target)
-
-
-def _is_moderation_error(error: Exception) -> bool:
-    text = str(getattr(error, "detail", "") or error)
-    folded = text.casefold()
-    return "审核" in text or "moderation" in folded or "safety system" in folded
-
-
-def _safer_kindergarten_prompt(prompt: str) -> str:
-    return (
-        f"{prompt}。适合3到6岁幼儿园的温馨绘本插画，画面干净明亮，"
-        "不要文字、伤口、恐怖、写实皮肤特写或黑色抽象纹理。"
-    )
 
 
 def _quality_expectations(
@@ -319,23 +391,18 @@ async def process_presentation_assets(
     semantic_quality_service: AssetSemanticQualityService | None = None,
     on_item_finished: Callable[[], Awaitable[None]] | None = None,
     quality_retries: int = 1,
-    skip_semantic_quality: bool = False,
+    require_semantic_quality: bool = False,
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
-    A semantic mismatch gets one scoped retry. A visual-QA outage does not discard
-    an image that the provider already generated successfully. A provider failure
+    A semantic mismatch gets one scoped retry with corrective feedback. A provider failure
     for one optional visual also no longer destroys the entire deck: that slot keeps
     its placeholder, the failure stays in the asset trace, and the remaining slides
     and images continue to completion so the teacher can still edit the PPT.
     """
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
-    quality_service = (
-        None
-        if skip_semantic_quality
-        else (semantic_quality_service or build_default_asset_semantic_quality_service())
-    )
+    quality_service = semantic_quality_service or build_default_asset_semantic_quality_service()
     try:
         concurrency = max(
             1,
@@ -350,6 +417,9 @@ async def process_presentation_assets(
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
+            quality_required = require_semantic_quality or any(
+                slot.education_visual or slot.requires_semantic_qa for slot in item.slots
+            )
             last_error: Exception | None = None
             result: str | ImageAsset | None = None
             source_asset: ImageAsset | None = None
@@ -365,12 +435,20 @@ async def process_presentation_assets(
                 materialized_source_to_cleanup: str | None = None
                 quality_warning = None
                 try:
+                    if quality_required and quality_service is None:
+                        raise RuntimeError("图片质检服务未配置，本次未请求生图；请配置质检服务后再试。")
+                    prompt_text = _request_prompt(item)
+                    if isinstance(last_error, AssetSemanticQualityError):
+                        prompt_text += "\n上次画面质检未通过，请修正以下问题并保留原教学对象：" + str(last_error)[:800]
                     result = await image_generation_service.generate_image(
-                        ImagePrompt(
-                            prompt=_request_prompt(item),
-                            forbid_latin_text=image_options.forbid_latin_text
-                            if image_options.enabled
-                            else True,
+                        _build_image_prompt(
+                            item,
+                            prompt_text=prompt_text,
+                            forbid_latin_text=(
+                                image_options.forbid_latin_text
+                                if image_options.enabled
+                                else True
+                            ),
                         )
                     )
                     source_asset = result if isinstance(result, ImageAsset) else None
@@ -427,10 +505,15 @@ async def process_presentation_assets(
                         )
                         if materialized:
                             materialized_source_to_cleanup = local_source
-                        normalized_path = crop_to_aspect_ratio(
+                        crop_fill = (
+                            item.slots[0].role == "background"
+                            or item.generation_mode == "direct-background"
+                        )
+                        normalized_path = fit_to_aspect_ratio(
                             local_source,
                             image_generation_service.output_directory,
-                            item.slots[0].aspect_ratio,
+                            _slot_frame_ratio(item.slots[0]),
+                            crop=crop_fill,
                         )
                         if normalized_path != local_source:
                             result = ImageAsset(
@@ -439,7 +522,7 @@ async def process_presentation_assets(
                                 extras={
                                     "source_asset_request_id": item.request_id,
                                     "generation_mode": item.generation_mode,
-                                    "aspect_ratio": item.slots[0].aspect_ratio,
+                                    "aspect_ratio": _slot_frame_ratio(item.slots[0]),
                                 },
                             )
 
@@ -447,7 +530,10 @@ async def process_presentation_assets(
                         await _validate_semantic_quality(
                             quality_service,
                             item,
-                            result,
+                            # Padding must not make an already-cropped subject
+                            # appear safely away from the new canvas edge.
+                            source_asset if source_asset is not None and item.slots[0].role == "framed-image"
+                            and item.generation_mode not in {"sprite-sheet", "single-cutout"} else result,
                             derived_outputs,
                         )
                     except AssetSemanticQualityError as exc:
@@ -455,7 +541,17 @@ async def process_presentation_assets(
                         # explicitly. Never place known text/cropped/wrong imagery
                         # into an otherwise usable deck.
                         raise
-                    except Exception as exc:  # visual-QA timeout or provider outage
+                    except Exception as exc:
+                        # QA timeout/provider errors are not proof the picture is
+                        # wrong. The image already cost a generation call; keep it
+                        # so a flaky vision model cannot blank the whole deck.
+                        LOGGER.warning(
+                            "Visual QA did not complete; keeping generated image "
+                            "presentation_id=%s request_id=%s error=%s",
+                            presentation_id,
+                            trace_id,
+                            exc,
+                        )
                         quality_warning = exc
 
                     if item.generation_mode in {"sprite-sheet", "single-cutout"}:
@@ -526,29 +622,6 @@ async def process_presentation_assets(
                     break
                 finally:
                     _remove_materialized_source(materialized_source_to_cleanup)
-
-            if (
-                result is None
-                and last_error is not None
-                and _is_moderation_error(last_error)
-                and item.generation_mode not in {"sprite-sheet", "single-cutout"}
-            ):
-                try:
-                    result = await image_generation_service.generate_image(
-                        ImagePrompt(
-                            prompt=_safer_kindergarten_prompt(_request_prompt(item)),
-                            forbid_latin_text=(
-                                image_options.forbid_latin_text
-                                if image_options.enabled
-                                else True
-                            ),
-                        )
-                    )
-                    source_asset = result if isinstance(result, ImageAsset) else None
-                    last_error = None
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-                    result = None
 
             if result is None:
                 assert last_error is not None

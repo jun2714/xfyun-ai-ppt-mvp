@@ -10,6 +10,9 @@ interface OverlayLoaderProps {
   duration?: number;
   extra_info?: string;
   onProgressComplete?: () => void;
+  leaveLabel?: string;
+  onLeave?: () => void;
+  keepHeaderClear?: boolean;
 }
 
 export const OverlayLoader = ({
@@ -20,6 +23,9 @@ export const OverlayLoader = ({
   duration = 10,
   onProgressComplete,
   extra_info,
+  leaveLabel,
+  onLeave,
+  keepHeaderClear = false,
 }: OverlayLoaderProps) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -39,7 +45,8 @@ export const OverlayLoader = ({
         zIndex: 1000,
       }}
       className={cn(
-        "fixed inset-0 bg-black/70 z-50 flex items-center justify-center transition-opacity duration-300",
+        "fixed inset-x-0 bottom-0 bg-black/70 z-50 flex items-center justify-center transition-opacity duration-300",
+        keepHeaderClear ? "top-16" : "top-0",
         isVisible ? "opacity-100" : "opacity-0"
       )}
     >
@@ -69,6 +76,15 @@ export const OverlayLoader = ({
                     {extra_info}
                   </p>
                 )}
+                {leaveLabel && onLeave && (
+                  <button
+                    type="button"
+                    onClick={onLeave}
+                    className="mx-auto mt-3 rounded-full border border-[#C9C3F7] bg-[#F7F6FF] px-4 py-2 text-sm font-semibold text-[#5146E5]"
+                  >
+                    {leaveLabel}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -81,6 +97,15 @@ export const OverlayLoader = ({
               <p className="text-[#191919]/80 text-xs text-center font-medium font-inter">
                 {extra_info}
               </p>
+            )}
+            {leaveLabel && onLeave && (
+              <button
+                type="button"
+                onClick={onLeave}
+                className="mt-4 rounded-full border border-[#C9C3F7] bg-[#F7F6FF] px-4 py-2 text-sm font-semibold text-[#5146E5]"
+              >
+                {leaveLabel}
+              </button>
             )}
           </>
         )}
