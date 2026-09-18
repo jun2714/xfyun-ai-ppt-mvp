@@ -88,13 +88,23 @@ export const usePresentationGeneration = (
   };
 
   const handleSubmit = useCallback(async (selectedTemplateId: string) => {
+    const activePresentationId = presentationId;
+
+    if (!activePresentationId) {
+      notify.warning(
+        "演示文稿尚未就绪",
+        "请返回重新创建演示文稿后再试。"
+      );
+      return;
+    }
+
     const latestOutlines = store.getState().presentationGeneration.outlines;
     if (!validateInputs(latestOutlines, selectedTemplateId)) return;
     const preparedOutlines = limitOutlines(latestOutlines);
 
     trackEvent(MixpanelEvent.Outline_Presentation_Generation_Started, {
       pathname,
-      presentation_id: presentationId,
+      presentation_id: activePresentationId,
       outline_count: preparedOutlines.length,
       template_id: selectedTemplateId,
     });
@@ -115,7 +125,7 @@ export const usePresentationGeneration = (
           .replace(/\*\*|__/g, "")
           .trim() || undefined;
       const response = await PresentationGenerationApi.presentationPrepare({
-        presentation_id: presentationId,
+        presentation_id: activePresentationId,
         outlines: preparedOutlines,
         layout: selectedTemplateId,
         title,
@@ -123,21 +133,21 @@ export const usePresentationGeneration = (
 
       if (response) {
         trackEvent(MixpanelEvent.TemplateV2_Prepare_Completed, {
-          presentation_id: presentationId,
+          presentation_id: activePresentationId,
           template_id: selectedTemplateId,
           outline_count: preparedOutlines.length,
         });
         let taskId = "";
         try {
           const job = await PresentationGenerationApi.generateSlidesAsync(
-            presentationId
+            activePresentationId
           );
           taskId = String(job?.id || "");
         } catch (startError) {
           console.warn("background slide generation start failed", startError);
         }
         notifyTeachnovaDeckGenerating({
-          presentationId,
+          presentationId: activePresentationId,
           taskId,
           topic: title || "",
         });
@@ -148,13 +158,13 @@ export const usePresentationGeneration = (
         dispatch(clearPresentationData());
         clearTheme();
         router.replace(
-          `/presentation?id=${presentationId}&stream=true&type=standard`
+          `/presentation?id=${activePresentationId}&stream=true&type=standard`
         );
       }
     } catch (error: any) {
       console.error("Error In Presentation Generation(prepare).", error);
       trackEvent(MixpanelEvent.TemplateV2_Prepare_Failed, {
-        presentation_id: presentationId,
+        presentation_id: activePresentationId,
         template_id: selectedTemplateId,
         outline_count: preparedOutlines.length,
         error_message: sanitizeAnalyticsError(
