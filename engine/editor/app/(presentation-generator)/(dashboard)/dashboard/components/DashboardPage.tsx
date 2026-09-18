@@ -302,17 +302,21 @@ const DashboardPage: React.FC = () => {
     [legacyPresentations]
   );
 
-  const fetchPresentations = useCallback(async () => {
+  const fetchPresentations = useCallback(async (options?: { quiet?: boolean }) => {
     let fetchedCount = 0;
     let hasError = false;
     try {
-      setIsLoading(true);
+      if (!options?.quiet) {
+        setIsLoading(true);
+      }
       setError(null);
-      try {
-        await migrateLibraryEditCopyTemplates();
-        await dedupeSameTitlePresentations();
-      } catch (migrationError) {
-        console.error("failed to migrate library edit copies", migrationError);
+      if (!options?.quiet) {
+        try {
+          await migrateLibraryEditCopyTemplates();
+          await dedupeSameTitlePresentations();
+        } catch (migrationError) {
+          console.error("failed to migrate library edit copies", migrationError);
+        }
       }
       const [supported, legacy] = await Promise.all([
         DashboardApi.getPresentations("v2-standard"),
@@ -327,18 +331,39 @@ const DashboardPage: React.FC = () => {
       setPresentations([]);
       setLegacyPresentations([]);
     } finally {
-      trackEvent(MixpanelEvent.Dashboard_Page_Viewed, {
-        pathname,
-        presentation_count: fetchedCount,
-        load_failed: hasError,
-      });
-      setIsLoading(false);
+      if (!options?.quiet) {
+        trackEvent(MixpanelEvent.Dashboard_Page_Viewed, {
+          pathname,
+          presentation_count: fetchedCount,
+          load_failed: hasError,
+        });
+      }
+      if (!options?.quiet) {
+        setIsLoading(false);
+      }
     }
   }, [pathname]);
 
   useEffect(() => {
     void fetchPresentations();
   }, [fetchPresentations]);
+
+  const hasGeneratingDeck = useMemo(
+    () =>
+      presentations.some((item) => {
+        const status = (item as any)?.generation_metadata?.deck_status;
+        return status === "generating" || status === "queued";
+      }),
+    [presentations]
+  );
+
+  useEffect(() => {
+    if (!hasGeneratingDeck) return;
+    const timer = window.setInterval(() => {
+      void fetchPresentations({ quiet: true });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [fetchPresentations, hasGeneratingDeck]);
 
   const createBlankPresentation = useCallback(async () => {
     if (blankPresentationRequestInFlight.current) return;

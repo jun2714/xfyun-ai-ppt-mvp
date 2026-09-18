@@ -74,6 +74,12 @@ from models.sse_response import (
 from services.database import get_async_session
 from services.database import async_session_maker
 from services.owner_scope import get_by_id_unscoped, get_owned_by_id
+from services.prepared_deck_generation import (
+    cancel_prepared_deck_job,
+    ensure_prepared_deck_job,
+    follow_prepared_deck_job,
+    generating_this_deck,
+)
 from services.concurrent_service import CONCURRENT_SERVICE
 from models.sql.presentation import PresentationModel, PresentationVersion
 from models.sql.template_v2 import TemplateV2
@@ -163,6 +169,11 @@ BLANK_PRESENTATION_SLIDE_UI: dict[str, Any] = {
 
 
 class PresentationPrepareResponse(BaseModel):
+    presentation_id: uuid.UUID
+    task_id: Optional[str] = None
+
+
+class GeneratePreparedSlidesRequest(BaseModel):
     presentation_id: uuid.UUID
 
 
@@ -2193,6 +2204,38 @@ async def prepare_presentation(
     return PresentationPrepareResponse(presentation_id=presentation.id)
 
 
+@PRESENTATION_ROUTER.post("/generate-slides/async", response_model=AsyncTaskModel)
+async def generate_prepared_slides_async(
+    payload: GeneratePreparedSlidesRequest,
+    sql_session: AsyncSession = Depends(get_async_session),
+):
+    presentation = await get_by_id_unscoped(
+        sql_session,
+        PresentationModel,
+        payload.presentation_id,
+    )
+    if not presentation:
+        raise HTTPException(status_code=404, detail="Presentation not found")
+    if not presentation.structure or not presentation.outlines:
+        raise HTTPException(
+            status_code=400,
+            detail="Presentation not prepared for stream",
+        )
+    return await ensure_prepared_deck_job(
+        payload.presentation_id,
+        topic=presentation.title or "",
+        n_slides=presentation.n_slides or 0,
+    )
+
+
+@PRESENTATION_ROUTER.post(
+    "/generate-slides/{task_id}/cancel",
+    response_model=AsyncTaskModel,
+)
+async def cancel_prepared_slides_generation(task_id: str):
+    return await cancel_prepared_deck_job(task_id)
+
+
 async def _stream_smart_presentation(
     presentation: PresentationModel,
     sql_session: AsyncSession,
@@ -2528,6 +2571,32 @@ async def stream_presentation(
                 replay_existing_slides(),
                 logger=logger,
                 error_detail="Failed to load the saved presentation.",
+            ),
+            media_type="text/event-stream",
+        )
+
+    if not generating_this_deck(id):
+        if not existing_slides:
+            if not presentation.structure:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Presentation not prepared for stream",
+                )
+            if not presentation.outlines:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Outlines can not be empty",
+                )
+        task = await ensure_prepared_deck_job(
+            id,
+            topic=presentation.title or "",
+            n_slides=presentation.n_slides or 0,
+        )
+        return StreamingResponse(
+            safe_sse_stream(
+                follow_prepared_deck_job(id, task.id),
+                logger=logger,
+                error_detail="Failed to follow presentation generation.",
             ),
             media_type="text/event-stream",
         )

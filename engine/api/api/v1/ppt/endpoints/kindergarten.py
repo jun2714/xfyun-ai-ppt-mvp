@@ -9,7 +9,8 @@ from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from models.research_plan_source import ResearchPlanSource
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -114,6 +115,13 @@ class KindergartenLessonPlanRequest(BaseModel):
     # plan successfully but fail when the prepared deck is saved.
     instructions: Optional[str] = Field(default=None, max_length=1000)
     source_context: Optional[str] = Field(default=None, max_length=30000)
+    research_plan: Optional[ResearchPlanSource] = None
+
+    @model_validator(mode="after")
+    def validate_research_mode(self):
+        if self.research_plan is not None and self.content_mode != "training":
+            raise ValueError("research_plan仅用于教师教研课件")
+        return self
 
 
 class KindergartenLessonPlanResponse(BaseModel):
@@ -176,6 +184,8 @@ class KindergartenPlannerRuntimeResponse(BaseModel):
 async def _planning_source_context(
     payload: KindergartenLessonPlanRequest,
 ) -> Optional[str]:
+    if payload.research_plan is not None:
+        return payload.research_plan.planning_context()
     source_parts: list[str] = []
     if payload.source_context and payload.source_context.strip():
         source_parts.append(payload.source_context.strip())

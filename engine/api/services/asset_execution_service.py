@@ -541,9 +541,17 @@ async def process_presentation_assets(
                         # explicitly. Never place known text/cropped/wrong imagery
                         # into an otherwise usable deck.
                         raise
-                    except Exception as exc:  # No unverified teaching image is attached.
-                        if quality_required:
-                            raise RuntimeError("图片已生成，但质检未完成，暂未采用。请稍后检查质检服务。") from exc
+                    except Exception as exc:
+                        # QA timeout/provider errors are not proof the picture is
+                        # wrong. The image already cost a generation call; keep it
+                        # so a flaky vision model cannot blank the whole deck.
+                        LOGGER.warning(
+                            "Visual QA did not complete; keeping generated image "
+                            "presentation_id=%s request_id=%s error=%s",
+                            presentation_id,
+                            trace_id,
+                            exc,
+                        )
                         quality_warning = exc
 
                     if item.generation_mode in {"sprite-sheet", "single-cutout"}:

@@ -44,6 +44,11 @@ import {
 import PresentationHeader from "./PresentationHeader";
 import PresentationActions from "./PresentationActions";
 import {
+  requestTeachnovaCloseEditor,
+  consumeReturnTo,
+  teachnovaProjectsPath,
+} from "@/utils/teachnovaEmbed";
+import {
   TEMPLATE_V2_ACTIVATE_SURFACE_EVENT,
   TEMPLATE_V2_SURFACE_SELECTED_EVENT,
   type TemplateV2ActivateSurfaceDetail,
@@ -120,7 +125,7 @@ const STREAM_LOADING_STATE: LoadingState = {
   message: "正在生成演示文稿与配图",
   showProgress: true,
   duration: 90,
-  extra_info: "页面结构生成后会继续补齐插画与配图，请稍候。",
+  extra_info: "可以随时返回我的项目，课件会在后台继续生成，完成后会显示在列表里。",
 };
 
 const IDLE_LOADING_STATE: LoadingState = {
@@ -176,6 +181,10 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
   const { presentationData, isStreaming } = useSelector(
     (state: RootState) => state.presentationGeneration
   );
+  const [followGenerating, setFollowGenerating] = useState(false);
+  const deckStatus = (presentationData as any)?.generation_metadata?.deck_status;
+  const isDeckGenerating =
+    deckStatus === "generating" || deckStatus === "queued";
   const presentationDataRef = useRef(presentationData);
   const slidesLength = presentationData?.slides?.length ?? 0;
   const isTemplateV2Presentation =
@@ -266,10 +275,32 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
     setIsFullscreen
   );
 
+  useEffect(() => {
+    if (isDeckGenerating) {
+      setFollowGenerating(true);
+      return;
+    }
+    if (deckStatus === "ready" || deckStatus === "failed") {
+      setFollowGenerating(false);
+    }
+  }, [deckStatus, isDeckGenerating]);
+
+  const followStream = stream || (followGenerating ? "true" : null);
+
+  const leaveToProjects = useCallback(() => {
+    if (requestTeachnovaCloseEditor()) return;
+    const returnTo = consumeReturnTo();
+    if (returnTo) {
+      window.location.assign(returnTo);
+      return;
+    }
+    router.push(teachnovaProjectsPath());
+  }, [router]);
+
   // Initialize streaming
   usePresentationStreaming(
     presentation_id,
-    stream,
+    followStream,
     setLoading,
     setError,
     fetchUserSlides,
@@ -282,6 +313,8 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
       loading ||
       error ||
       stream ||
+      followStream ||
+      isStreaming ||
       !isTemplateV2Presentation ||
       slidesLength > 0
     ) {
@@ -306,6 +339,8 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
     presentation_id,
     slidesLength,
     stream,
+    followStream,
+    isStreaming,
   ]);
 
   useEffect(() => {
@@ -314,8 +349,8 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
       return;
     }
 
-    setLoadingState(stream ? STREAM_LOADING_STATE : DEFAULT_LOADING_STATE);
-  }, [loading, stream]);
+    setLoadingState(followStream ? STREAM_LOADING_STATE : DEFAULT_LOADING_STATE);
+  }, [loading, followStream]);
 
   useEffect(() => {
     if (!isStreaming) return;
@@ -686,6 +721,11 @@ const PresentationPage: React.FC<PresentationPageProps> = ({
         showProgress={loadingState.showProgress}
         duration={loadingState.duration}
         extra_info={loadingState.extra_info}
+        keepHeaderClear={Boolean(followStream)}
+        leaveLabel={
+          followStream ? "返回我的项目，后台继续生成" : undefined
+        }
+        onLeave={followStream ? leaveToProjects : undefined}
       />
       <div
         style={{

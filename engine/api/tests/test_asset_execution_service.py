@@ -439,7 +439,7 @@ def test_independent_assets_use_bounded_concurrency(tmp_path, monkeypatch):
     assert all("image_url" in slide.content["main"]["subject"] for slide in slides)
 
 
-def test_visual_qa_timeout_does_not_attach_unverified_teaching_image(
+def test_visual_qa_timeout_keeps_the_generated_teaching_image(
     tmp_path,
     monkeypatch,
 ):
@@ -467,9 +467,9 @@ def test_visual_qa_timeout_does_not_attach_unverified_teaching_image(
     )
 
     assert service.calls == 1
-    assert not slide.content["main"]["subject"].get("image_url")
-    assert "质检未完成" in slide.content["main"]["subject"]["__repair_failed_reason__"]
-    assert traces[-1].status == "failed"
+    assert slide.content["main"]["subject"].get("image_url")
+    assert traces[-1].status == "succeeded_with_warning"
+    assert traces[-1].error["visual_qa_warning"]["type"] == "TimeoutError"
 
 
 def test_second_known_quality_failure_stays_missing_instead_of_using_bad_image(

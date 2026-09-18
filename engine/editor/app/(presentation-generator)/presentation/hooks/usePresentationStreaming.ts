@@ -12,6 +12,7 @@ import { MixpanelEvent, trackEvent } from "@/utils/mixpanel";
 import { sanitizeAnalyticsError } from "@/utils/analytics";
 import { getApiUrl, normalizeBackendAssetUrls } from "@/utils/api";
 import { withBridgeSessionQuery } from "@/utils/teachnovaSession";
+import { notifyTeachnovaDeckGenerating } from "@/utils/teachnovaEmbed";
 import { store } from "@/store/store";
 import {
   isChatGptAuthRequiredMessage,
@@ -347,6 +348,13 @@ export const usePresentationStreaming = (
         }
 
         switch (data.type) {
+          case "status": {
+            if (typeof data.status === "string" && data.status.trim()) {
+              setLoading(false);
+            }
+            break;
+          }
+
           case "fonts": {
             if (data.fonts && typeof data.fonts === "object") {
               const prev = store.getState().presentationGeneration.presentationData;
@@ -553,6 +561,14 @@ export const usePresentationStreaming = (
       dispatch(clearPresentationData());
       trackEvent(MixpanelEvent.Presentation_Stream_API_Call);
       await preloadPreparedPresentation();
+      const prepared = store.getState().presentationGeneration.presentationData as
+        | (PresentationData & { generation_metadata?: { deck_task_id?: string } })
+        | null;
+      notifyTeachnovaDeckGenerating({
+        presentationId,
+        taskId: String(prepared?.generation_metadata?.deck_task_id || ""),
+        topic: String(prepared?.title || ""),
+      });
       if (!isClosed) {
         openStream();
       }

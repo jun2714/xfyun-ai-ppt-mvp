@@ -369,6 +369,14 @@ export function OutlineEditor({
           title,
         }),
       });
+      try {
+        await api("/presentation/generate-slides/async", {
+          method: "POST",
+          body: JSON.stringify({ presentation_id: presentation.id }),
+        });
+      } catch {
+        // The stream page still attaches to the worker if this call races.
+      }
       location.href = `/presentations/${presentation.id}/edit?stream=true`;
     } catch (cause) {
       setError(localizeError(cause));

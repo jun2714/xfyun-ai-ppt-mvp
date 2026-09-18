@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, Pencil, Plus, Search, Trash2, Upload, ChevronLeft, ChevronRight, X, Presentation } from "lucide-react";
+import { Download, Loader2, Pencil, Plus, Search, Tag, Trash2, Upload, ChevronLeft, ChevronRight, X, Presentation } from "lucide-react";
 import { notify } from "@/components/ui/sonner";
 import { resolveBackendAssetUrl } from "@/utils/api";
 import { isTeachnovaEmbed } from "@/utils/teachnovaEmbed";
@@ -15,6 +15,19 @@ import {
   guessLibraryTags,
   type LibraryItem,
 } from "../../../services/api/library";
+
+type LibraryEditDraft = {
+  title: string;
+  category: string;
+  age_group: string;
+  season: string;
+  scene: string;
+};
+
+const EDITABLE_CATEGORIES = LIBRARY_CATEGORIES.filter((value) => value !== "全部");
+const EDITABLE_AGE_GROUPS = LIBRARY_AGE_GROUPS.filter((value) => value !== "全部");
+const EDITABLE_SEASONS = LIBRARY_SEASONS.filter((value) => value !== "全部");
+const EDITABLE_SCENES = LIBRARY_SCENES.filter((value) => value !== "全部");
 
 type UploadQueueItem = {
   key: string;
@@ -110,6 +123,15 @@ export default function LibraryPanel() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null);
+  const [editTarget, setEditTarget] = useState<LibraryItem | null>(null);
+  const [editDraft, setEditDraft] = useState<LibraryEditDraft>({
+    title: "",
+    category: "其他",
+    age_group: "混龄",
+    season: "不限",
+    scene: "其他",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadItems = useCallback(async (silent = false) => {
     const generation = listGenerationRef.current;
@@ -320,6 +342,59 @@ export default function LibraryPanel() {
     setDeleteTarget(item);
   };
 
+  const openEdit = (item: LibraryItem, event?: React.MouseEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setEditTarget(item);
+    setEditDraft({
+      title: item.title || "",
+      category: EDITABLE_CATEGORIES.includes(item.category as (typeof EDITABLE_CATEGORIES)[number])
+        ? item.category
+        : "其他",
+      age_group: EDITABLE_AGE_GROUPS.includes(item.age_group as (typeof EDITABLE_AGE_GROUPS)[number])
+        ? item.age_group
+        : "混龄",
+      season: EDITABLE_SEASONS.includes((item.season || "不限") as (typeof EDITABLE_SEASONS)[number])
+        ? item.season || "不限"
+        : "不限",
+      scene: EDITABLE_SCENES.includes((item.scene || "其他") as (typeof EDITABLE_SCENES)[number])
+        ? item.scene || "其他"
+        : "其他",
+    });
+  };
+
+  const saveEdit = async () => {
+    const item = editTarget;
+    if (!item) return;
+    const title = editDraft.title.trim();
+    if (!title) {
+      notify.error("请填写课件名称", "名称不能为空");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updated = await LibraryService.update(item.id, {
+        title,
+        category: editDraft.category,
+        age_group: editDraft.age_group,
+        season: editDraft.season,
+        scene: editDraft.scene,
+      });
+      setItems((current) =>
+        current.map((row) => (String(row.id) === String(updated.id) ? { ...row, ...updated } : row)),
+      );
+      setPreviewItem((current) =>
+        current && String(current.id) === String(updated.id) ? { ...current, ...updated } : current,
+      );
+      setEditTarget(null);
+      notify.success("已更新", "课件名称和标签已保存");
+    } catch (error) {
+      notify.error("更新失败", error instanceof Error ? error.message : "请稍后重试");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const confirmDelete = async () => {
     const item = deleteTarget;
     if (!item) return;
@@ -428,7 +503,7 @@ export default function LibraryPanel() {
             </h3>
             <p className="text-sm text-[#667085]">
               点封面可浏览全部页。下载的是官方原件；点编辑会复制一份到你的项目，不会覆盖素材库文件。
-            {canManage ? "" : " 仅管理员可以上传和维护案例。"}
+            {canManage ? " 管理员可修改已上传课件的名称和标签。" : " 仅管理员可以上传和维护案例。"}
             </p>
           </div>
           {canManage ? (
@@ -644,19 +719,33 @@ export default function LibraryPanel() {
                         >
                           {item.title}
                         </h4>
-                        <p className="mt-1 text-xs text-[#667085]">
+                        <p
+                          className={`mt-1 text-xs text-[#667085] ${canManage ? "cursor-pointer hover:text-[#7A5AF8]" : ""}`}
+                          title={canManage ? "修改名称和标签" : undefined}
+                          onClick={canManage ? (event) => openEdit(item, event) : undefined}
+                        >
                           {item.age_group} · {item.season || "不限"} · {item.scene || item.category} · {item.page_count || 0} 页 · 下载 {item.download_count}
                         </p>
                       </div>
                       {canManage ? (
-                      <button
-                        type="button"
-                        className="text-[#D64545]"
-                        title="删除案例原件"
-                        onClick={(event) => handleDelete(item, event)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          className="rounded-full p-1.5 text-[#667085] hover:bg-[#F4F1FF] hover:text-[#7A5AF8]"
+                          title="修改名称和标签"
+                          onClick={(event) => openEdit(item, event)}
+                        >
+                          <Tag className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full p-1.5 text-[#D64545] hover:bg-[#FFF6F6]"
+                          title="删除案例原件"
+                          onClick={(event) => handleDelete(item, event)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                       ) : null}
                     </div>
                     <div className="mt-4 flex gap-2">
@@ -712,9 +801,18 @@ export default function LibraryPanel() {
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-[#191919]">{previewItem.title}</div>
                   <div className="text-xs text-[#667085]">
-                    {previewItem.age_group} · {previewItem.category} · {previewItem.page_count || previewSlides.length} 页
+                    {previewItem.age_group} · {previewItem.season || "不限"} · {previewItem.scene || previewItem.category} · {previewItem.page_count || previewSlides.length} 页
                   </div>
                 </div>
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full border border-[#EDEEEF] px-2.5 py-1 text-[11px] font-semibold text-[#7A5AF8] hover:bg-[#F4F1FF]"
+                    onClick={() => openEdit(previewItem)}
+                  >
+                    修改标签
+                  </button>
+                ) : null}
                 <span className="shrink-0 rounded-md bg-[#5B8DEF] px-2 py-0.5 text-[11px] font-semibold text-white">
                   官方
                 </span>
@@ -825,6 +923,100 @@ export default function LibraryPanel() {
                   <div className="text-sm text-[#667085]">暂无页面预览，请直接下载原件</div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editTarget ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => {
+            if (!savingEdit) setEditTarget(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-[20px] bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-base font-semibold text-[#191919]">修改课件信息</h4>
+            <p className="mt-1 text-sm text-[#667085]">只改素材库展示名称和筛选标签，不会改动原 PPT 文件。</p>
+            <label className="mt-4 block text-xs font-medium text-[#667085]">
+              课件名称
+              <input
+                value={editDraft.title}
+                onChange={(event) => setEditDraft((current) => ({ ...current, title: event.target.value }))}
+                className="mt-1.5 h-10 w-full rounded-xl border border-[#EDEEEF] px-3 text-sm text-[#191919] outline-none focus:border-[#7A5AF8]"
+              />
+            </label>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="block text-xs font-medium text-[#667085]">
+                适用班级
+                <select
+                  value={editDraft.age_group}
+                  onChange={(event) => setEditDraft((current) => ({ ...current, age_group: event.target.value }))}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[#EDEEEF] bg-white px-3 text-sm text-[#191919]"
+                >
+                  {EDITABLE_AGE_GROUPS.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-[#667085]">
+                学期
+                <select
+                  value={editDraft.season}
+                  onChange={(event) => setEditDraft((current) => ({ ...current, season: event.target.value }))}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[#EDEEEF] bg-white px-3 text-sm text-[#191919]"
+                >
+                  {EDITABLE_SEASONS.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-[#667085]">
+                课型
+                <select
+                  value={editDraft.scene}
+                  onChange={(event) => setEditDraft((current) => ({ ...current, scene: event.target.value }))}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[#EDEEEF] bg-white px-3 text-sm text-[#191919]"
+                >
+                  {EDITABLE_SCENES.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-[#667085]">
+                领域分类
+                <select
+                  value={editDraft.category}
+                  onChange={(event) => setEditDraft((current) => ({ ...current, category: event.target.value }))}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[#EDEEEF] bg-white px-3 text-sm text-[#191919]"
+                >
+                  {EDITABLE_CATEGORIES.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={savingEdit}
+                className="h-10 rounded-full border border-[#EDEEEF] px-4 text-sm disabled:opacity-60"
+                onClick={() => setEditTarget(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={savingEdit}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#7A5AF8] px-4 text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() => void saveEdit()}
+              >
+                {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {savingEdit ? "保存中…" : "保存"}
+              </button>
             </div>
           </div>
         </div>
