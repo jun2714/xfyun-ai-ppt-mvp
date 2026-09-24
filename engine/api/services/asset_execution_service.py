@@ -22,6 +22,7 @@ from services.asset_semantic_quality_service import (
     AssetSemanticQualityError,
     AssetSemanticQualityService,
     build_default_asset_semantic_quality_service,
+    is_asset_semantic_qa_enabled,
 )
 from services.image_generation_service import ImageGenerationService
 from services.research_ppt_generation_context import research_ppt_image_options
@@ -395,14 +396,18 @@ async def process_presentation_assets(
 ) -> tuple[list[ImageAsset], list[AssetPlanItem]]:
     """Generate independent asset-plan items concurrently with bounded cost.
 
-    A semantic mismatch gets one scoped retry with corrective feedback. A provider failure
+    Semantic QA is temporarily opt-in; when enabled, a mismatch gets one scoped
+    retry with corrective feedback. A provider failure
     for one optional visual also no longer destroys the entire deck: that slot keeps
     its placeholder, the failure stays in the asset trace, and the remaining slides
     and images continue to completion so the teacher can still edit the PPT.
     """
     plan = build_asset_plan(slides)
     slides_by_index = {slide.index: slide for slide in slides}
-    quality_service = semantic_quality_service or build_default_asset_semantic_quality_service()
+    quality_enabled = is_asset_semantic_qa_enabled()
+    quality_service = (
+        semantic_quality_service or build_default_asset_semantic_quality_service()
+    ) if quality_enabled else None
     try:
         concurrency = max(
             1,
@@ -413,13 +418,13 @@ async def process_presentation_assets(
     semaphore = asyncio.Semaphore(concurrency)
     checkpoint_lock = asyncio.Lock()
     image_options = research_ppt_image_options.get()
-    max_attempts = 1 + max(0, int(quality_retries))
+    max_attempts = 1 + max(0, int(quality_retries)) if quality_enabled else 1
 
     async def process_item(item: AssetPlanItem) -> list[ImageAsset]:
         async with semaphore:
-            quality_required = require_semantic_quality or any(
+            quality_required = quality_enabled and (require_semantic_quality or any(
                 slot.education_visual or slot.requires_semantic_qa for slot in item.slots
-            )
+            ))
             last_error: Exception | None = None
             result: str | ImageAsset | None = None
             source_asset: ImageAsset | None = None

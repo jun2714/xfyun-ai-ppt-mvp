@@ -7,6 +7,7 @@ from services.asset_semantic_quality_service import (
 
 
 _ENV_KEYS = (
+    "ASSET_SEMANTIC_QA_ENABLED",
     "ASSET_SEMANTIC_QA_PROVIDER",
     "ASSET_SEMANTIC_QA_PROFILE",
     "ASSET_SEMANTIC_QA_MODEL",
@@ -27,6 +28,7 @@ _ENV_KEYS = (
 def _clear_env(monkeypatch):
     for key in _ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("ASSET_SEMANTIC_QA_ENABLED", "true")
 
 
 def test_auto_semantic_qa_reuses_dmx_key(monkeypatch):
@@ -74,3 +76,15 @@ def test_explicit_dmx_semantic_qa_requires_shared_key(monkeypatch):
 
     with pytest.raises(ValueError, match="DMX_API_KEY"):
         build_default_asset_semantic_quality_service()
+
+
+@pytest.mark.parametrize("enabled", [None, "false", "0"])
+def test_semantic_qa_is_off_even_with_legacy_provider_configuration(monkeypatch, enabled):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("ASSET_SEMANTIC_QA_PROVIDER", "dmx")
+    monkeypatch.setenv("DMX_API_KEY", "test-key")
+    if enabled is None:
+        monkeypatch.delenv("ASSET_SEMANTIC_QA_ENABLED")
+    else:
+        monkeypatch.setenv("ASSET_SEMANTIC_QA_ENABLED", enabled)
+    assert build_default_asset_semantic_quality_service() is None

@@ -9,6 +9,7 @@ animate.
 from __future__ import annotations
 
 import asyncio
+from contextlib import aclosing
 import json
 import logging
 import uuid
@@ -198,6 +199,7 @@ async def persist_deck_generation_state(
     n_slides: int | None = None,
     stage: str | None = None,
 ) -> None:
+    presentation_id = uuid.UUID(str(presentation_id))
     async with async_session_maker() as sql_session:
         presentation = await sql_session.get(PresentationModel, presentation_id)
         if presentation is None:
@@ -291,6 +293,11 @@ async def ensure_prepared_deck_job(
         if presentation is None:
             raise HTTPException(status_code=404, detail="Presentation not found")
         meta = read_deck_generation(presentation)
+        parent_id = meta.get("research_task_id")
+        if parent_id:
+            parent = await sql_session.get(AsyncTaskModel, str(parent_id))
+            if parent and (parent.data or {}).get("stage") == "cancelled":
+                raise HTTPException(status_code=409, detail="教研任务已取消")
         existing_task_id = str(meta.get("deck_task_id") or _DECK_TASK_IDS.get(key) or "")
         title = topic or presentation.title or ""
         expected = n_slides or presentation.n_slides or 0
@@ -402,6 +409,7 @@ async def cancel_prepared_deck_job(task_id: str) -> AsyncTaskModel:
         job = _DECK_JOBS.get(str(presentation_id))
         if job and not job.done():
             job.cancel()
+            await asyncio.gather(job, return_exceptions=True)
         await persist_deck_generation_state(
             presentation_id,
             status=DECK_STATUS_FAILED,
@@ -487,60 +495,61 @@ async def _run_prepared_deck_job(
         buffer = ""
         async with async_session_maker() as sql_session:
             response = await stream_presentation(presentation_id, sql_session)
-            async for chunk in response.body_iterator:
-                piece = chunk.decode("utf-8") if isinstance(chunk, (bytes, bytearray)) else str(chunk)
-                broadcast.publish(piece)
-                buffer += piece
-                while "\n\n" in buffer:
-                    frame, buffer = buffer.split("\n\n", 1)
-                    events = iter_sse_json_events(frame + "\n\n")
-                    created, streamed, completed = _progress_from_events(
-                        events,
-                        created=created,
-                        streamed=streamed,
-                        n_slides=n_slides,
-                        completed=completed,
-                    )
-                    if events:
-                        displayed = created if created else streamed
-                        if not completed and n_slides:
-                            displayed = min(displayed, max(n_slides - 1, 0))
-                        progress = 12 + int(80 * max(streamed, created) / max(n_slides, 1))
-                        now = datetime.now()
-                        should_save = (
-                            completed
-                            or last_progress_at is None
-                            or (now - last_progress_at).total_seconds() >= 1.5
+            async with aclosing(response.body_iterator):
+                async for chunk in response.body_iterator:
+                    piece = chunk.decode("utf-8") if isinstance(chunk, (bytes, bytearray)) else str(chunk)
+                    broadcast.publish(piece)
+                    buffer += piece
+                    while "\n\n" in buffer:
+                        frame, buffer = buffer.split("\n\n", 1)
+                        events = iter_sse_json_events(frame + "\n\n")
+                        created, streamed, completed = _progress_from_events(
+                            events,
+                            created=created,
+                            streamed=streamed,
+                            n_slides=n_slides,
+                            completed=completed,
                         )
-                        if should_save:
-                            last_progress_at = now
-                            message = (
-                                "课件已生成完成"
-                                if completed
-                                else f"正在生成课件（{max(displayed, 1)}/{max(n_slides, displayed, 1)}）"
+                        if events:
+                            displayed = created if created else streamed
+                            if not completed and n_slides:
+                                displayed = min(displayed, max(n_slides - 1, 0))
+                            progress = 12 + int(80 * max(streamed, created) / max(n_slides, 1))
+                            now = datetime.now()
+                            should_save = (
+                                completed
+                                or last_progress_at is None
+                                or (now - last_progress_at).total_seconds() >= 1.5
                             )
-                            await _save_task_progress(
-                                task_id,
-                                message=message,
-                                data=deck_task_data(
-                                    topic=topic,
-                                    stage="completed" if completed else "slides",
+                            if should_save:
+                                last_progress_at = now
+                                message = (
+                                    "课件已生成完成"
+                                    if completed
+                                    else f"正在生成课件（{max(displayed, 1)}/{max(n_slides, displayed, 1)}）"
+                                )
+                                await _save_task_progress(
+                                    task_id,
+                                    message=message,
+                                    data=deck_task_data(
+                                        topic=topic,
+                                        stage="completed" if completed else "slides",
+                                        progress=100 if completed else min(progress, 95),
+                                        presentation_id=presentation_id,
+                                        created_slides=displayed,
+                                        n_slides=n_slides,
+                                    ),
+                                )
+                                await persist_deck_generation_state(
+                                    presentation_id,
+                                    status=DECK_STATUS_READY if completed else DECK_STATUS_GENERATING,
                                     progress=100 if completed else min(progress, 95),
-                                    presentation_id=presentation_id,
+                                    message=message,
+                                    task_id=task_id,
                                     created_slides=displayed,
                                     n_slides=n_slides,
-                                ),
-                            )
-                            await persist_deck_generation_state(
-                                presentation_id,
-                                status=DECK_STATUS_READY if completed else DECK_STATUS_GENERATING,
-                                progress=100 if completed else min(progress, 95),
-                                message=message,
-                                task_id=task_id,
-                                created_slides=displayed,
-                                n_slides=n_slides,
-                                stage="completed" if completed else "slides",
-                            )
+                                    stage="completed" if completed else "slides",
+                                )
             if buffer.strip():
                 events = iter_sse_json_events(buffer + "\n\n")
                 created, streamed, completed = _progress_from_events(
