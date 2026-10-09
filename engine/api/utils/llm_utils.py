@@ -111,6 +111,10 @@ async def _generate_structured_content(
 
     completion_content: Any = None
     streamed_text: list[str] = []
+    started_at = time.monotonic()
+    content_chars = 0
+    thinking_chars = 0
+    first_content_seconds = None
     try:
         async with asyncio.timeout(timeout_seconds):
             async for event in stream_generate_events(
@@ -123,10 +127,25 @@ async def _generate_structured_content(
                 elif getattr(event, "type", None) == "content":
                     chunk = getattr(event, "chunk", None)
                     if isinstance(chunk, str):
+                        if chunk and first_content_seconds is None:
+                            first_content_seconds = time.monotonic() - started_at
+                            LOGGER.info(
+                                "Structured LLM first content model=%s elapsed=%.2fs",
+                                model_name, first_content_seconds,
+                            )
+                        content_chars += len(chunk)
                         streamed_text.append(chunk)
                         if text_chunk_callback is not None:
                             await text_chunk_callback(chunk)
+                elif getattr(event, "type", None) == "thinking":
+                    thinking_chars += len(getattr(event, "chunk", "") or "")
     except TimeoutError as exc:
+        LOGGER.warning(
+            "Structured LLM deadline exceeded model=%s timeout=%ss "
+            "content_chars=%s thinking_chars=%s first_content_seconds=%s",
+            model_name, timeout_seconds, content_chars, thinking_chars,
+            first_content_seconds,
+        )
         raise HTTPException(
             status_code=504,
             detail=(
@@ -134,6 +153,13 @@ async def _generate_structured_content(
                 f"{timeout_seconds:g} seconds"
             ),
         ) from exc
+
+    LOGGER.info(
+        "Structured LLM stream finished model=%s elapsed=%.2fs "
+        "content_chars=%s thinking_chars=%s completion_received=%s",
+        model_name, time.monotonic() - started_at, content_chars, thinking_chars,
+        completion_content is not None,
+    )
 
     content = extract_structured_content(completion_content)
     if content is not None:
@@ -572,7 +598,7 @@ async def stream_generate_events(
                 raise item
             yield item
     except asyncio.CancelledError:
-        LOGGER.info("LLM stream cancelled because the client disconnected")
+        LOGGER.info("LLM stream task cancelled (request disconnect, deadline, or shutdown)")
         raise
     finally:
         stop_requested.set()

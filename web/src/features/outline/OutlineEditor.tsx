@@ -8,6 +8,7 @@ import {
   toStoredOutlineContent,
 } from "./outlineFormat";
 import "./outlineProgress.css";
+import { teacherReviewMessages } from "./outlineFeedback";
 
 const DEFAULT_TEMPLATE_ID = "general";
 const AI_VISUAL_TEMPLATE_ID = "ai-visual";
@@ -607,17 +608,22 @@ export function OutlineEditor({
             <div className="outline-complete-banner" role="status">
               <span className="outline-complete-icon" aria-hidden="true">✓</span>
               <div className="outline-complete-copy">
-                <strong>大纲已生成完成</strong>
+                <strong>{presentation.generation_metadata?.quality_warning ? "大纲已保存，请核对活动内容" : "大纲已生成完成"}</strong>
                 <p>可以继续修改内容，也可以选择视觉方案或模板后开始生成 PPT。</p>
                 {presentation.generation_metadata?.quality_warning && (
-                  <p className="outline-template-notice">
-                    {presentation.generation_metadata.quality_warning}
-                  </p>
+                  <div className="outline-template-notice outline-review-notice">
+                    <p>以下内容需要您核对，确认题目与答案一致后再生成课件：</p>
+                    <ul>
+                      {teacherReviewMessages(presentation.generation_metadata.quality_warning).map((message) => (
+                        <li key={message}>{message}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {template === preferred && presentation.generation_metadata?.template_selection_reason
                   && !/^[a-z][a-z-]*[:;]/i.test(presentation.generation_metadata.template_selection_reason)
                   && presentation.generation_metadata.template_selection_reason !== "manual-selection" && (
-                  <p className="outline-template-notice">
+                  <p className="outline-template-recommendation">
                     推荐“{DISPLAY_NAMES[template] || templates.find((item) => item.id === template)?.name || template}”：
                     {presentation.generation_metadata.template_selection_reason}
                   </p>
