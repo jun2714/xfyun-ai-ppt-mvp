@@ -60,6 +60,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Typecheck outline web app
         run: pnpm --filter @sparkdeck/web typecheck
+      - name: Test outline review interactions
+        run: pnpm --filter @sparkdeck/web test:ui
       - name: Build outline web app
         run: pnpm --filter @sparkdeck/web build
 

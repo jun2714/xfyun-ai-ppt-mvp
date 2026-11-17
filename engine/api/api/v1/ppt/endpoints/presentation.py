@@ -2953,6 +2953,8 @@ async def update_presentation(
     if not presentation:
         raise HTTPException(status_code=404, detail="Presentation not found")
 
+    expected_theme = copy.deepcopy(presentation.theme)
+    expected_outlines = copy.deepcopy(presentation.outlines)
     presentation_update_dict = {}
     if n_slides is not None:
         if n_slides < 1:
@@ -2969,10 +2971,10 @@ async def update_presentation(
     if title:
         presentation_update_dict["title"] = title
     if theme or theme is None:
-        presentation_update_dict["theme"] = theme
+        from services.kindergarten_presentation_review_service import preserve_review_metadata
 
-    if presentation_update_dict:
-        presentation.sqlmodel_update(presentation_update_dict)
+        presentation_update_dict["theme"] = preserve_review_metadata(presentation.theme, theme)
+
     if slides:
         if len(slides) > MAX_NUMBER_OF_SLIDES:
             raise HTTPException(
@@ -2990,16 +2992,27 @@ async def update_presentation(
             slide.presentation = uuid.UUID(str(slide.presentation))
             slide.id = uuid.UUID(str(slide.id))
 
+    if presentation_update_dict or slides is not None:
+        from services.kindergarten_presentation_review_service import stage_presentation_state_cas
+
+        presentation_update_dict["quality_status"] = QualityStatus.STALE
+        presentation_update_dict["quality_report"] = None
+        if not await stage_presentation_state_cas(
+            sql_session, presentation, expected_theme=expected_theme,
+            expected_outlines=expected_outlines, values=presentation_update_dict,
+        ):
+            raise HTTPException(status_code=409, detail={
+                "code": "presentation_save_conflict",
+                "message": "课件或审核状态在保存期间已更新，本次没有覆盖。请保留当前编辑内容，刷新后再保存。",
+            })
+
+    if slides:
         await sql_session.execute(
             delete(SlideModel).where(
                 SlideModel.presentation == presentation.id,
             )
         )
         sql_session.add_all(slides)
-
-    if presentation_update_dict or slides is not None:
-        presentation.quality_status = QualityStatus.STALE
-        presentation.quality_report = None
 
     await sql_session.commit()
 

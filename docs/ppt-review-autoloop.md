@@ -6,6 +6,27 @@
 
 已有 [工作区试验记录与逐页对照](ppt-review-evaluation.md)。其中明确区分程序回归、Autoloop 调度烟测和构造样本的独立 Agent 语义演示；它不是 Windows 本机真实模型的验收记录。
 
+## 0. 从大纲页面直接使用
+
+更新前端和后端后，新生成的幼教大纲会保存真实教案与本次参考材料，在大纲页显示“内容检查”。日常交互审核可直接使用这个入口，不需要先启动 Autoloop。
+
+1. 等大纲生成、保存完成，点击“检查内容”，或点击“检查并修订”（页面入口最多修订一轮）。
+2. 等待区显示实际已用时间，可取消本次等待。取消、刷新或短暂断线后，页面只读取最近任务与结果，不会自动重新提交模型调用。
+3. 查看问题原文和建议，点击“查看第 N 页”定位原稿；有修订时可展开逐页对照。
+4. 确认修改合适后点击“采用修订稿”，此时才把已复审的版本写入大纲。随后继续确认生成课件。
+
+如果采用请求断线或超时，页面会暂停编辑和生成，先核对服务器是否已保存，再同步真实大纲。点击“重新确认采用结果”只读取状态，不会重复提交采用或模型请求。同步完成前保留旧内容供查看，避免旧稿覆盖服务器的新稿。状态读取等待上限为 20 秒，采用请求等待上限为 30 秒。
+
+页面还提供“保存草稿”及未保存提示。手动编辑、刷新、并发窗口保存导致源版本变化时，旧报告会过期；不能覆盖新的手改内容。当前只支持对有完整快照且仍与快照一致的大纲进行审核：旧课件、手改后已经不同的大纲会明确说明原因，正常保存和生成仍可使用。已经进入幻灯片生成阶段的项目可以查看文稿审核，暂不把修订回写大纲，避免与已生成页面不一致。
+
+查看完整资料、发起审核和采用均检查课件所有者。同一请求重复发送会复用结果，同一课件已有任务时会提示等待。原始教案和参考材料只用于这份课件的审核，不通过普通列表返回。新增入口为：
+
+- `GET /api/v1/ppt/kindergarten/presentation/{id}/review-source`
+- `POST /api/v1/ppt/kindergarten/presentation/{id}/review`
+- `POST /api/v1/ppt/kindergarten/presentation/{id}/review/apply`
+
+更详细的验证范围见 [流畅度与使用检查记录](ppt-review-usability-check.md)。以下命令行与 Autoloop 用于本机试验和后台调度。
+
 ## 1. 运行前准备
 
 需要 Windows PowerShell 5.1 或更新、Node.js 24 或更新、Git。标准库任务脚本支持 Python 3.10 或更新；项目后端仍沿用 `engine/api/pyproject.toml` 要求的 Python 3.11。先启动包含审核接口的本项目后端，并确认其模型配置可用。默认 API 根地址是 `http://127.0.0.1:8000`；如果你的开发服务使用其他端口，显式传入 `-ApiBase`。
@@ -88,11 +109,23 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 ```powershell
 python .\scripts\ppt-review-pilot.py `
   --input .\.data\review-request.json `
+  --check-only
+```
+
+预检只核对基本输入和所需 API 路由，不调用模型、不创建报告目录。它优先读取 `/openapi.json`；文档没有开放时，使用无付费的 GET 探测实际 POST 路由。预检通过不代表模型配置或模型响应已经验证。旧后端、未启动、认证失败都会给出明确提示。
+
+确认服务可达后运行：
+
+```powershell
+python .\scripts\ppt-review-pilot.py `
+  --input .\.data\review-request.json `
   --output .\.data\ppt-review-autoloop `
   --api-base http://127.0.0.1:8000
 ```
 
 这一步直接验证“读取教案 → API 审核 → 保存报告”，便于区分 API/模型问题与调度问题。它会调用后端配置的模型并消耗对应额度。
+
+正常运行也会先预检。发送前会显示阶段，等待期间每 15 秒显示实际等待时长；没有虚构的完成百分比。普通命令行和 Autoloop 共用输出基目录里的在途记录，避免同一目录重复启动。
 
 脚本也支持先按 `--topic`、`--instructions`、`--slides` 调用现有教案生成接口，再审核新稿。具体可选参数以 `python .\scripts\ppt-review-pilot.py --help` 为准；用于效果比较时，优先使用这一模式或平台刚生成的真实稿件。
 
@@ -125,11 +158,10 @@ python .\scripts\ppt-review-pilot.py `
   -InputPath .\.data\review-request.json
 
 .\scripts\start-ppt-review-autoloop.ps1 `
-  -Mode Up `
-  -InputPath .\.data\review-request.json
+  -Mode Up
 ```
 
-`Setup` 会找到项目虚拟环境或 PATH 中的 Python；需要指定时加 `-PythonPath 'D:\Python312\python.exe'`。默认选用一个空闲的本机端口，也可以通过 `-Port 3350` 固定。首次配置后的路径和端口会记录下来，后续 `Up`、`Run`、`Status` 自动复用。
+`Setup` 在下载中台前先检查输入和 API，因此先启动更新后的本机后端。它会找到项目虚拟环境或 PATH 中的 Python；需要指定时加 `-PythonPath 'D:\Python311\python.exe'`。默认选用一个空闲的本机端口，也可以通过 `-Port 3350` 固定。首次配置后的路径和端口会记录下来，后续 `Up`、`Run`、`Status` 自动复用，`InputPath` 也可以省略。
 
 使用自定义路径和 API 的完整配置例子：
 
@@ -150,15 +182,15 @@ python .\scripts\ppt-review-pilot.py `
 
 ```powershell
 .\scripts\start-ppt-review-autoloop.ps1 `
-  -Mode Run `
-  -InputPath .\.data\review-request.json
+  -Mode Run
 
 .\scripts\start-ppt-review-autoloop.ps1 `
-  -Mode Status `
-  -InputPath .\.data\review-request.json
+  -Mode Status
 ```
 
 一条规则、单个 Agent 和 worker 的并发均为 `1`。还有排队、执行或结果不确定的轮次时，`Run` 拒绝再次提交。默认没有定时触发，也不连接飞书、邮件或其他对外通知；结果通知保存在中台状态中。
+
+`Run` 用跨进程独占文件句柄保护状态检查和提交，防止两个终端同时排入任务。`submit.lock` 空文件只是互斥载体，关闭句柄就已释放，不需要手动删除。
 
 在运行期间不要改动当前输入 JSON。要换输入路径、输出目录或 API，先等当前任务结束，在 `Up` 终端按 `Ctrl+C`，再用新参数执行 `Setup` 和 `Up`。内容修改后再次审核也应作为一单新的试验，保留原来的报告用于比较。
 
@@ -187,7 +219,9 @@ python .\scripts\ppt-review-pilot.py `
 
 普通 CLI 模式失败时返回非零退出码。`--autoloop` 模式会保存失败/超时等结果，并用明确的失败通知结束本轮，正常交回这类报告时进程退出码为 `0`，以免中台把业务失败自动重复提交给付费模型。因此 **中台显示 done 只表示这一轮已结束，不代表审核通过**。
 
-Autoloop 模式会在输出基目录建立原子在途锁。若进程异常退出、请求超时或远端是否执行完成尚不明确，后续运行应停下来要求核对，不能盲目重发。按报告提示核实后端任务已结束、没有同一审核仍在执行，再手动处理残留锁；不要把删除锁作为固定重试步骤。
+普通 CLI 与 Autoloop 模式都会在输出基目录建立原子在途锁。若进程异常退出、请求超时或远端是否执行完成尚不明确，后续运行应停下来要求核对，不能盲目重发。按报告提示核实后端任务已结束、没有同一审核仍在执行，再手动处理残留锁；不要把删除锁作为固定重试步骤。
+
+等待时按 `Ctrl+C` 会保存明确的 `cancelled` 报告，说明本地等待已结束、远端是否完成仍未知；在途记录会保留。普通 CLI 返回退出码 `130`。这不能证明供应商已停止执行或计费。
 
 需要停止具体轮次时，在终端二先用 `Status` 取得轮次编号，再使用原生命令：
 

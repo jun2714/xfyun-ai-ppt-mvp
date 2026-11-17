@@ -23,6 +23,7 @@ export type Presentation = {
   updated_at: string;
   slides: EngineSlide[];
   generation_metadata?: {
+    content_mode?: "classroom" | "training";
     outline_status?: "pending" | "ready" | "failed";
     outline_error?: string | null;
     quality_warning?: string | null;

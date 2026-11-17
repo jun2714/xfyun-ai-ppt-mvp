@@ -84,6 +84,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
   const [status, setStatus] = useState("正在读取项目");
   const [error, setError] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [outlinePersisted, setOutlinePersisted] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState<number | null>(null);
   const started = useRef(false);
   const streamedSlidesRef = useRef<PresentationOutline["slides"]>([]);
@@ -118,6 +119,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         if (existingOutline.slides.length) {
           streamedSlidesRef.current = existingOutline.slides;
           setOutline(existingOutline);
+          setOutlinePersisted(true);
           setStatus(current.generation_metadata?.quality_warning || "");
           return;
         }
@@ -178,6 +180,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
           if (event.type === "outline") {
             streamedSlidesRef.current = event.outline.slides || [];
             setOutline(event.outline);
+            setOutlinePersisted(true);
             setActiveSlideIndex(null);
             setStreaming(false);
             setStatus("");
@@ -196,6 +199,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
         if (finalOutline.slides?.length) {
           streamedSlidesRef.current = finalOutline.slides;
           setOutline(finalOutline);
+          setOutlinePersisted(true);
         }
         setPresentation(finalPresentation);
         setActiveSlideIndex(null);
@@ -212,6 +216,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
               `/presentation/${presentationId}`,
             );
             setOutline(recovered);
+            setOutlinePersisted(true);
             setPresentation(recoveredPresentation);
             setActiveSlideIndex(null);
             setStreaming(false);
@@ -225,8 +230,9 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
           // Fall through to streamed slides or the visible stream error.
         }
         if (streamedSlidesRef.current.length) {
-          const warning = "大纲已生成，收尾校验未完全通过，请核对后再生成课件。";
+          const warning = "当前保留的是已接收的部分大纲，尚未确认完整保存；请核对页数和内容后再保存或生成课件。";
           setOutline({ slides: streamedSlidesRef.current });
+          setOutlinePersisted(false);
           setPresentation((current) =>
             current
               ? {
@@ -287,6 +293,7 @@ export function OutlinePage({ presentationId }: { presentationId: string }) {
       <OutlineEditor
         presentation={presentation}
         initial={outline}
+        initialPersisted={outlinePersisted}
         templates={templates}
         streaming={streaming}
         status={status}

@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import json
 
 import pytest
 from pydantic import ValidationError
@@ -414,3 +415,102 @@ def test_request_rejects_unbounded_rounds_and_timeouts():
     for options in ({"max_revision_rounds": 3}, {"timeout_seconds": 0}, {"max_model_calls": 100}):
         with pytest.raises(ValidationError):
             _request(**options)
+
+
+def test_queue_expiry_returns_actionable_message_and_known_no_submission(monkeypatch):
+    import httpx
+    from services import model_request_queue as queues
+    from services.kindergarten_content_review_provider import OpenAICompatibleReviewCaller, ReviewRuntime
+
+    async def run():
+        queue = queues.FairRequestQueue("outline", queues.QueueLimits(1, 1, 1, 0.02))
+        monkeypatch.setattr(queues, "model_request_slot", lambda lane: queue.slot("review-owner"))
+
+        def handler(request):
+            pytest.fail("Queue expiry must happen before HTTP submission")
+
+        caller = OpenAICompatibleReviewCaller(
+            ReviewRuntime(base_url="https://provider.invalid/v1", api_key="test-only", model="test-model"),
+            transport=httpx.MockTransport(handler),
+        )
+        async with queue.slot("existing-owner"):
+            result = await service.review_kindergarten_content(_request(), caller=caller)
+            assert queue.active == 1 and not queue.pending
+        assert queue.active == 0
+        return result
+
+    result = asyncio.run(run())
+    assert result.status == "timeout"
+    assert result.failure_code == "review_queue_timeout"
+    assert "等待模型名额" in result.message and "尚未提交模型" in result.message
+    assert result.calls[0].submitted is False
+    assert result.calls[0].outcome == "timeout"
+    assert result.plan == result.original_plan
+
+
+@pytest.mark.parametrize("end_with", ["timeout", "disconnect", "task_cancel"])
+def test_stopped_queued_review_releases_waiter_and_following_review_runs(monkeypatch, end_with):
+    import httpx
+    from services import model_request_queue as queues
+    from services.kindergarten_content_review_provider import OpenAICompatibleReviewCaller, ReviewRuntime
+
+    async def run():
+        queue = queues.FairRequestQueue("outline", queues.QueueLimits(1, 1, 2, 60))
+        monkeypatch.setattr(queues, "model_request_slot", lambda lane: queue.slot("review-owner"))
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json={"choices": [{
+                "finish_reason": "stop", "message": {"content": json.dumps(_review())},
+            }]})
+
+        async def disconnected():
+            return bool(queue.pending)
+
+        caller = OpenAICompatibleReviewCaller(
+            ReviewRuntime(base_url="https://provider.invalid/v1", api_key="test-only", model="test-model"),
+            transport=httpx.MockTransport(handler),
+        )
+        async with queue.slot("existing-owner"):
+            task = asyncio.create_task(service.review_kindergarten_content(
+                _request(timeout_seconds=1), caller=caller,
+                disconnect_checker=disconnected if end_with == "disconnect" else None,
+            ))
+            if end_with == "task_cancel":
+                for _ in range(100):
+                    if queue.pending:
+                        break
+                    await asyncio.sleep(0)
+                assert queue.pending
+                task.cancel()
+            result = await asyncio.wait_for(task, timeout=2.5)
+            assert result.status == ("timeout" if end_with == "timeout" else "cancelled")
+            assert result.calls[0].submitted is False
+            assert result.plan == result.original_plan
+            assert requests == []
+            assert queue.active == 1 and not queue.pending
+        assert queue.active == 0 and not queue.owners
+        following = await service.review_kindergarten_content(_request(), caller=caller)
+        assert following.status == "passed"
+        assert len(requests) == 1
+        assert queue.active == 0 and not queue.pending and not queue.owners
+
+    asyncio.run(run())
+
+
+def test_failure_in_second_revision_keeps_the_first_adopted_draft():
+    remaining = _finding("point-1", field_path="screen_content.points.0", evidence="唱歌、跑步、画画都学一下")
+    result, caller = _run(
+        _request(max_revision_rounds=2), _review(_finding(), remaining), _revision(),
+        _review(remaining), RuntimeError("private-provider-failure"),
+    )
+    assert result.status == "model_error"
+    assert result.rounds_completed == 1
+    assert result.call_attempts == 4
+    assert result.plan.slides[1].screen_content.title == "观察海龟与海豚"
+    assert result.original_plan.slides[1].screen_content.title == "五大领域总复习"
+    assert result.semantic_review.findings[0].issue_id == "point-1"
+    assert result.review_history[-1].adopted is True
+    assert caller.calls[-1].stage == "revise"
+    assert "private-provider" not in result.model_dump_json()

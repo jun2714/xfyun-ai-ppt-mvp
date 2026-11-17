@@ -5,6 +5,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
+from dataclasses import replace
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -226,20 +227,26 @@ async def _generate_validated_plan(
     runtime = get_kindergarten_planner_runtime()
     try:
         async with asyncio.timeout(runtime.total_timeout_seconds):
-            return await generate_validated_kindergarten_presentation_outline(
-                topic=payload.topic,
-                age_group=payload.age_group,
-                domain=payload.domain,
-                content_mode=payload.content_mode,
-                duration_minutes=payload.duration_minutes,
-                n_slides=payload.n_slides,
-                instructions=payload.instructions,
-                source_context=await _planning_source_context(payload),
-                disconnect_checker=(
-                    request.is_disconnected if stop_on_disconnect else None
-                ),
-                text_chunk_callback=text_chunk_callback,
-            )
+            source_context = await _planning_source_context(payload)
+            try:
+                result = await generate_validated_kindergarten_presentation_outline(
+                    topic=payload.topic,
+                    age_group=payload.age_group,
+                    domain=payload.domain,
+                    content_mode=payload.content_mode,
+                    duration_minutes=payload.duration_minutes,
+                    n_slides=payload.n_slides,
+                    instructions=payload.instructions,
+                    source_context=source_context,
+                    disconnect_checker=(
+                        request.is_disconnected if stop_on_disconnect else None
+                    ),
+                    text_chunk_callback=text_chunk_callback,
+                )
+            except KindergartenPlanningQualityError as exc:
+                exc.source_context = source_context
+                raise
+            return replace(result, source_context=source_context)
     except TimeoutError as exc:
         raise HTTPException(
             status_code=504,
@@ -274,6 +281,7 @@ def reviewable_result_from_quality_error(
         outline=_outline_for_audience(exc.plan, content_mode),
         quality=exc.report,
         attempts=exc.attempts,
+        source_context=exc.source_context,
     )
 
 
@@ -434,6 +442,7 @@ def _apply_visual_mode(
         outline=visual_outline,
         quality=result.quality,
         attempts=result.attempts,
+        source_context=result.source_context,
     )
     routing = KindergartenTemplateRoutingDecision(
         template=AI_BACKGROUND_TEMPLATE_NAME,
@@ -491,9 +500,51 @@ async def _persist_kindergarten_generation_metadata(
     visual_style_summary: Optional[str],
     sql_session: AsyncSession,
     quality_warning: Optional[str] = None,
+    result: Optional[ValidatedKindergartenPlanningResult] = None,
 ) -> None:
     """Persist routing so a saved outline can be resumed without URL-only state."""
-    theme = dict(presentation.theme or {})
+    import copy
+
+    from sqlalchemy import inspect
+    from services.kindergarten_presentation_review_service import (
+        make_review_source, read_presentation_write_snapshot, stage_presentation_state_cas,
+    )
+
+    # Stream completion may arrive with an unflushed outline. A normal ORM
+    # SELECT would autoflush it before the protected JSON could be compared.
+    outline_history = inspect(presentation).attrs.outlines.history
+    incoming_outline = copy.deepcopy(presentation.outlines)
+    snapshot = await read_presentation_write_snapshot(sql_session, presentation)
+
+    async def save_conflict():
+        await sql_session.rollback()
+        raise HTTPException(status_code=409, detail={
+            "code": "presentation_save_conflict",
+            "message": "大纲或审核状态在保存期间已更新，本次没有覆盖。请保留当前内容并刷新查看，勿自动重新生成。",
+        })
+
+    if snapshot is None:
+        await save_conflict()
+    if outline_history.has_changes():
+        if outline_history.deleted:
+            previous_outline = outline_history.deleted[0]
+            if snapshot["outlines"] != previous_outline:
+                await save_conflict()
+        elif snapshot["outlines"] is not None and snapshot["outlines"] != incoming_outline:
+            # An expired/unloaded attribute has no trustworthy old value. Do
+            # not replace a nonempty saved outline based on that missing history.
+            await save_conflict()
+        target_outline = incoming_outline
+    else:
+        if snapshot["outlines"] != incoming_outline:
+            await save_conflict()
+        target_outline = snapshot["outlines"]
+    if result is not None and result.outline.model_dump(mode="json") != target_outline:
+        await save_conflict()
+
+    # Merge the namespace from the database, never the possibly stale ORM copy:
+    # a completed review or an active claim may have appeared during planning.
+    theme = copy.deepcopy(snapshot["theme"]) if isinstance(snapshot["theme"], dict) else {}
     existing = theme.get("kindergarten_generation")
     generation = dict(existing) if isinstance(existing, dict) else {}
     generation.update({
@@ -516,8 +567,42 @@ async def _persist_kindergarten_generation_metadata(
     else:
         generation.pop("quality_warning", None)
     theme["kindergarten_generation"] = generation
-    presentation.theme = theme
-    sql_session.add(presentation)
+    if result is not None:
+        brief = {
+            "topic": payload.topic,
+            "age_group": payload.age_group,
+            "domain": payload.domain,
+            "content_mode": payload.content_mode,
+            "duration_minutes": payload.duration_minutes,
+            "n_slides": payload.n_slides,
+            "instructions": payload.instructions,
+            "source_context": result.source_context,
+        }
+        review_state = dict(theme.get("kindergarten_content_review") or {})
+        try:
+            review_state.update({
+                "version": 1,
+                "source": make_review_source(brief, result.plan, target_outline),
+            })
+            review_state.pop("unavailable_reason", None)
+        except (ValueError, TypeError):
+            # An optional review limit must not break the paid generation path.
+            LOGGER.warning("Kindergarten outline saved without a review source: review size or schema limit")
+            review_state.update({
+                "version": 1,
+                "source": None,
+                "unavailable_reason": "当前大纲超出文本审核范围，仍可编辑和生成课件。",
+            })
+        theme["kindergarten_content_review"] = review_state
+    values = {"theme": theme}
+    if outline_history.has_changes():
+        values["outlines"] = target_outline
+    if not await stage_presentation_state_cas(
+        sql_session, presentation, expected_theme=snapshot["theme"],
+        expected_outlines=snapshot["outlines"], values=values,
+    ):
+        await save_conflict()
+    # The guarded UPDATE and pending n_slides/title changes remain one commit.
     await sql_session.commit()
 
 
@@ -662,6 +747,7 @@ async def create_kindergarten_presentation(
         visual_style_summary=style_summary,
         sql_session=sql_session,
         quality_warning=_quality_review_warning(result),
+        result=result,
     )
     return KindergartenPresentationCreateResponse(
         presentation_id=presentation.id,
@@ -843,7 +929,6 @@ async def stream_kindergarten_presentation_outline(
             presentation.n_slides = len(result.outline.slides)
             presentation.title = payload.topic
             sql_session.add(presentation)
-            await sql_session.commit()
             await _persist_kindergarten_generation_metadata(
                 presentation,
                 payload=payload,
@@ -851,6 +936,7 @@ async def stream_kindergarten_presentation_outline(
                 visual_style_summary=style_summary,
                 sql_session=sql_session,
                 quality_warning=quality_warning,
+                result=result,
             )
             await MEM0_PRESENTATION_MEMORY_SERVICE.store_generated_outlines(
                 presentation.id,
@@ -871,13 +957,16 @@ async def stream_kindergarten_presentation_outline(
             ).to_string()
         except HTTPException as exc:
             detail = exc.detail
+            save_conflict = (exc.status_code == 409 and isinstance(detail, dict)
+                             and detail.get("code") == "presentation_save_conflict")
             if not isinstance(detail, str):
                 detail = (
                     detail.get("message")
                     if isinstance(detail, dict)
                     else None
                 ) or json.dumps(detail, ensure_ascii=False)
-            await _persist_outline_failure(presentation, detail, sql_session)
+            if not save_conflict:
+                await _persist_outline_failure(presentation, detail, sql_session)
             yield SSEErrorResponse(detail=detail).to_string()
         except KindergartenPlanningQualityError as exc:
             detail = f"幼教课堂大纲质检失败：{exc}"
@@ -930,6 +1019,7 @@ async def prepare_kindergarten_presentation(
         visual_style_summary=style_summary,
         sql_session=sql_session,
         quality_warning=_quality_review_warning(result),
+        result=result,
     )
     # The automatic path has no teacher review step. Save the paid outline and
     # stop before page/image generation if the teaching contract is invalid.

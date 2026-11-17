@@ -11,7 +11,6 @@ import hashlib
 import json
 import re
 import time
-from contextlib import suppress
 from typing import Awaitable, Callable, Optional
 
 from pydantic import ValidationError
@@ -84,6 +83,11 @@ _MESSAGES = {
     "model_error": "模型调用未完成，未将本次审核标为通过，当前稿已保留。",
     "invalid_output": "模型结果未通过格式或原文证据检查，当前稿已保留。",
     "revision_rejected": "修订超出允许范围或引入硬性错误，已保留上一份有效稿。",
+}
+
+_FAILURE_MESSAGES = {
+    "review_queue_full": "当前模型任务排队已满，本阶段尚未提交模型。请稍后重新审核，当前稿已保留。",
+    "review_queue_timeout": "等待模型名额超时，本阶段尚未提交模型。请稍后重新审核，当前稿已保留。",
 }
 
 
@@ -261,6 +265,18 @@ def _safe_error_code(exc: Exception) -> str:
     return "model_call_failed"
 
 
+def _retain_call_metadata(record: ModelCallRecord, value) -> None:
+    """Preserve known billing/submission facts, including cancelled waiters."""
+    submitted = getattr(value, "submitted", None)
+    model, usage = getattr(value, "model", None), getattr(value, "usage", None)
+    if isinstance(submitted, bool):
+        record.submitted = submitted
+    if isinstance(model, str):
+        record.model = model
+    if isinstance(usage, ProviderUsage):
+        record.usage = usage
+
+
 class _CallRunner:
     def __init__(self, request, caller, disconnect_checker, started):
         self.request = request
@@ -312,25 +328,31 @@ class _CallRunner:
             record.error_code = exc.code
             raise
         except asyncio.CancelledError as exc:
+            _retain_call_metadata(record, exc)
             record.outcome = "cancelled"
             record.error_code = "review_cancelled"
             raise _StopReview("cancelled", "review_cancelled") from exc
         except Exception as exc:
             code = _safe_error_code(exc)
-            submitted = getattr(exc, "submitted", None)
-            record.submitted = submitted if isinstance(submitted, bool) else None
-            model, usage = getattr(exc, "model", None), getattr(exc, "usage", None)
-            record.model = model if isinstance(model, str) else None
-            record.usage = usage if isinstance(usage, ProviderUsage) else None
+            _retain_call_metadata(record, exc)
             record.error_code = code
-            is_timeout = isinstance(exc, TimeoutError) or code == "review_provider_timeout"
+            is_timeout = isinstance(exc, TimeoutError) or code in {
+                "review_provider_timeout", "review_queue_timeout",
+            }
             record.outcome = "timeout" if is_timeout else "error"
             raise _StopReview("timeout" if is_timeout else "model_error", code) from exc
         finally:
             if not task.done():
                 task.cancel()
-                with suppress(asyncio.CancelledError, Exception):
-                    await task
+            # Always consume the task, even if it finished at the deadline. This
+            # releases admission/client resources and avoids losing a waiter's
+            # known not-submitted state when our own deadline cancels it.
+            try:
+                final_reply = await task
+            except (asyncio.CancelledError, Exception) as exc:
+                _retain_call_metadata(record, exc)
+            else:
+                _retain_call_metadata(record, final_reply)
             record.elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
 
     def invalidate_last(self, code: str):
@@ -461,7 +483,8 @@ async def review_kindergarten_content(
         status, failure_code = "cancelled", "review_cancelled"
 
     return KindergartenContentReviewResponse(
-        status=status, message=_MESSAGES[status], original_plan=original, plan=current,
+        status=status, message=_FAILURE_MESSAGES.get(failure_code, _MESSAGES[status]),
+        original_plan=original, plan=current,
         machine_quality=machine, semantic_review=review, review_history=history,
         rounds_completed=rounds, call_attempts=len(runner.records), calls=runner.records,
         elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),

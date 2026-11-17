@@ -5,6 +5,7 @@ must not silently multiply its model calls. Credentials remain in the API proces
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from dataclasses import dataclass, field
@@ -20,6 +21,16 @@ class ReviewProviderError(RuntimeError):
 
     def __init__(self, code: str, *, submitted=None, model=None, usage=None):
         super().__init__(code)
+        self.submitted = submitted
+        self.model = model
+        self.usage = usage
+
+
+class ReviewProviderCancelled(asyncio.CancelledError):
+    """Cancellation with the last known submission state, without provider text."""
+
+    def __init__(self, *, submitted=None, model=None, usage=None):
+        super().__init__("review_provider_cancelled")
         self.submitted = submitted
         self.model = model
         self.usage = usage
@@ -119,7 +130,7 @@ class OpenAICompatibleReviewCaller:
         self.transport = transport
 
     async def __call__(self, call: ModelCall) -> ModelReply:
-        from services.model_request_queue import model_request_slot
+        from services.model_request_queue import QueueBusy, model_request_slot
 
         try:
             runtime = self.runtime or get_review_runtime()
@@ -146,18 +157,24 @@ class OpenAICompatibleReviewCaller:
         # httpx has no application-level retry by default. Redirects are disabled
         # so a provider cannot forward this authenticated POST to another origin.
         model, usage = runtime.model, None
-        async with model_request_slot("outline"):
-            try:
+        submitted = False
+        try:
+            async with model_request_slot("outline"):
                 async with httpx.AsyncClient(
                     timeout=runtime.timeout_seconds,
                     follow_redirects=False,
                     transport=self.transport,
                 ) as client:
+                    # A cancelled waiter has definitely not submitted. Once the
+                    # HTTP operation begins, its remote outcome is unknown until
+                    # a response arrives; cancellation cannot prove a refund.
+                    submitted = None
                     response = await client.post(
                         runtime.base_url + "/chat/completions",
                         headers={"Authorization": "Bearer " + runtime.api_key},
                         json=body,
                     )
+                    submitted = True
                 if response.status_code != 200:
                     raise ReviewProviderError(f"review_provider_http_{response.status_code}",
                                               submitted=True, model=model)
@@ -174,12 +191,20 @@ class OpenAICompatibleReviewCaller:
                 result = json.loads(text)
                 if not isinstance(result, dict):
                     raise ValueError("Model result must be an object")
-            except httpx.TimeoutException as exc:
-                raise ReviewProviderError("review_provider_timeout") from exc
-            except httpx.HTTPError as exc:
-                raise ReviewProviderError("review_provider_connection_failed") from exc
-            except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
-                raise ReviewProviderError("review_provider_invalid_json", submitted=True,
-                                          model=model, usage=usage) from exc
+        except QueueBusy as exc:
+            code = ("review_queue_timeout" if exc.provider_code == "outline_queue_timeout"
+                    else "review_queue_full")
+            raise ReviewProviderError(code, submitted=False, model=model) from exc
+        except asyncio.CancelledError as exc:
+            raise ReviewProviderCancelled(submitted=submitted, model=model, usage=usage) from exc
+        except httpx.TimeoutException as exc:
+            raise ReviewProviderError("review_provider_timeout", submitted=submitted,
+                                      model=model, usage=usage) from exc
+        except httpx.HTTPError as exc:
+            raise ReviewProviderError("review_provider_connection_failed", submitted=submitted,
+                                      model=model, usage=usage) from exc
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise ReviewProviderError("review_provider_invalid_json", submitted=submitted,
+                                      model=model, usage=usage) from exc
         return ModelReply(payload=result, model=model,
                           usage=usage, submitted=True)

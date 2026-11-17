@@ -239,3 +239,71 @@
   border: 0;
   background: #fff;
 }
+
+.outline-draft-tools {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.outline-draft-tools > span { color: #66756f; font-size: 12px; }
+.content-review-panel {
+  margin: 0 36px 18px;
+  padding: 18px;
+  border: 1px solid #d7e1dd;
+  background: #fff;
+  color: #233c32;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.content-review-panel p { margin: 7px 0; overflow-wrap: anywhere; }
+.content-review-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.content-review-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.content-review-heading > div > p { color: #6c7972; font-size: 12px; margin-bottom: 0; }
+.content-review-actions { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+.content-review-panel button { cursor: pointer; }
+.content-review-panel button:disabled { opacity: .48; cursor: not-allowed; }
+.content-review-panel .outline-secondary-action { border-radius: 0; border-color: #cbd8d1; color: #284d3c; }
+.content-review-panel .outline-secondary-action:hover:not(:disabled) { background: #f3f8f5; border-color: #72a18a; }
+.content-review-running { margin-top: 15px; display: flex; align-items: center; gap: 10px; padding: 12px; background: #f4f8f5; }
+.content-review-running > span:nth-child(2) { flex: 1; }
+.content-review-running small { display: block; color: #69776e; }
+.content-review-running button { border: 1px solid #b9c9c0; background: white; padding: 6px 10px; color: #3f5146; }
+.content-review-spinner { width: 17px; height: 17px; border: 2px solid #d5e3d9; border-top-color: #347450; border-radius: 50%; animation: outline-progress-spin .8s linear infinite; }
+.content-review-info { color: #53674f; background: #f6f8f1; padding: 8px 10px; }
+.content-review-muted { color: #798078; font-size: 12px; }
+.content-review-error { color: #a04132; padding: 8px 10px; background: #fff5f1; }
+.content-review-refresh { display: inline-block; margin-top: 6px; padding: 0; background: none; border: 0; color: #3d7257; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.content-review-result { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8e3; }
+.content-review-result-title { display: flex; flex-wrap: wrap; gap: 5px 14px; justify-content: space-between; }
+.content-review-result-title > span { color: #748078; font-size: 12px; }
+.content-review-passed { color: #247244; }
+.content-review-questions { margin-top: 10px; padding: 10px 12px; background: #fffbec; border-left: 3px solid #cba442; }
+.content-review-questions ul { margin: 5px 0 0; padding-left: 19px; }
+.content-review-finding { margin-top: 12px; padding: 12px 0; border-top: 1px solid #e7ece8; }
+.content-review-finding > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.content-review-finding > header > button { flex-shrink: 0; border: 0; background: #eef5f0; color: #36694b; padding: 4px 8px; font-size: 12px; }
+.content-review-finding blockquote { margin: 8px 0; padding: 7px 10px; border-left: 2px solid #bacbc0; background: #f8faf8; color: #617065; white-space: pre-wrap; overflow-wrap: anywhere; }
+.content-review-finding blockquote > span { display: block; color: #909b93; font-size: 11px; }
+.content-review-panel details > summary { cursor: pointer; color: #4d705b; font-size: 12px; }
+.content-review-finding details p { color: #738074; font-size: 12px; }
+.content-review-revisions { margin-top: 15px; padding: 13px; border: 1px solid #c9d9cf; background: #f9fcfa; }
+.content-review-revisions > details { margin: 10px 0; }
+.content-review-comparison { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.content-review-comparison > b { grid-column: 1 / -1; font-size: 12px; }
+.content-review-comparison > div { min-width: 0; padding: 8px 10px; background: white; border: 1px solid #e0e7e2; }
+.content-review-comparison > div > span { color: #8a948b; font-size: 11px; }
+.content-review-comparison p { white-space: pre-wrap; }
+.content-review-apply { margin-top: 10px; border: 1px solid #2f6949; background: #2f6949; padding: 8px 13px; color: white; font-weight: 600; }
+@media (max-width: 1100px) {
+  .outline-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .content-review-heading { flex-wrap: wrap; }
+}
+@media (max-width: 900px) {
+  .content-review-panel { margin-left: 18px; margin-right: 18px; }
+}
+@media (max-width: 600px) {
+  .content-review-panel { padding: 14px; }
+  .content-review-comparison { grid-template-columns: 1fr; }
+  .content-review-actions { width: 100%; }
+}

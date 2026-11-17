@@ -13,6 +13,7 @@ from api.v1.ppt.endpoints.fonts import FONTS_ROUTER
 from api.v1.ppt.endpoints.icons import ICONS_ROUTER
 from api.v1.ppt.endpoints.images import IMAGES_ROUTER
 from api.v1.ppt.endpoints.kindergarten import KINDERGARTEN_ROUTER
+from api.v1.ppt.endpoints.kindergarten_review import KINDERGARTEN_REVIEW_ROUTER
 from api.v1.ppt.endpoints.ollama import OLLAMA_ROUTER
 from api.v1.ppt.endpoints.outlines import OUTLINES_ROUTER
 from api.v1.ppt.endpoints.slide import SLIDE_ROUTER
@@ -34,6 +35,7 @@ API_V1_PPT_ROUTER.include_router(IMAGES_ROUTER)
 API_V1_PPT_ROUTER.include_router(ICONS_ROUTER)
 API_V1_PPT_ROUTER.include_router(DIAGNOSTICS_ROUTER)
 API_V1_PPT_ROUTER.include_router(KINDERGARTEN_ROUTER)
+API_V1_PPT_ROUTER.include_router(KINDERGARTEN_REVIEW_ROUTER)
 API_V1_PPT_ROUTER.include_router(OLLAMA_ROUTER)
 API_V1_PPT_ROUTER.include_router(OPENAI_ROUTER)
 API_V1_PPT_ROUTER.include_router(ANTHROPIC_ROUTER)

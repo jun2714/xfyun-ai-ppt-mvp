@@ -9,6 +9,8 @@ import {
 } from "./outlineFormat";
 import "./outlineProgress.css";
 import { teacherReviewMessages } from "./outlineFeedback";
+import { ContentReviewPanel } from "./ContentReviewPanel";
+import { outlineSignature } from "./contentReview";
 
 const DEFAULT_TEMPLATE_ID = "general";
 const AI_VISUAL_TEMPLATE_ID = "ai-visual";
@@ -90,6 +92,7 @@ function splitTemplates(templates: TemplateItem[]) {
 export function OutlineEditor({
   presentation,
   initial,
+  initialPersisted = true,
   templates,
   streaming = false,
   status = "",
@@ -99,6 +102,7 @@ export function OutlineEditor({
 }: {
   presentation: Presentation;
   initial: PresentationOutline;
+  initialPersisted?: boolean;
   templates: TemplateItem[];
   streaming?: boolean;
   status?: string;
@@ -120,6 +124,10 @@ export function OutlineEditor({
   const [template, setTemplate] = useState(preferred || "");
   const [stage, setStage] = useState<"outline" | "template">("outline");
   const [saving, setSaving] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [savedSignature, setSavedSignature] = useState(() => initialPersisted ? outlineSignature(initial) : "");
+  const [saveNotice, setSaveNotice] = useState("");
   const [aiEditing, setAiEditing] = useState<"polish" | "regenerate" | null>(null);
   const [templatePreviewOpen, setTemplatePreviewOpen] = useState(false);
   const [error, setError] = useState("");
@@ -127,10 +135,11 @@ export function OutlineEditor({
 
   useEffect(() => {
     setOutline(initial);
+    setSavedSignature(initialPersisted ? outlineSignature(initial) : "");
     if (streaming && typeof activeSlideIndex === "number") {
       setSelected(activeSlideIndex);
     }
-  }, [initial, streaming, activeSlideIndex]);
+  }, [initial, initialPersisted, streaming, activeSlideIndex]);
 
   useEffect(() => {
     if (recommendationUnavailable) {
@@ -175,9 +184,12 @@ export function OutlineEditor({
   }, [templatePreviewOpen]);
 
   const slides = outline.slides;
+  const draftSignature = useMemo(() => outlineSignature(outline), [outline]);
+  const dirty = !streaming && draftSignature !== savedSignature;
+  const isTraining = presentation.generation_metadata?.content_mode === "training";
   const selectedSafe = Math.min(selected, Math.max(0, slides.length - 1));
   const current = slides[selectedSafe] ?? { content: "" };
-  const editingBlocked = streaming || saving || Boolean(aiEditing);
+  const editingBlocked = streaming || saving || draftSaving || reviewBusy || Boolean(aiEditing);
   const editableContent = toEditableOutlineContent(current.content);
   const teacherNote = typeof current.content_contract?.teacher_note === "string"
     ? current.content_contract.teacher_note : "";
@@ -230,8 +242,58 @@ export function OutlineEditor({
     }));
   };
 
+  useEffect(() => {
+    if (!dirty) return;
+    const protectDraft = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectDraft);
+    return () => window.removeEventListener("beforeunload", protectDraft);
+  }, [dirty]);
+
+  const storedOutline = (): PresentationOutline => ({
+    slides: outline.slides.map((slide) => ({
+      ...slide, content: toStoredOutlineContent(toEditableOutlineContent(slide.content)),
+    })),
+  });
+
+  const acceptSavedOutline = (saved: PresentationOutline) => {
+    setOutline(saved);
+    setSavedSignature(outlineSignature(saved));
+  };
+
+  const saveDraft = async () => {
+    if (editingBlocked || !dirty) return;
+    setDraftSaving(true);
+    setError("");
+    setSaveNotice("");
+    try {
+      const saved = await api<PresentationOutline>(`/outlines/${presentation.id}`, {
+        method: "PUT", body: JSON.stringify(storedOutline()),
+      });
+      acceptSavedOutline(saved);
+      setSaveNotice("草稿已保存");
+    } catch (cause) {
+      setError(`草稿尚未保存：${localizeError(cause)}`);
+    } finally {
+      setDraftSaving(false);
+    }
+  };
+
+  const showReviewSlide = (number: number) => {
+    const index = number - 1;
+    if (index < 0 || index >= outline.slides.length) return;
+    setSelected(index);
+    window.requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLTextAreaElement>(".outline-editor-flat textarea");
+      editor?.scrollIntoView({ behavior: "smooth", block: "center" });
+      editor?.focus({ preventScroll: true });
+    });
+  };
+
   const rewriteCurrentWithAi = async (mode: "polish" | "regenerate") => {
-    if (streaming || saving || aiEditing || !current.content) return;
+    if (editingBlocked || !current.content) return;
     setAiEditing(mode);
     setError("");
     const isCover =
@@ -311,7 +373,8 @@ export function OutlineEditor({
         method: "PUT",
         body: JSON.stringify(nextOutline),
       });
-      setOutline(saved);
+      acceptSavedOutline(saved);
+      setSaveNotice("本页已更新，草稿已保存");
     } catch (cause) {
       setError(localizeError(cause));
     } finally {
@@ -361,6 +424,8 @@ export function OutlineEditor({
         method: "PUT",
         body: JSON.stringify(stored),
       });
+      acceptSavedOutline(saved);
+      setSaveNotice("草稿已保存");
       await api("/presentation/prepare", {
         method: "POST",
         body: JSON.stringify({
@@ -516,6 +581,11 @@ export function OutlineEditor({
               )}
             </div>
             <div className="outline-actions">
+              {!streaming && <div className="outline-draft-tools">
+                <span role="status">{draftSaving ? "正在保存…" : dirty ? "有未保存的修改" : saveNotice || "当前内容已保存"}</span>
+                <button type="button" className="outline-secondary-action" disabled={editingBlocked || !dirty}
+                  onClick={() => void saveDraft()}>保存草稿</button>
+              </div>}
               {resolvedCreateMode === "topic" ? (
                 <>
                   <label>
@@ -608,7 +678,8 @@ export function OutlineEditor({
             <div className="outline-complete-banner" role="status">
               <span className="outline-complete-icon" aria-hidden="true">✓</span>
               <div className="outline-complete-copy">
-                <strong>{presentation.generation_metadata?.quality_warning ? "大纲已保存，请核对活动内容" : "大纲已生成完成"}</strong>
+                <strong>{!initialPersisted && dirty ? "已保留部分大纲，请核对并保存"
+                  : presentation.generation_metadata?.quality_warning ? "大纲已保存，请核对活动内容" : "大纲已生成完成"}</strong>
                 <p>可以继续修改内容，也可以选择视觉方案或模板后开始生成 PPT。</p>
                 {presentation.generation_metadata?.quality_warning && (
                   <div className="outline-template-notice outline-review-notice">
@@ -658,6 +729,20 @@ export function OutlineEditor({
             </div>
           ) : null}
 
+          {!streaming && slides.length > 0 && <ContentReviewPanel
+            presentationId={presentation.id}
+            draftSignature={draftSignature}
+            savedSignature={savedSignature}
+            dirty={dirty}
+            disabled={saving || draftSaving || Boolean(aiEditing)}
+            onBusyChange={setReviewBusy}
+            onSelectSlide={showReviewSlide}
+            onApplied={(saved) => {
+              acceptSavedOutline(saved);
+              setSaveNotice("修订稿已采用并保存");
+            }}
+          />}
+
           <div className={`outline-editor-flat ${streaming && activeSlideIndex === selectedSafe ? "is-streaming" : ""}`}>
             <div className="page-meta">
               <b>第 {selectedSafe + 1} 页</b>
@@ -668,7 +753,7 @@ export function OutlineEditor({
                     <button
                       type="button"
                       className="outline-ai-action"
-                      disabled={Boolean(aiEditing) || saving}
+                      disabled={editingBlocked}
                       onClick={() => void rewriteCurrentWithAi("polish")}
                     >
                       {aiEditing === "polish" ? "润色中…" : "AI 润色本页"}
@@ -676,16 +761,16 @@ export function OutlineEditor({
                     <button
                       type="button"
                       className="outline-ai-action"
-                      disabled={Boolean(aiEditing) || saving}
+                      disabled={editingBlocked}
                       onClick={() => void rewriteCurrentWithAi("regenerate")}
                     >
                       {aiEditing === "regenerate" ? "生成中…" : "重新生成本页"}
                     </button>
-                    <button onClick={removeSlide} disabled={outline.slides.length <= 1 || Boolean(aiEditing)}>删除此页</button>
+                    <button onClick={removeSlide} disabled={outline.slides.length <= 1 || editingBlocked}>删除此页</button>
                   </>}
             </div>
             <textarea
-              aria-label="儿童屏幕内容"
+              aria-label={isTraining ? "教师课件正文" : "儿童屏幕内容"}
               value={editableContent}
               readOnly={editingBlocked}
               onChange={(event) => updateCurrent(event.target.value)}
@@ -694,9 +779,9 @@ export function OutlineEditor({
           </div>
           {!streaming && current.content_contract && (
             <details className="outline-teacher-notes">
-              <summary>教师讲稿与课堂操作（不会投到儿童屏幕）</summary>
+              <summary>{isTraining ? "讲解备注与研讨步骤（不投到课件正文）" : "教师讲稿与课堂操作（不会投到儿童屏幕）"}</summary>
               <label>教师讲稿
-                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={1200} readOnly={editingBlocked}
+                <textarea aria-label="教师讲稿" value={teacherNote} maxLength={12000} readOnly={editingBlocked}
                   onChange={(event) => updateTeacherField("teacher_note", event.target.value)} />
               </label>
               <label>课堂操作步骤

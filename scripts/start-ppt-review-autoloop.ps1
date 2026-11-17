@@ -15,8 +15,7 @@ param(
     [string]$ProjectPath = (Split-Path -Parent $PSScriptRoot),
     [string]$AutoloopPath = '',
 
-    [Parameter(Mandatory = $true)]
-    [string]$InputPath,
+    [string]$InputPath = '',
 
     [string]$OutputPath = '',
     [string]$ApiBase = 'http://127.0.0.1:8000',
@@ -111,7 +110,6 @@ function Find-PythonPath {
 }
 
 $ProjectPath = (Resolve-Path -LiteralPath $ProjectPath).Path
-$InputPath = Get-FullPath -Value $InputPath -BasePath $ProjectPath
 $PilotRoot = Join-Path $ProjectPath '.runtime\ppt-review-autoloop'
 $StatePath = Join-Path $PilotRoot 'state'
 $SettingsFile = Join-Path $StatePath 'pilot.json'
@@ -122,6 +120,11 @@ $settings = $null
 if (Test-Path -LiteralPath $SettingsFile) {
     $settings = Get-Content -LiteralPath $SettingsFile -Raw -Encoding UTF8 | ConvertFrom-Json
 }
+if (-not $InputPath) {
+    if ($settings) { $InputPath = $settings.input_path }
+    else { throw '首次配置请指定 -InputPath 审核请求.json。配置后 Up、Run、Status 会自动复用该文件。' }
+}
+$InputPath = Get-FullPath -Value $InputPath -BasePath $ProjectPath
 if (-not $AutoloopPath) {
     $AutoloopPath = if ($settings) { $settings.autoloop_path } else { Join-Path $PilotRoot 'runtime' }
 }
@@ -138,6 +141,23 @@ $apiUri = $null
 if (-not [System.Uri]::TryCreate($ApiBase, [System.UriKind]::Absolute, [ref]$apiUri) -or
     $apiUri.Scheme -notin @('http', 'https') -or $apiUri.UserInfo -or $apiUri.Query -or $apiUri.Fragment) {
     throw '-ApiBase 必须是没有账号、查询参数或片段的 HTTP/HTTPS 服务根地址。'
+}
+
+if ($Mode -eq 'Setup') {
+    if (-not (Test-Path -LiteralPath $PilotScript -PathType Leaf)) {
+        throw "找不到项目审核脚本：$PilotScript。请先更新包含审核试验功能的代码。"
+    }
+    if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) { throw "输入文件不存在：$InputPath" }
+    $PythonPath = Find-PythonPath -RequestedPath $PythonPath -RootPath $ProjectPath
+    foreach ($value in @($PythonPath, $PilotScript, $InputPath, $OutputPath, $ApiBase)) {
+        if ($value -match '\{(prompt|model|effort|cwd|context)\}') {
+            throw '路径或服务地址不能包含 Autoloop 的命令占位符。'
+        }
+    }
+    Write-Host '先检查输入与 PPT API；本步骤不会调用模型。'
+    Invoke-Checked -Program $PythonPath -Arguments @(
+        $PilotScript, '--input', $InputPath, '--api-base', $ApiBase, '--check-only'
+    )
 }
 
 $NodePath = Get-ApplicationPath -Name 'node'
@@ -179,20 +199,6 @@ try {
     $entryArguments = @('--disable-warning=ExperimentalWarning', $EntryPath)
 
     if ($Mode -eq 'Setup') {
-        if (-not (Test-Path -LiteralPath $PilotScript -PathType Leaf)) {
-            throw "找不到项目审核脚本：$PilotScript。请先更新包含审核试验功能的代码。"
-        }
-        if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) { throw "输入文件不存在：$InputPath" }
-        $request = Get-Content -LiteralPath $InputPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if (-not $request.PSObject.Properties['brief'] -or -not $request.PSObject.Properties['plan']) {
-            throw '输入 JSON 需要 brief 和 plan，具体格式见 docs/ppt-review-autoloop.md。'
-        }
-        $PythonPath = Find-PythonPath -RequestedPath $PythonPath -RootPath $ProjectPath
-        foreach ($value in @($PythonPath, $PilotScript, $InputPath, $OutputPath, $ApiBase)) {
-            if ($value -match '\{(prompt|model|effort|cwd|context)\}') {
-                throw '路径或服务地址不能包含 Autoloop 的命令占位符。'
-            }
-        }
         $config = $null
         if (Test-Path -LiteralPath $ConfigFile) {
             $config = Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -265,7 +271,7 @@ try {
         Write-Host "配置完成：$RulesFile"
         Write-Host "审核接口根地址：$ApiBase"
         Write-Host "报告基目录：$OutputPath"
-        Write-Host '下一步：在本终端执行相同参数的 -Mode Up，并在另一终端执行 -Mode Run。'
+        Write-Host '下一步：在本终端执行 -Mode Up，并在另一终端执行 -Mode Run；无需重复输入 InputPath。'
         Write-Host '尚未调用模型；API 的认证环境变量如有需要，应在 Up 终端设置。'
         return
     }
@@ -287,17 +293,43 @@ try {
         }
         'Run' {
             if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) { throw "输入文件不存在：$InputPath" }
-            $stateText = & $NodePath @entryArguments status --json
-            if ($LASTEXITCODE -ne 0) { throw '无法读取中台状态，请先在另一终端执行 -Mode Up。' }
-            $state = ($stateText -join "`n") | ConvertFrom-Json
-            $activeRuns = @($state.runs | Where-Object {
-                $_.rule -eq $RuleName -and $_.state -in @('queued', 'claimed', 'unknown')
-            })
-            if ($activeRuns.Count -gt 0) {
-                throw "已有未结束的审核轮次：$(($activeRuns.id) -join ', ')。先查看 Status，不要重复提交。"
+            # A held file handle serializes status + submission across terminals.
+            # Closing the handle releases the guard even after process exit; the
+            # empty file itself is not a stale in-flight marker and need not be deleted.
+            $submitLockPath = Join-Path $StatePath 'submit.lock'
+            try {
+                $submissionGuard = [System.IO.File]::Open(
+                    $submitLockPath, [System.IO.FileMode]::OpenOrCreate,
+                    [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None
+                )
             }
-            $subject = 'pilot-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
-            Invoke-Checked -Program $NodePath -Arguments ($entryArguments + @('run', $RuleName, '--subject', $subject))
+            catch [System.IO.IOException] {
+                throw '另一个终端正在提交本次审核，请稍后用 -Mode Status 查看，不要重复提交。'
+            }
+            try {
+                $stateText = & $NodePath @entryArguments status --json
+                if ($LASTEXITCODE -ne 0) { throw '无法读取中台状态，请先在另一终端执行 -Mode Up。' }
+                $state = ($stateText -join "`n") | ConvertFrom-Json
+                $activeRuns = @($state.runs | Where-Object {
+                    $_.rule -eq $RuleName -and $_.state -in @('queued', 'claimed', 'unknown')
+                })
+                if ($activeRuns.Count -gt 0) {
+                    throw "已有未结束的审核轮次：$(($activeRuns.id) -join ', ')。先查看 Status，不要重复提交。"
+                }
+                $inflightPath = Join-Path $OutputPath 'autoloop-inflight.json'
+                if (Test-Path -LiteralPath $inflightPath) {
+                    throw "上一单仍在运行或结果需要核对，请先查看 $inflightPath 记录的报告和后端状态。不会自动删除该记录。"
+                }
+                Write-Host '提交前检查输入与 PPT API；本步骤不会调用模型。'
+                Invoke-Checked -Program $settings.python_path -Arguments @(
+                    $PilotScript, '--input', $InputPath, '--api-base', $ApiBase, '--check-only'
+                )
+                $subject = 'pilot-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+                Invoke-Checked -Program $NodePath -Arguments ($entryArguments + @('run', $RuleName, '--subject', $subject))
+            }
+            finally {
+                $submissionGuard.Dispose()
+            }
             Write-Host '已提交审核试验。用 -Mode Status 查看进度，并打开本次报告目录中的 comparison.html。'
             Write-Host '中台显示本轮结束，不代表教学内容已通过审核；以 review.json 的结论为准。'
         }

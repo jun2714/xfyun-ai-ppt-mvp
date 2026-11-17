@@ -12,6 +12,81 @@ from services.kindergarten_lesson_planning_service import (
 from api.v1.ppt.endpoints import kindergarten as kindergarten_endpoint
 
 
+def test_planner_captures_exact_document_context_once_for_later_review(monkeypatch):
+    plan = _plan()
+    original = planning_service.ValidatedKindergartenPlanningResult(
+        plan=plan, outline=plan.to_presentation_outline(),
+        quality=planning_service.validate_kindergarten_lesson_plan(plan), attempts=1,
+    )
+    reads, calls = [], []
+
+    async def source(payload):
+        reads.append(payload)
+        return "上传资料的实际正文：围绕两种动物的可见外形开展比较。"
+
+    async def generate(**kwargs):
+        calls.append(kwargs)
+        return original
+
+    async def connected():
+        return False
+
+    monkeypatch.setattr(kindergarten_endpoint, "_planning_source_context", source)
+    monkeypatch.setattr(kindergarten_endpoint, "generate_validated_kindergarten_presentation_outline", generate)
+    monkeypatch.setattr(kindergarten_endpoint, "get_kindergarten_planner_runtime",
+                        lambda: SimpleNamespace(total_timeout_seconds=30, model="fixture"))
+    payload = kindergarten_endpoint.KindergartenLessonPlanRequest(topic="认识森林动物")
+    result = asyncio.run(kindergarten_endpoint._generate_validated_plan(
+        payload, SimpleNamespace(is_disconnected=connected),
+    ))
+    assert len(reads) == len(calls) == 1
+    assert result.source_context == calls[0]["source_context"]
+    assert result.source_context.startswith("上传资料的实际正文")
+    assert original.source_context is None
+    assert result.plan == original.plan
+
+
+def test_reviewable_quality_failure_keeps_the_same_planning_sources(monkeypatch):
+    plan = _plan(reveal_answer="A")
+    report = planning_service.validate_kindergarten_lesson_plan(plan)
+
+    async def source(payload):
+        return "只用本次上传的原始观察记录。"
+
+    async def generate(**kwargs):
+        raise planning_service.KindergartenPlanningQualityError(report, 1, plan)
+
+    async def connected():
+        return False
+
+    monkeypatch.setattr(kindergarten_endpoint, "_planning_source_context", source)
+    monkeypatch.setattr(kindergarten_endpoint, "generate_validated_kindergarten_presentation_outline", generate)
+    monkeypatch.setattr(kindergarten_endpoint, "get_kindergarten_planner_runtime",
+                        lambda: SimpleNamespace(total_timeout_seconds=30, model="fixture"))
+    result = asyncio.run(kindergarten_endpoint._generate_reviewable_plan(
+        kindergarten_endpoint.KindergartenLessonPlanRequest(topic="认识森林动物"),
+        SimpleNamespace(is_disconnected=connected),
+    ))
+    assert result.source_context == "只用本次上传的原始观察记录。"
+    assert result.attempts == 1
+    assert result.plan == plan
+
+
+def test_ai_background_routing_keeps_review_source_context():
+    plan = _plan()
+    result = planning_service.ValidatedKindergartenPlanningResult(
+        plan=plan, outline=plan.to_presentation_outline(),
+        quality=planning_service.validate_kindergarten_lesson_plan(plan), attempts=1,
+        source_context="本次教师提供的观察材料。",
+    )
+    payload = kindergarten_endpoint.KindergartenPresentationCreateRequest(
+        topic=plan.meta.topic, visual_mode="ai-background",
+    )
+    visual, _, _ = kindergarten_endpoint._apply_visual_mode(payload, result)
+    assert visual.source_context == result.source_context
+    assert visual.plan == result.plan
+
+
 @pytest.mark.parametrize("visible_wrong", [True, False])
 def test_conflicting_answers_stop_real_planning_pipeline_without_paid_retry(monkeypatch, visible_wrong):
     plan = _plan(reveal_answer="A")

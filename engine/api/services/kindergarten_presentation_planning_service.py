@@ -30,6 +30,9 @@ class ValidatedKindergartenPlanningResult:
     outline: PresentationOutlineModel
     quality: KindergartenPlanQualityReport
     attempts: int
+    # Exact bounded context sent to the planner, including uploaded documents.
+    # Persist it with the plan so a later reviewer does not invent its sources.
+    source_context: Optional[str] = None
 
 
 class KindergartenPlanningQualityError(ValueError):
@@ -44,6 +47,7 @@ class KindergartenPlanningQualityError(ValueError):
         self.report = report
         self.attempts = attempts
         self.plan = plan
+        self.source_context: Optional[str] = None
         codes = ", ".join(issue.code for issue in report.errors) or "unknown"
         super().__init__(
             f"幼教课堂规划质检失败（模型调用 {attempts} 次）：{codes}"
