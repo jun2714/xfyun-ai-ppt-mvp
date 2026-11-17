@@ -72,7 +72,7 @@ def _scene(prefix, spec, role, count, teacher, *, roomy=False):
         image_box, text_box, cols = ((48, 180, 720, 430), (808, 180, 424, 430), 1)
     elif role == "compare":
         image_box, text_box, cols = (48, 176, 1184, 240), (48, 440, 1184, 176), min(max(count, 1), 3)
-    elif role in {"choice", "question"}:
+    elif role in {"choice", "question", "matching", "classify", "imitate"}:
         image_box, text_box, cols = (48, 186, 660, 420), (756, 186, 476, 420), 1
     elif role == "reveal":
         image_box, text_box, cols = (48, 184, 500, 424), (596, 184, 636, 424), 1

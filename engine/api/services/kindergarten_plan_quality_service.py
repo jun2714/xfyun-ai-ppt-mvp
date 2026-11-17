@@ -44,6 +44,8 @@ CLASSROOM_CONTENT_ERRORS = {
     "answer-key-missing", "options-too-few", "answer-map-missing",
     "sequence-order-missing", "reveal-answer-missing", "options-ambiguous",
     "reveal-visible-answer-mismatch",
+    "card-scenes-duplicated", "matching-answer-already-visible",
+    "observation-identity-missing",
 }
 
 _ANIMAL_STORY_ROLES = (
@@ -239,6 +241,23 @@ def _validate_slide(
                 issues.append(_error(slide, "answer-map-invalid", "配对或分类答案包含空内容、重复对象、不存在的对象或遗漏的题目对象。"))
 
     required_assets = [asset for asset in slide.assets if asset.required]
+    if content_mode == "classroom" and slide.visual_representation == "realistic":
+        from services.teaching_visual_policy import observation_identity_issue
+        identity_issue = observation_identity_issue(required_assets)
+        if identity_issue:
+            issues.append(_error(slide, "observation-identity-missing", identity_issue))
+    bound = [asset for asset in required_assets if asset.audience_text in slide.screen_content.points]
+    from services.teaching_visual_policy import has_conflicting_card_scenes
+    if has_conflicting_card_scenes(bound):
+        issues.append(_error(slide, "card-scenes-duplicated",
+                             "不同图文卡重复了同一段画面描述；每张卡必须只描述自己的对象和动作，不能重复合影。"))
+    if content_mode == "classroom" and slide.slide_type == "matching" and slide.game and slide.game.answer_map:
+        pairs = [(_option_text(slide.game, key), _option_text(slide.game, value))
+                 for key, value in slide.game.answer_map.items()]
+        if all(source != target and any(source in point and target in point
+                                       for point in slide.screen_content.points) for source, target in pairs):
+            issues.append(_error(slide, "matching-answer-already-visible",
+                                 "配对题已把每组正确对应直接写在同一条短句中；应分开呈现候选项，或明确改为教师带领的动作模仿活动。"))
     if slide.slide_type in {
         "knowledge-single",
         "image-observation",

@@ -48,14 +48,29 @@ source_fidelity、visual_brief_alignment，并在 criteria_checked 完整列出�
 例如 screen_content.title、screen_content.points.0、teacher_note、assets.0.description。
 说明原要求/准则 requirement、具体问题 explanation、可执行建议 suggestion，使用唯一 issue_id。
 只对实际存在的问题报 error；可选改进用 warning。不得虚构原文、页码或规则。
+findings只收录需要修改的缺陷，正确内容和“无需修改”的确认不得列入，尤其不得标error。
+同一个根因只报告一次，优先定位出错的配图描述或活动指令，不要把它关联的正确标题、
+正确知识和正常页面一起报错。六项criteria_checked表示六项都检查过，不要求每项都提出问题。
+field_path必须定位字符串叶子；points是数组，必须写screen_content.points.0等具体下标。
+互动审核必须核对屏幕任务、图片可见线索、幼儿动作和反馈是否对应：没有路线/目的地却让找路，
+直接写出全部对应答案却要求配对，或三张单对象卡都描述同一张多人合影，都属于实质性问题。
+认知观察页可采用准确AI写实图，互动页可采用卡通；不能仅因两类页画风不同就报错。
+自然认知内容必须核对具体物种/对象、栖息环境和可识别特征是否一致；“银色海鱼”等泛称
+不能代替物种身份，海水背景不能证明物种属于海洋。后续卡通不能换成另一物种。
+observation_subjects是需要核对的要求，不是来源证明；不可把填写了这些字段等同于已核实。
 classroom 模式检查真实可执行的幼儿观察与活动，跨领域内容应服务同一核心目标；
 training 模式面向教师检查证据、原因、策略与复盘，不应套用幼儿口吻或要求每页做游戏。
-source_fidelity 中涉及必须核实的统计、项目实现、政策原文或资料不足时，source_status=insufficient，
-needs_human=true，并提出需要补充什么；不得用模型记忆冒充已提供的来源。
-仅当原任务必须保留或补入的关键事实无法核实时，才因来源不足阻塞修订。
+先根据brief确定应当保留的内容，再判断保留内容是否缺少必要来源。
+仅当原任务必须保留或补入的关键事实（如统计、项目实现、政策原文）无法核实时，
+才设置source_status=insufficient、needs_human=true，并提出需要补充什么。
+不得用模型记忆冒充已提供的来源。
 对于明确偏离 brief、原要求已经排除且应删除的内容，按偏题或不适龄报告，
 不要为核实这段应删除内容的真伪再要求补充资料；若可直接删除或改回现有资料支持的内容，
 requires_source=false，不得据此宣称被删除的事实已经验证。仍须检查保留内容的来源。
+禁止向用户反问已经明确的要求（例如brief已禁止植物活动，就直接建议替换，
+不能再问是否保留植物活动；已要求4-5岁口头指认，就直接修订超龄书写任务）。
+若现有资料足够支持符合brief的修订，source_status=sufficient、needs_human=false、
+human_questions=[]。不要因为成稿偏题就误判原任务有歧义或资料不足。
 source_status=sufficient 时须引用 source_context 中逐字存在的 source_quotes；
 不依赖外部材料的普通措辞和结构审核可用 not_required，不得把没有来源的特定事实标为已验证。
 visual_brief_alignment 只检查配图描述和教学文字是否对应，不能声称检查过实际图片、排版或导出。
@@ -67,6 +82,9 @@ REVISION_SYSTEM_PROMPT = """你是幼教文稿的定点修订者。只返回指�
 每个 replacement 必须保留 slide_no，并列出所修复的已有 error issue_ids；
 只准修改这些问题所在页，且须实际修改问题引用的字段。不得返回或更改全篇 meta、
 lesson_goals、lesson_arc、页数、页序和未被定位的页面，不得通过删除教学契约掩盖错误。
+必须原样保留每个修改页的slide_type，不要把knowledge-single改成image-observation等近义类型。
+必须保留已有game的type、activity_id，以及每个required图片的slot、required和qa_required。
+修正对象和画面时只修改描述、语义与文案，不要重命名素材槽。允许补全缺失的选项和答案。
 保持未涉及的教学内容、对象与用户原要求。修改后会由另一个全新上下文重新审核，
 你无权把问题改成通过、改评分或替审稿者宣布完成。返回给定 JSON Schema 对象。"""
 
@@ -111,7 +129,7 @@ def _field_value(slide: dict, field_path: str):
     parts = field_path.split(".")
     if not parts or parts[0] not in {
         "screen_content", "teaching_goal", "teacher_note", "assets", "interaction",
-        "game", "slide_type", "layout_capabilities",
+        "game", "slide_type", "layout_capabilities", "visual_representation",
     }:
         raise _InvalidOutput("invalid_evidence_path")
     current = slide
@@ -138,13 +156,36 @@ def _validated_review(payload: dict, plan: KindergartenLessonPlan, source: str |
     if set(report.criteria_checked) != set(REVIEW_CRITERIA):
         raise _InvalidOutput("review_criteria_incomplete")
     slides = {slide.slide_no: slide.model_dump(mode="json") for slide in plan.slides}
+    confirmations = []
     for finding in report.findings:
         if finding.slide_no not in slides:
             raise _InvalidOutput("evidence_slide_missing")
         original = _field_value(slides[finding.slide_no], finding.field_path)
+        if isinstance(original, list):
+            # Resolve only an unambiguous, verbatim quote in a string leaf. Never
+            # fuzzy-match text or guess between two equal points.
+            matches = [i for i, value in enumerate(original)
+                       if isinstance(value, str) and finding.evidence in value]
+            if len(matches) != 1:
+                raise _InvalidOutput("evidence_quote_mismatch")
+            finding.field_path += f".{matches[0]}"
+            original = original[matches[0]]
         if (not isinstance(original, str) or not finding.evidence.strip()
                 or finding.evidence not in original):
             raise _InvalidOutput("evidence_quote_mismatch")
+        if finding.severity == "error" and finding.suggestion.strip().rstrip("。.!！") in {
+            "无需修改", "不需要修改", "保持原样", "无需调整",
+        }:
+            if any(phrase in finding.explanation for phrase in (
+                "不构成问题", "未发现问题", "没有发现问题",
+            )) and not finding.requires_source:
+                # Some providers emit a positive checklist confirmation as an
+                # error. Only the explicit no-defect + no-change combination is
+                # non-actionable; a real defect with no suggested fix still fails.
+                confirmations.append(finding.issue_id)
+            else:
+                raise _InvalidOutput("contradictory_finding")
+    report.findings = [finding for finding in report.findings if finding.issue_id not in confirmations]
     for quotation in report.source_quotes:
         if not source or quotation not in source:
             raise _InvalidOutput("source_quote_mismatch")
@@ -186,7 +227,13 @@ def _apply_replacements(payload: dict, plan: KindergartenLessonPlan, review: Sem
             raise _InvalidOutput("duplicate_revision_issue")
         old = slides[change.slide_no - 1]
         new = change.replacement.model_dump(mode="json")
+        if {old["slide_type"], new["slide_type"]} <= {"knowledge-single", "image-observation"}:
+            # These observational roles share the same hard image requirements.
+            # Keep the original role rather than rejecting useful text because
+            # the model substituted a near-synonymous label.
+            new["slide_type"] = old["slide_type"]
         _protect_teaching_contracts(old, new)
+        changed_evidence = False
         for issue_id in change.issue_ids:
             finding = errors.get(issue_id)
             if finding is None or finding.slide_no != change.slide_no:
@@ -197,8 +244,13 @@ def _apply_replacements(payload: dict, plan: KindergartenLessonPlan, review: Sem
                 after = _field_value(new, finding.field_path)
             except _InvalidOutput:
                 after = None  # Removing an erroneous optional point is an edit.
-            if before == after:
-                raise _InvalidOutput("revision_evidence_field_unchanged")
+            changed_evidence = changed_evidence or before != after
+        # A model may cite two findings with the same underlying defect, one
+        # mistakenly anchored to a correct title. Require a real edit at a cited
+        # location on every target page. Unchanged findings are NOT treated as
+        # resolved here: a fresh review must still show fewer blocking issues.
+        if not changed_evidence:
+            raise _InvalidOutput("revision_evidence_field_unchanged")
         slides[change.slide_no - 1] = new
     candidate = plan.model_dump(mode="json")
     candidate["slides"] = slides

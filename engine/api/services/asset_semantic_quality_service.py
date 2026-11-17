@@ -273,6 +273,7 @@ def _build_quality_prompt(
             "expected_count": expectation.expected_count,
             "role": expectation.role,
             "description": expectation.description,
+            "observation_subjects": [subject.model_dump(mode="json") for subject in expectation.observation_subjects],
         }
         for expectation in expectations
     ]
@@ -282,6 +283,9 @@ def _build_quality_prompt(
         "逐项检查：1) 指定主体/局部特征是否真的可见；2) 非背景主体数量是否符合"
         "expected_count；3) description 中可直接从图片验证的关键特征是否满足。"
         "如果主体被遮挡到无法教学辨认，应判 features_match=false。"
+        "有observation_subjects时，必须逐项比对具体对象的识别特征与环境；不能只因图中有鱼、"
+        "水或珊瑚就认定是指定海洋物种。不确定物种或关键识别特征不可辨时，应判features_match=false"
+        "并说明不确定之处，不要编造另一个物种名称。"
         "检查物种真实结构、身体部件归属与动作是否符合教学描述。人兽融合、器官替换、"
         "用人物合影替代应观察的动物，或无关装饰压过教学主体，应判 features_match=false。"
         "幼儿模仿动物指正常儿童做动作，不是身体变成动物。"

@@ -8,6 +8,7 @@ from models.presentation_outline_model import (
     SlideAssetContract,
     SlideContentContract,
 )
+from services.teaching_visual_policy import REALISTIC_DIRECTION, visual_representation
 
 
 KindergartenVisualMode = Literal["template", "ai-background"]
@@ -178,6 +179,8 @@ def apply_ai_background_visual_plan(
         )
         relationship = contract.relationship or "unknown"
         contract.visual_audience = "teacher" if content_mode == "training" else "child"
+        contract.teaching_domain = contract.teaching_domain or domain
+        page_style = REALISTIC_DIRECTION if visual_representation(contract) == "realistic" else style_bible
         interaction_type = contract.interaction_type or "none"
         title = _visible_slide_title(slide.content, index)
         safe_area = _safe_area_for_slide(index, relationship)
@@ -196,7 +199,7 @@ def apply_ai_background_visual_plan(
         )
         description = (
             f"16:9{'幼儿园教研培训' if content_mode == 'training' else '幼儿园课堂'}全屏背景。"
-            f"统一视觉规范：{style_bible}。"
+            f"本页视觉规范：{page_style}。"
             f"本页场景：{scene}。文字安全区位于{safe_area}侧/区域，安全区必须低细节、"
             "低对比且不得放置关键主体；背景只生成与本页主题一致的场景、人物或物体，不得自行绘制"
             "白色矩形、信息卡、边框、表格、标题栏、文本框或留白占位框；"

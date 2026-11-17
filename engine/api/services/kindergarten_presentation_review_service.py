@@ -110,9 +110,13 @@ def _source_state(row):
             return None, "review_source_unavailable", namespace["unavailable_reason"]
         return None, "review_source_missing", "此课件没有完整的原始教案快照，请使用新生成的幼教大纲进行审核。"
     try:
-        source = make_review_source(raw["brief"], raw["plan"], raw["outline"])
-        if source["source_version"] != raw.get("source_version"):
+        # Verify the bytes-as-data that were originally saved, before model
+        # defaults from a newer schema are added (for example visual direction).
+        saved = {key: raw[key] for key in ("brief", "plan", "outline")}
+        if _digest(saved) != raw.get("source_version"):
             raise ValueError("Source hash mismatch")
+        source = make_review_source(raw["brief"], raw["plan"], raw["outline"])
+        source["source_version"] = raw["source_version"]
     except (KeyError, TypeError, ValueError, ValidationError):
         return None, "review_source_invalid", "已保存的审核源不完整，无法可靠对应当前课件。请重新生成大纲。"
     if source["outline"] != row.outlines:

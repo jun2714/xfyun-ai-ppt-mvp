@@ -117,6 +117,35 @@ def test_default_review_does_not_revise_or_multiply_model_calls():
     assert len(caller.calls) == result.call_attempts == 1
 
 
+def test_array_evidence_resolves_only_a_unique_verbatim_string():
+    result, _ = _run(_request(), _review(_finding(field_path="screen_content.points", evidence="唱歌、跑步")))
+    assert result.status == "needs_revision"
+    assert result.semantic_review.findings[0].field_path == "screen_content.points.0"
+    p = _plan()
+    p.slides[1].screen_content.points *= 2
+    result, _ = _run(_request(p), _review(_finding(field_path="screen_content.points", evidence="唱歌、跑步")))
+    assert result.status == "invalid_output"
+
+
+def test_explicit_positive_confirmation_does_not_hide_real_findings_or_start_revision():
+    confirmation = _finding(
+        "confirmed-shell", slide_no=3, field_path="screen_content.points.0", evidence="海龟有龟壳",
+        explanation="页面正确呈现壳的特征，符合现有来源范围，不构成问题。", suggestion="无需修改。",
+    )
+    result, caller = _run(_request(), _review(confirmation, _finding()))
+    assert result.status == "needs_revision"
+    assert [finding.issue_id for finding in result.semantic_review.findings] == ["topic-1"]
+    assert result.plan == result.original_plan
+    assert len(caller.calls) == 1
+
+
+def test_error_that_explicitly_requires_no_change_cannot_trigger_revision():
+    result, caller = _run(_request(max_revision_rounds=1), _review(_finding(suggestion="无需修改。")))
+    assert result.failure_code == "contradictory_finding"
+    assert len(caller.calls) == 1
+    assert result.plan == result.original_plan
+
+
 @pytest.mark.parametrize("finding,code", [
     (_finding(evidence="不存在的原文"), "evidence_quote_mismatch"),
     (_finding(slide_no=4), "evidence_slide_missing"),
@@ -196,6 +225,30 @@ def test_editing_unrelated_field_cannot_resolve_reported_evidence():
     assert result.status == "revision_rejected"
     assert result.failure_code == "revision_evidence_field_unchanged"
     assert result.call_attempts == 2
+
+
+def test_observation_alias_keeps_original_contract_and_still_runs_fresh_review():
+    plan = _plan()
+    slide = plan.slides[1]
+    slide.slide_type = "knowledge-single"
+    slide.assets = [LessonAssetSpec(slot="animal", semantic_label="完整海龟", description="一只海龟")]
+    patch = _revision(plan=plan, slide_type="image-observation")
+    result, caller = _run(_request(plan,max_revision_rounds=1), _review(_finding()), patch, _review())
+    assert result.status == "passed"
+    assert result.plan.slides[1].slide_type == "knowledge-single"
+    assert result.plan.slides[1].assets == slide.assets
+    assert len(caller.calls) == 3
+
+
+def test_unchanged_related_evidence_is_not_assumed_fixed():
+    title = _finding("title")
+    point = _finding("point",field_path="screen_content.points.0",evidence="唱歌、跑步、画画都学一下")
+    patch = _revision(issue_ids=["title","point"])
+    result, caller = _run(_request(max_revision_rounds=1), _review(title,point), patch, _review(point))
+    assert result.status == "max_rounds_reached"
+    assert result.rounds_completed == 1
+    assert [finding.issue_id for finding in result.semantic_review.findings] == ["point"]
+    assert len(caller.calls) == 3
 
 
 def test_new_deterministic_error_rejects_revision_before_adoption():

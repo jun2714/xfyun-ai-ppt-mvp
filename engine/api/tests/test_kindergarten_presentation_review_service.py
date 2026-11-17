@@ -180,6 +180,31 @@ def test_source_hash_is_canonical_and_patch_cannot_forge_or_delete_namespace():
     assert service.REVIEW_THEME_KEY not in service.preserve_review_metadata({}, {service.REVIEW_THEME_KEY: {"source": "forged"}})
 
 
+def test_saved_source_before_visual_fields_can_be_reviewed_and_applied(tmp_path):
+    async def run():
+        async with _database(tmp_path) as db:
+            row = await db.row()
+            raw = row.theme[service.REVIEW_THEME_KEY]["source"]
+            for slide in raw["plan"]["slides"]:
+                slide.pop("visual_representation")
+            for slide in raw["outline"]["slides"]:
+                slide["content_contract"].pop("visual_representation")
+                slide["content_contract"].pop("teaching_domain")
+            raw["source_version"] = service._digest({key: raw[key] for key in ("brief","plan","outline")})
+            await db.mutate(theme=row.theme, outlines=raw["outline"])
+            db.source = raw
+            reviewed = await _review_and_revision(db)
+            assert reviewed.can_apply
+            async with db.session() as session:
+                applied = await service.apply_review(session, db.id, {
+                    "review_id": reviewed.review_id, "source_version": raw["source_version"],
+                })
+            assert applied.outlines.slides[1].content.startswith("观察海龟与海豚")
+            # New defaults do not silently rewrite untouched old outline pages.
+            assert (await db.row()).outlines["slides"][0] == raw["outline"]["slides"][0]
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize("changes", [{"max_revision_rounds": 3}, {"max_model_calls": 6},
                                       {"timeout_seconds": 601}, {"plan": {}}])
 def test_review_request_has_bounded_server_owned_inputs(changes):

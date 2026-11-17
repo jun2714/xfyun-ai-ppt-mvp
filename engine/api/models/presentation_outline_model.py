@@ -5,6 +5,26 @@ from constants.presentation import MAX_NUMBER_OF_SLIDES, MAX_OUTLINE_CONTENT_WOR
 from utils.outline_limits import normalize_outline_content
 
 
+class ObservationSubject(BaseModel):
+    """Identification requirements, not a claim of verified image accuracy."""
+
+    name: str = Field(min_length=1, max_length=160)
+    environment: str = Field(min_length=1, max_length=200)
+    distinguishing_features: List[str] = Field(min_length=1, max_length=6)
+
+    @field_validator("name", "environment", mode="before")
+    @classmethod
+    def strip_identity(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("distinguishing_features")
+    @classmethod
+    def bounded_features(cls, values):
+        if any(not value.strip() or len(value) > 200 for value in values):
+            raise ValueError("观察特征必须明确、非空且不超过200字。")
+        return [value.strip() for value in values]
+
+
 class SlideAssetContract(BaseModel):
     """Hidden requirements for one planned visual asset.
 
@@ -21,6 +41,7 @@ class SlideAssetContract(BaseModel):
     qa_required: bool = True
     # Explicit semantic binding, not an ordinal image-slot assignment.
     audience_text: Optional[str] = Field(default=None, max_length=160)
+    observation_subjects: List[ObservationSubject] = Field(default_factory=list, max_length=6)
 
     @field_validator("planning_slot", "semantic_label", mode="before")
     @classmethod
@@ -32,6 +53,8 @@ class SlideAssetContract(BaseModel):
 
 class SlideContentContract(BaseModel):
     visual_audience: Literal["child", "teacher"] = "child"
+    visual_representation: Literal["auto", "realistic", "illustration"] = "auto"
+    teaching_domain: str | None = None
     relationship: Literal[
         "single",
         "multi-item",

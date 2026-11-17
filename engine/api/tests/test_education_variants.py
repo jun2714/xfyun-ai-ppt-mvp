@@ -31,7 +31,7 @@ def _outline(template_id, count, cards=False):
     title = "从观察记录找到支持策略" if teacher else "小种子的新发现"
     cue = "讨论：下一次可以怎样支持？" if teacher else "说一说：你发现了什么？"
     assets = [dict(planning_slot=str(i), semantic_label=f"观察画面{i}",
-                   description="花园里的观察活动", audience_text=point)
+                   description=f"花园观察画面{i}，只呈现本卡的发现：{point}", audience_text=point)
               for i, point in reversed(list(enumerate(points)))] if cards else []
     contract = SlideContentContract(
         preserve_visible_copy=True, screen_title=title, screen_points=points,

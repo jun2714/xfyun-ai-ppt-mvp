@@ -99,6 +99,19 @@ def test_domain_style_bible_changes_with_teaching_domain():
     assert "故事" in language
 
 
+def test_scientific_background_preserves_per_page_realism():
+    source = _outline()
+    source.slides[0].content_contract.classroom_role = "image-observation"
+    planned = apply_ai_background_visual_plan(source,topic="动物外形",domain="science")
+    first = planned.slides[0].content_contract.asset_contracts[0].description
+    second = planned.slides[1].content_contract.asset_contracts[0].description
+    assert "AI生成的自然写实" in first
+    assert "清新自然儿童绘本插画" not in first
+    assert "清新自然儿童绘本插画" in second
+    assert "AI生成的自然写实" not in second
+    assert source.slides[0].content_contract.teaching_domain is None
+
+
 def test_long_training_topic_uses_short_semantic_and_professional_visuals():
     planned = apply_ai_background_visual_plan(
         _outline(),

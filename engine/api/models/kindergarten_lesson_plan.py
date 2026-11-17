@@ -5,6 +5,7 @@ from typing import Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from models.presentation_outline_model import (
+    ObservationSubject,
     PresentationOutlineModel,
     SlideAssetContract,
     SlideContentContract,
@@ -96,6 +97,10 @@ class LessonAssetSpec(BaseModel):
     expected_count: int = Field(default=1, ge=1, le=12)
     role: Literal["background", "framed-image", "cutout"] = "framed-image"
     qa_required: bool = True
+    observation_subjects: List[ObservationSubject] = Field(
+        default_factory=list, max_length=6,
+        description="For realistic observation images: concrete subject/species, its environment and distinguishing visible features. Reuse the same identity in later cartoon activities. These are requirements, not verified facts.",
+    )
     audience_text: Optional[str] = Field(
         default=None, max_length=160,
         description="Exact screen_content.points phrase illustrated by this asset. Never use list position to guess the binding. Omit for a whole-scene image.",
@@ -138,6 +143,9 @@ class LessonGameSpec(BaseModel):
 class KindergartenSlidePlan(BaseModel):
     slide_no: int = Field(ge=1, le=100)
     slide_type: KindergartenSlideType
+    visual_representation: Literal["auto", "realistic", "illustration"] = Field(
+        default="auto", description="realistic: accurate AI naturalistic observation image; illustration: cartoon activity image. Choose per page, not per deck.",
+    )
     teaching_goal: str = Field(min_length=1, max_length=300)
     screen_content: ScreenContent
     interaction: LessonInteraction = Field(default_factory=LessonInteraction)
@@ -190,6 +198,8 @@ class KindergartenLessonPlan(BaseModel):
                 SlideOutlineModel(
                     content="\n".join(visible_lines),
                     content_contract=SlideContentContract(
+                        visual_representation=slide.visual_representation,
+                        teaching_domain=self.meta.domain,
                         relationship=relationship,
                         item_count=_item_count_for_slide(slide),
                         requires_images=bool(required_semantics),
@@ -219,6 +229,7 @@ class KindergartenLessonPlan(BaseModel):
                                 role=asset.role,
                                 qa_required=asset.qa_required,
                                 audience_text=asset.audience_text,
+                                observation_subjects=asset.observation_subjects,
                             )
                             for asset in required_assets
                         ],

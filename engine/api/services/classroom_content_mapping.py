@@ -3,6 +3,9 @@ import re
 
 from templates.kindergarten_classroom import CLASSROOM_LAYOUT_PREFIX
 from utils.template_text_capacity import locked_text_fits_field
+from services.teaching_visual_policy import (
+    REALISTIC_DIRECTION, has_conflicting_card_scenes, observation_identity_issue, visual_representation,
+)
 
 
 def _lines(content):
@@ -72,8 +75,12 @@ def _image_value(schema, prompt):
     return result
 
 
-def _prompt(assets, title, points, *, training=False, template_style=None):
+def _prompt(assets, title, points, *, training=False, template_style=None, representation="illustration", card=False):
     subjects = "；".join(f"{a.semantic_label}：{a.description or ''}" for a in assets)
+    identities = "；".join(
+        f"指定对象：{subject.name}；生活/观察环境：{subject.environment}；必须可见的识别特征：{'、'.join(subject.distinguishing_features)}"
+        for asset in assets for subject in asset.observation_subjects
+    )
     custom_style = template_style.strip() if isinstance(template_style, str) else ""
     if training:
         from services.research_ppt_generation_context import research_ppt_image_options
@@ -85,6 +92,8 @@ def _prompt(assets, title, points, *, training=False, template_style=None):
         )
         if research_ppt_image_options.get().forbid_latin_text:
             style += "禁止英文、拉丁字母、拼音和任何图内标签。"
+    elif representation == "realistic":
+        style = REALISTIC_DIRECTION
     else:
         style = "统一二维儿童绘本；" + (
             custom_style or "柔和水粉和彩铅，奶油白、薄荷绿、暖珊瑚配色。"
@@ -92,13 +101,16 @@ def _prompt(assets, title, points, *, training=False, template_style=None):
     return (
         f"本页教学主题仅供理解画面，不得把主题绘制成文字：{title}。"
         f"必须看到的教学对象与动作：{subjects or title}。"
-        f"仅用于理解教学关系的文案（不作为图内文字）：{'；'.join(points)}。"
+        + (f"对象身份约束（不可用其他物种替换）：{identities}。" if identities else "")
+        + f"仅用于理解教学关系的文案（不作为图内文字）：{'；'.join(points)}。"
         f"{style}"
         "以本页对象及其真实生活环境决定场景，模板配色不是物种或背景要求。"
         "科学观察中的动物保持真实身体结构和完整轮廓；模仿动作不意味着人兽融合。"
         "未要求人物时无需添加教师或儿童合影。各主体间留出间隔，四周留足安全边距。"
         "主体完整、特征准确、背景简洁；明确要求局部猜谜时只展示约定线索。"
-        "不要摄影、3D、文字、字母、数字、标签或水印。"
+        + ("这是一个独立教学卡片，只画上面指定的对象和动作，不画全班合影、其他卡片内容或共同舞台。" if card else "")
+        + ("不要3D、文字、字母、数字、标签或水印。" if representation == "realistic" else
+           "不要摄影、3D、文字、字母、数字、标签或水印。")
     )
 
 
@@ -129,12 +141,19 @@ def build_classroom_content(schema, outline):
         raise ValueError("不是课堂专用版式。")
     title, points, cue, unchanged = screen_roles(outline)
     contract = outline.content_contract
+    representation = visual_representation(contract) if unchanged and not training else "illustration"
+    if unchanged and not training and contract.visual_representation == "realistic":
+        issue = observation_identity_issue(contract.asset_contracts)
+        if issue:
+            raise ValueError(issue)
     cards = layout_id.startswith("classroom_cards_")
     bound = _bound_assets(contract, points) if cards else []
     if cards and not bound:
         raise ValueError("图文卡缺少明确的一对一语义绑定，不能按图片顺序猜测配对。")
     if cards and not unchanged:
         raise ValueError("大纲已修改，请重新匹配课堂版式，不能沿用旧图文卡绑定。")
+    if cards and has_conflicting_card_scenes(bound):
+        raise ValueError("独立图文卡重复使用同一段画面描述，请逐张明确自己的对象与动作，不能把合影重复配给不同短句。")
     if layout_id == "classroom_cover" and len(points) != 2:
         raise ValueError("课堂封面必须包含活动目标和使用类型两项信息。")
     if layout_id != "classroom_cover" and int(layout_id.rsplit("_", 1)[-1]) != len(points):
@@ -154,7 +173,7 @@ def build_classroom_content(schema, outline):
                 index = int(component.split("_")[-1])
                 value = (points[index] if key == "text" else
                          _image_value(field, _prompt([bound[index]], points[index], [points[index]], training=training,
-                                                     template_style=field.get("x-image-style"))))
+                                                     template_style=field.get("x-image-style"), representation=representation, card=True)))
             elif component == "scene" and key == "visual":
                 # Edited content supersedes stale asset instructions in scene mode.
                 image_prompt = (
@@ -162,7 +181,7 @@ def build_classroom_content(schema, outline):
                                   training=training, template_style=field.get("x-image-style"))
                     if layout_id == "classroom_cover" else
                     _prompt(contract.asset_contracts if unchanged else [], title, points,
-                            training=training, template_style=field.get("x-image-style"))
+                            training=training, template_style=field.get("x-image-style"), representation=representation)
                 )
                 value = _image_value(field, image_prompt)
             else:
@@ -173,6 +192,7 @@ def build_classroom_content(schema, outline):
         result[component] = values
     metadata = contract.model_dump(mode="json")
     metadata["visual_audience"] = "teacher" if training else "child"
+    metadata["visual_representation"] = representation
     if contract.classroom_role in {"guess-shadow", "guess-partial"}:
         concealment = ("只展示主体剪影，不显示内部纹理或完整彩色答案。"
                        if contract.classroom_role == "guess-shadow" else

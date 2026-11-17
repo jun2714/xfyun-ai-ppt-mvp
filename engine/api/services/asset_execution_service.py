@@ -56,6 +56,9 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
         # Cover typography is native even for English lessons. Do not override
         # the chosen template palette with the generic classroom/research style.
         return " 保持上述模板配色与无字构图；禁止任何语言的文字、伪文字、标签和水印。"
+    if item.slots and not _is_teacher_visual(item) and all(slot.visual_representation == "realistic" for slot in item.slots):
+        from services.teaching_visual_policy import REALISTIC_DIRECTION
+        return " " + REALISTIC_DIRECTION + "禁止文字、字母、数字和水印。"
     if _is_teacher_visual(item):
         from services.research_ppt_generation_context import research_ppt_image_options
 
@@ -74,7 +77,7 @@ def _kindergarten_visual_direction(item: AssetPlanItem) -> str:
         return ""
     return (
         " Use one consistent 2D children's picture-book illustration style across the "
-        "whole deck: preserve the selected template medium and palette, while keeping "
+        "activity pages: preserve the selected template medium and palette, while keeping "
         "the subject's natural colors. Make it bright and imaginative for ages 3-6, "
         "with clearly recognizable teaching subjects. Include people only when the "
         "asset requests them. Never merge human bodies with animal parts; classroom "
@@ -163,6 +166,13 @@ def _framing_direction(slot: AssetSlotRequest) -> str:
 
 def _request_prompt(item: AssetPlanItem) -> str:
     kindergarten_direction = _kindergarten_visual_direction(item)
+    identities = sorted({
+        f"指定对象：{subject.name}；生活/观察环境：{subject.environment}；识别特征：{'、'.join(subject.distinguishing_features)}"
+        for slot in item.slots for expectation in slot.semantic_expectations
+        for subject in expectation.observation_subjects
+    })
+    if identities:
+        kindergarten_direction += " 对象身份必须符合以下要求，不能用背景代替物种识别：" + "；".join(identities) + "。"
     teacher = _is_teacher_visual(item)
     if item.generation_mode == "sprite-sheet":
         if teacher:
@@ -274,7 +284,7 @@ def _quality_expectations(
 ) -> tuple[AssetSemanticExpectation, ...]:
     """Return unique QA-required contracts for images shared by several slots."""
     unique: dict[
-        tuple[str, str, str, int, str], AssetSemanticExpectation
+        tuple[str, str, str, int, str, tuple[str, ...]], AssetSemanticExpectation
     ] = {}
     for slot in slots:
         for expectation in slot.semantic_expectations:
@@ -286,6 +296,7 @@ def _quality_expectations(
                 (expectation.description or "").strip().casefold(),
                 expectation.expected_count,
                 expectation.role,
+                tuple(subject.model_dump_json() for subject in expectation.observation_subjects),
             )
             unique.setdefault(key, expectation)
     return tuple(unique.values())

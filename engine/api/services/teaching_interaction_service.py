@@ -4,7 +4,8 @@ from services.classroom_content_mapping import screen_roles
 
 ROLE_LABELS = {"observe": "观察发现", "compare": "对比观察", "choice": "做出选择",
                "sequence": "排列顺序", "question": "先想一想", "reveal": "揭晓发现",
-               "recap": "回顾分享", "discuss": "交流研讨"}
+               "recap": "回顾分享", "discuss": "交流研讨", "imitate": "动作模仿",
+               "matching": "找找对应", "classify": "分类探索"}
 
 
 def teaching_page_role(outline):
@@ -27,7 +28,13 @@ def teaching_page_role(outline):
         return "compare"
     if role in {"recap", "ending-scene"} or contract.interaction_type == "recall":
         return "recap"
-    if contract.interaction_type in {"choose", "classify", "match"}:
+    if contract.interaction_type == "match":
+        return "matching"
+    if contract.interaction_type == "classify":
+        return "classify"
+    if contract.interaction_type in {"imitate", "move"}:
+        return "imitate"
+    if contract.interaction_type == "choose":
         return "choice"
     if contract.interaction_type == "discuss":
         return "discuss"
@@ -47,6 +54,9 @@ def interaction_speaker_notes(outline):
         "reveal": "与前面的猜想对照，说明答案依据。",
         "recap": "邀请参与者用自己的话回顾发现，联系本次目标。",
         "discuss": "先个人思考，再小组交流，区分观察事实与推断。",
+        "imitate": "教师指向一个明确对象并示范动作，幼儿原地模仿，再说出哪个部位怎样动。",
+        "matching": "先分别观察待配对象和候选项，幼儿指认对应，再由教师核对；不把已写出的答案当作选择任务。",
+        "classify": "先说明分类依据，幼儿指认或用实体卡片分组，再交流理由。",
     }
     contract = outline.content_contract
     lines = ["互动组织：" + guidance[role]]
