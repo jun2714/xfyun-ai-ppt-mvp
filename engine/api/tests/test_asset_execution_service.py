@@ -15,6 +15,7 @@ from services.asset_semantic_quality_service import (
 
 @pytest.fixture(autouse=True)
 def _local_asset_storage(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSET_SEMANTIC_QA_ENABLED", "true")
     monkeypatch.setenv("APP_DATA_DIRECTORY", str(tmp_path / "app-data"))
     monkeypatch.setenv("ALIYUN_OSS_ENABLED", "false")
 
@@ -212,6 +213,36 @@ def _valid_cutout_source(path):
     image = Image.new("RGB", (600, 600), "white")
     ImageDraw.Draw(image).ellipse((160, 120, 440, 480), fill="red")
     image.save(path)
+
+
+@pytest.mark.parametrize("require_quality", [False, True])
+def test_qa_disabled_twelve_image_requests_make_twelve_calls(tmp_path, monkeypatch, require_quality):
+    # Covers initial generation and repair's require_semantic_quality=True.
+    monkeypatch.delenv("ASSET_SEMANTIC_QA_ENABLED")
+    monkeypatch.setenv("ASSET_SEMANTIC_QA_PROVIDER", "dmx")
+    from unittest.mock import Mock
+    builder = Mock(side_effect=AssertionError("Disabled QA must not create a client"))
+    monkeypatch.setattr(asset_execution_service, "build_default_asset_semantic_quality_service", builder)
+    source = tmp_path / "scene.png"
+    Image.new("RGB", (600, 600), "green").save(source)
+    traces = []
+    async def record(trace):
+        traces.append(trace)
+    monkeypatch.setattr(asset_execution_service, "record_asset_generation_trace", record)
+    slides = [_cutout_slide(index=i, prompt=f"Independent scene {i}",
+                           semantic_label=f"Scene {i}", with_semantic_contract=True) for i in range(12)]
+    for slide in slides:
+        slide.ui['components'][0]['elements'][0].update(asset_role='framed-image', asset_mode='composite-image')
+    provider = FakeImageService(tmp_path, [source] * 12)
+    rejecting_quality = FakeSemanticQualityService([False] * 24)
+    _, plan = asyncio.run(asset_execution_service.process_presentation_assets(
+        provider, slides, semantic_quality_service=rejecting_quality,
+        require_semantic_quality=require_quality))
+    assert len(plan) == provider.calls == len(traces) == 12
+    assert rejecting_quality.calls == []
+    builder.assert_not_called()
+    assert all(trace.status == 'succeeded' and not trace.retry_of for trace in traces)
+    assert all(slide.content['main']['subject'].get('image_url') for slide in slides)
 
 
 def test_semantic_qa_retries_only_failed_asset_and_accepts_null_description(

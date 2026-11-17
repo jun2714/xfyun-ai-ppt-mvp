@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import copy
 from datetime import datetime
 import json
@@ -2489,6 +2490,18 @@ async def _stream_smart_presentation(
     )
 
 
+@asynccontextmanager
+async def _asset_generation_job(coroutine):
+    """A cancelled/closed slide stream must not leave paid image work running."""
+    task = asyncio.create_task(coroutine)
+    try:
+        yield task
+    finally:
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
 @PRESENTATION_ROUTER.get("/stream/{id}", response_model=PresentationWithSlides)
 async def stream_presentation(
     id: uuid.UUID, sql_session: AsyncSession = Depends(get_async_session)
@@ -2615,35 +2628,35 @@ async def stream_presentation(
                     await persist_asset_checkpoint(slides, assets)
                     await asset_events.put(copy.deepcopy(slides))
 
-                asset_task = asyncio.create_task(
+                async with _asset_generation_job(
                     process_presentation_assets(
                         image_generation_service,
                         slides,
                         presentation_id=id,
                         on_item_completed=checkpoint,
                     )
-                )
-                while not asset_task.done() or not asset_events.empty():
-                    try:
-                        checkpoint_slides = await asyncio.wait_for(
-                            asset_events.get(), timeout=5
-                        )
-                    except asyncio.TimeoutError:
-                        yield SSEStatusResponse(status="正在生成图片").to_string()
-                        continue
-                    for slide in checkpoint_slides:
-                        yield SSEResponse(
-                            event="response",
-                            data=json.dumps(
-                                {
-                                    "type": "slide_assets",
-                                    "slide_index": slide.index,
-                                    "slide": slide.model_dump(mode="json"),
-                                    "warnings": [],
-                                }
-                            ),
-                        ).to_string()
-                generated_assets, _asset_plan = await asset_task
+                ) as asset_task:
+                    while not asset_task.done() or not asset_events.empty():
+                        try:
+                            checkpoint_slides = await asyncio.wait_for(
+                                asset_events.get(), timeout=5
+                            )
+                        except asyncio.TimeoutError:
+                            yield SSEStatusResponse(status="正在生成图片").to_string()
+                            continue
+                        for slide in checkpoint_slides:
+                            yield SSEResponse(
+                                event="response",
+                                data=json.dumps(
+                                    {
+                                        "type": "slide_assets",
+                                        "slide_index": slide.index,
+                                        "slide": slide.model_dump(mode="json"),
+                                        "warnings": [],
+                                    }
+                                ),
+                            ).to_string()
+                    generated_assets, _asset_plan = await asset_task
 
             if pending_icon_assets:
                 icon_asset_lists = await asyncio.gather(
@@ -2828,35 +2841,35 @@ async def stream_presentation(
                 await persist_asset_checkpoint(slides, assets)
                 await asset_events.put(copy.deepcopy(slides))
 
-            asset_task = asyncio.create_task(
+            async with _asset_generation_job(
                 process_presentation_assets(
                     image_generation_service,
                     slides,
                     presentation_id=id,
                     on_item_completed=checkpoint,
                 )
-            )
-            while not asset_task.done() or not asset_events.empty():
-                try:
-                    checkpoint_slides = await asyncio.wait_for(
-                        asset_events.get(), timeout=5
-                    )
-                except asyncio.TimeoutError:
-                    yield SSEStatusResponse(status="正在生成图片").to_string()
-                    continue
-                for slide in checkpoint_slides:
-                    yield SSEResponse(
-                        event="response",
-                        data=json.dumps(
-                            {
-                                "type": "slide_assets",
-                                "slide_index": slide.index,
-                                "slide": slide.model_dump(mode="json"),
-                                "warnings": [],
-                            }
-                        ),
-                    ).to_string()
-            generated_assets, _asset_plan = await asset_task
+            ) as asset_task:
+                while not asset_task.done() or not asset_events.empty():
+                    try:
+                        checkpoint_slides = await asyncio.wait_for(
+                            asset_events.get(), timeout=5
+                        )
+                    except asyncio.TimeoutError:
+                        yield SSEStatusResponse(status="正在生成图片").to_string()
+                        continue
+                    for slide in checkpoint_slides:
+                        yield SSEResponse(
+                            event="response",
+                            data=json.dumps(
+                                {
+                                    "type": "slide_assets",
+                                    "slide_index": slide.index,
+                                    "slide": slide.model_dump(mode="json"),
+                                    "warnings": [],
+                                }
+                            ),
+                        ).to_string()
+                generated_assets, _asset_plan = await asset_task
 
         # Icons remain local/search assets and are resolved independently from
         # the paid whole-deck image plan.

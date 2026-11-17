@@ -118,7 +118,9 @@ def _scope_owned_selects(execute_state) -> None:
         statement = statement.options(
             with_loader_criteria(
                 model,
-                lambda row, owned_id=owner_id: row.owner_id == owned_id,
+                # Default arguments in a cached SQLAlchemy lambda retain the
+                # first request's owner. Bind a fresh value for every query.
+                model.owner_id == owner_id,
                 include_aliases=True,
             )
         )
@@ -126,9 +128,9 @@ def _scope_owned_selects(execute_state) -> None:
         statement = statement.options(
             with_loader_criteria(
                 TemplateV2,
-                lambda row, owned_id=owner_id: or_(
-                    row.owner_id == owned_id,
-                    row.is_default.is_(True),
+                or_(
+                    TemplateV2.owner_id == owner_id,
+                    TemplateV2.is_default.is_(True),
                 ),
                 include_aliases=True,
             )

@@ -79,6 +79,8 @@ def test_background_provider_error_keeps_saved_pages_and_does_not_replay(monkeyp
             assert consume.await_count == 1 and prepare.await_count == 1
             async with sessions() as session:
                 saved = await session.get(AsyncTaskModel, task_id)
+                deck = await session.get(PresentationModel, deck_id)
+                assert deck.theme['kindergarten_generation']['research_task_id'] == str(task_id)
                 assert saved.status == AsyncTaskStatus.COMPLETED
                 assert saved.data['stage'] == 'completed_with_warnings'
                 assert saved.data['has_warnings'] is True

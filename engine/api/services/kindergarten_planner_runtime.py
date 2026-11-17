@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 from llmai.shared import ClientConfig, OpenAIClientConfig
@@ -81,7 +82,7 @@ def _normalize_planner_model(model: str | None) -> str:
     return candidate
 
 
-def _planner_request_extra_body(model: str) -> dict | None:
+def _planner_request_extra_body(model: str, config: ClientConfig) -> dict | None:
     if not _is_deepseek_model(model):
         return None
 
@@ -101,6 +102,17 @@ def _planner_request_extra_body(model: str) -> dict | None:
         )
 
     body: dict = {"thinking": {"type": thinking}}
+    hostname = urlsplit(str(getattr(config, "base_url", "") or "")).hostname or ""
+    is_dmx = any(
+        hostname == domain or hostname.endswith("." + domain)
+        for domain in ("dmxapi.cn", "dmxapi.com")
+    )
+    if thinking == "disabled" and is_dmx:
+        # DMX's DeepSeek route still emits reasoning with thinking.type alone.
+        # Its OpenAI-compatible switch is reasoning_effort=none (verified against
+        # the streaming endpoint). Do not send this gateway-specific value to
+        # native DeepSeek or other dedicated providers.
+        body["reasoning_effort"] = "none"
     if thinking == "enabled":
         effort = (
             os.getenv("KINDERGARTEN_PLANNER_DEEPSEEK_REASONING_EFFORT") or "high"
@@ -147,7 +159,7 @@ def _build_runtime(
             model=model,
             source=source,
             profile=profile,
-            request_extra_body=_planner_request_extra_body(model),
+            request_extra_body=_planner_request_extra_body(model, config),
             max_tokens=_positive_number_env(
                 "KINDERGARTEN_PLANNER_FAST_MAX_TOKENS",
                 str(FAST_MAX_TOKENS),
@@ -168,7 +180,7 @@ def _build_runtime(
         model=model,
         source=source,
         profile=profile,
-        request_extra_body=_planner_request_extra_body(model),
+        request_extra_body=_planner_request_extra_body(model, config),
         max_tokens=_positive_number_env(
             "KINDERGARTEN_PLANNER_MAX_TOKENS",
             "32768",

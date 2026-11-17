@@ -1180,11 +1180,13 @@ async def _inspect_persisted_visible_slides(
         structural_error = "课件页已创建但没有可见正文，请重新生成"
 
     missing_pages: list[int] = []
-    from services.asset_planning_service import build_asset_plan
+    from services.asset_planning_service import extract_asset_slots
     presentation = await sql_session.get(PresentationModel, presentation_id)
     if rows and (presentation is None or presentation.image_policy != ImagePolicy.DISABLED):
-        pending = build_asset_plan(rows)
-        missing_pages = sorted({slot.slide_index + 1 for item in pending for slot in item.slots})
+        # Failed slots are blocked from automatic regeneration, but must still
+        # appear in the completion report and manual repair prompt.
+        pending = extract_asset_slots(rows, include_blocked=True)
+        missing_pages = sorted({slot.slide_index + 1 for slot in pending})
     warnings = []
     if missing_pages:
         warnings.append(
@@ -1335,7 +1337,23 @@ async def _run_kindergarten_complete_task(
                     _AlwaysConnectedRequest(),  # type: ignore[arg-type]
                     sql_session,
                 )
+                # Planning can finish after the user has cancelled in another
+                # request. Never write the stale pending task back over cancel.
+                sql_session.expire_all()
+                task = await sql_session.get(AsyncTaskModel, task_id)
+                if task is None or not complete_task_progress_writable(task.status):
+                    raise CompleteTaskCancelled()
                 n_slides = len(prepared.outline.slides)
+                # Expose the owning research task alongside the internal deck
+                # task, so history recovery restores one card and its origin.
+                presentation = await sql_session.get(PresentationModel, prepared.presentation_id)
+                if presentation is not None:
+                    theme = dict(presentation.theme or {})
+                    generation = dict(theme.get("kindergarten_generation") or {})
+                    generation["research_task_id"] = str(task_id)
+                    theme["kindergarten_generation"] = generation
+                    presentation.theme = theme
+                    sql_session.add(presentation)
                 task.message = "大纲已自动确认，正在生成课件页"
                 task.data = kindergarten_complete_task_data(
                     topic=payload.topic,
@@ -1576,6 +1594,25 @@ async def cancel_kindergarten_presentation_complete(
             previous=data,
         )
         await _save_complete_task(sql_session, task)
+    data = task.data if isinstance(task.data, dict) else {}
+    presentation_id = data.get("presentation_id")
+    if presentation_id:
+        deck = await sql_session.get(PresentationModel, uuid.UUID(str(presentation_id)))
+        generation = (deck.theme or {}).get("kindergarten_generation", {}) if deck else {}
+        # A child row can exist before its ID is copied into the deck theme.
+        # Include that creation window; metadata alone misses a fast cancel.
+        from services.prepared_deck_generation import (
+            ASYNC_TASK_TYPE_DECK_GENERATE, cancel_prepared_deck_job,
+        )
+        children = list(await sql_session.scalars(select(AsyncTaskModel).where(
+            AsyncTaskModel.type == ASYNC_TASK_TYPE_DECK_GENERATE,
+            AsyncTaskModel.data["presentation_id"].as_string() == str(presentation_id),
+        )))
+        child_ids = {child.id for child in children}
+        if generation.get("deck_task_id"):
+            child_ids.add(str(generation["deck_task_id"]))
+        for child_id in child_ids:
+            await cancel_prepared_deck_job(child_id)
     return task
 
 

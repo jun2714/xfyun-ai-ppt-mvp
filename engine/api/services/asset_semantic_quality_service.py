@@ -169,6 +169,15 @@ class VisionAssetSemanticQualityService:
         return AssetSemanticQualityResult.model_validate(json.loads(response.text or "{}"))
 
 
+def is_asset_semantic_qa_enabled() -> bool:
+    # Temporarily opt-in while the custom visual-quality rules are calibrated.
+    # Existing deployments with PROVIDER=auto/dmx must not silently re-enable
+    # rejection and paid redraws. Provider moderation/authentication is unchanged.
+    return os.getenv("ASSET_SEMANTIC_QA_ENABLED", "false").strip().casefold() in {
+        "true", "1", "yes", "on",
+    }
+
+
 def build_default_asset_semantic_quality_service(
 ) -> AssetSemanticQualityService | None:
     """Create visual QA only when a supported vision provider is configured.
@@ -179,6 +188,8 @@ def build_default_asset_semantic_quality_service(
     for the small JSON vision check; the multi-minute K3 reasoning model is not a
     suitable per-image default.
     """
+    if not is_asset_semantic_qa_enabled():
+        return None
     requested = (os.getenv("ASSET_SEMANTIC_QA_PROVIDER") or "auto").strip().casefold()
     if requested in {"off", "disabled", "none", "0", "false"}:
         return None

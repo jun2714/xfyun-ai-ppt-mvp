@@ -57,7 +57,7 @@ def test_fast_profile_ignores_stale_kimi_model(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
-    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}, "reasoning_effort": "none"}
     assert runtime.max_tokens == 16000
     assert runtime.timeout_seconds == 180
     assert runtime.total_timeout_seconds == 420
@@ -76,7 +76,7 @@ def test_planner_runtime_defaults_to_deepseek_with_only_dmx_key(monkeypatch):
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.profile == "fast"
-    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}, "reasoning_effort": "none"}
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
@@ -118,7 +118,7 @@ def test_stale_moonshot_url_and_kimi_model_are_ignored_with_shared_dmx(monkeypat
 
     assert runtime.source == "shared-dmx-openai-compatible"
     assert runtime.model == "deepseek-v4-pro-0813"
-    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}, "reasoning_effort": "none"}
     assert runtime.config.api_key == "shared-dmx-key"
     assert str(runtime.config.base_url).rstrip("/") == "https://www.dmxapi.cn/v1"
 
@@ -133,7 +133,7 @@ def test_premium_profile_replaces_stale_kimi_with_deepseek(monkeypatch):
 
     assert runtime.model == "deepseek-v4-pro-0813"
     assert runtime.profile == "premium"
-    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}, "reasoning_effort": "none"}
 
 
 def test_planner_runtime_uses_dedicated_openai_compatible_config(monkeypatch):
@@ -209,7 +209,28 @@ def test_stale_kimi_fast_override_is_replaced_by_deepseek(monkeypatch):
     runtime = runtime_module.get_kindergarten_planner_runtime()
 
     assert runtime.model == "deepseek-v4-pro-0813"
-    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}}
+    assert runtime.request_extra_body == {"thinking": {"type": "disabled"}, "reasoning_effort": "none"}
+
+
+@pytest.mark.parametrize("base_url,is_dmx", [
+    ("https://www.dmxapi.cn/v1", True),
+    ("https://dmxapi.com/v1", True),
+    ("https://api.deepseek.com/v1", False),
+    ("https://dmxapi.cn.example.test/v1", False),
+])
+def test_dedicated_planner_limits_gateway_switch_to_dmx(monkeypatch, base_url, is_dmx):
+    _clear_planner_env(monkeypatch)
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_BASE_URL", base_url)
+    monkeypatch.setenv("KINDERGARTEN_PLANNER_API_KEY", "test-key")
+    runtime = runtime_module.get_kindergarten_planner_runtime()
+    from utils.llm_utils import get_generate_kwargs
+    # Verify the body survives the common request builder as sent by the planner.
+    kwargs = get_generate_kwargs(
+        model=runtime.model, messages=[], extra_body=runtime.request_extra_body,
+        use_provider_extra_body=False,
+    )
+    assert kwargs["extra_body"]["thinking"] == {"type": "disabled"}
+    assert kwargs["extra_body"].get("reasoning_effort") == ("none" if is_dmx else None)
 
 
 def test_stale_deepseek_flash_override_is_replaced_by_pro(monkeypatch):

@@ -30,6 +30,7 @@ class PassingQuality:
 
 @pytest.fixture(autouse=True)
 def configured_test_quality(monkeypatch):
+    monkeypatch.setenv('ASSET_SEMANTIC_QA_ENABLED', 'true')
     monkeypatch.setattr(asset_execution_service, 'build_default_asset_semantic_quality_service', PassingQuality)
 
 
@@ -71,13 +72,15 @@ class FakeImageService:
         return 'fake-dmx'
 
 
-@pytest.mark.parametrize('outcome', ['success', 'quality_failed', 'manual_image', 'changed_prompt', 'unconfigured'])
+@pytest.mark.parametrize('outcome', ['success', 'qa_disabled', 'quality_failed', 'manual_image', 'changed_prompt', 'unconfigured'])
 def test_single_replacement_keeps_original_until_validated_and_preserves_edits(tmp_path, monkeypatch, outcome):
     from services.asset_semantic_quality_service import AssetSemanticQualityResult
     monkeypatch.setenv('DISABLE_AUTH', 'true')
     monkeypatch.setenv('APP_DATA_DIRECTORY', str(tmp_path))
     monkeypatch.setenv('ALIYUN_OSS_ENABLED', 'false')
     monkeypatch.setattr(asset_execution_service, 'record_asset_generation_trace', AsyncMock())
+    if outcome == 'qa_disabled':
+        monkeypatch.delenv('ASSET_SEMANTIC_QA_ENABLED')
     if outcome == 'unconfigured':
         monkeypatch.setattr(asset_execution_service, 'build_default_asset_semantic_quality_service', lambda: None)
     output = tmp_path / 'new-image.png'
@@ -124,7 +127,7 @@ def test_single_replacement_keeps_original_until_validated_and_preserves_edits(t
                     return await super().generate_image(prompt)
             provider = ConcurrentEditsService(output)
             await run_repair(deck_id, run_id, None, session_factory=sessions, image_service=provider,
-                quality_service=FailedQuality() if outcome == 'quality_failed' else None)
+                quality_service=FailedQuality() if outcome in ('quality_failed', 'qa_disabled') else None)
             async with sessions() as session:
                 saved = await session.get(SlideModel, slide_id)
                 state = await read_status(session, deck_id)
@@ -136,7 +139,7 @@ def test_single_replacement_keeps_original_until_validated_and_preserves_edits(t
                 assert image['size'] == before.ui['components'][0]['elements'][0]['size']
                 if outcome != 'unconfigured':
                     assert saved.content['heading']['title'] == '老师等待期间修改的标题'
-                if outcome == 'success':
+                if outcome in ('success', 'qa_disabled'):
                     assert state['status'] == 'completed'
                     assert len(state['replacements']) == 1
                     assert image['fit'] == 'contain' and image['crop_scale'] == 1

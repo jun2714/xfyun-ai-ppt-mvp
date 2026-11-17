@@ -122,6 +122,22 @@
   color: #8a5b10 !important;
 }
 
+.outline-review-notice p {
+  color: inherit;
+}
+
+.outline-review-notice ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.outline-template-recommendation {
+  margin-top: 8px !important;
+  color: #475467 !important;
+}
+
 @keyframes outline-progress-spin {
   to { transform: rotate(360deg); }
 }
