@@ -1,0 +1,288 @@
+{
+  "brief": {
+    "topic": "海洋动物的身体秘密",
+    "age_group": "4-5岁",
+    "domain": "science",
+    "content_mode": "classroom",
+    "duration_minutes": 20,
+    "n_slides": 8,
+    "instructions": "围绕观察和比较海龟、海豚、章鱼的外形特征设计一节中班活动。幼儿用指认、描述和比较表达发现，不要求书写或背诵分类术语。三种动物保持一致，不额外展开植物生长活动。保留8页，文字少、图片大，每个活动明确教师引导与幼儿动作。",
+    "source_context": "【人工构造的回归样例，非真实用户生成结果，不能用于宣称线上质量提升。】本课观察资料：海龟有壳，鳍状肢可用于观察；海豚可观察背鳍和尾鳍；章鱼有八条腕。只围绕这些可见特征作比较，不要求幼儿学习动物分类学。"
+  },
+  "plan": {
+    "meta": {
+      "topic": "海洋动物的身体秘密",
+      "age_group": "4-5岁",
+      "domain": "science",
+      "duration_minutes": 20
+    },
+    "lesson_goals": [
+      "观察海龟、海豚和章鱼的明显外形特征。",
+      "通过指认和比较，说出两种动物外形的一处不同。"
+    ],
+    "lesson_arc": [
+      "进入海洋观察情境",
+      "分别观察三种动物",
+      "开展比较与表达",
+      "回顾发现"
+    ],
+    "slides": [
+      {
+        "slide_no": 1,
+        "slide_type": "cover-scene",
+        "teaching_goal": "进入观察三种海洋动物的活动。",
+        "screen_content": {
+          "title": "海洋动物的身体秘密",
+          "points": [],
+          "instruction": "跟着手指找一找。"
+        },
+        "interaction": {
+          "type": "observe",
+          "instruction": "跟着手指找一找。"
+        },
+        "teacher_note": "用1分钟出示三种动物全身图，请幼儿指一指见过的动物，说明今天要观察身体上的不同特征。",
+        "assets": [
+          {
+            "slot": "background",
+            "semantic_label": "海龟、海豚、章鱼的海底场景",
+            "description": "清晰展示完整海龟、海豚、章鱼各一只，彼此不遮挡，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "background",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "scene"
+        ]
+      },
+      {
+        "slide_no": 2,
+        "slide_type": "image-observation",
+        "teaching_goal": "指认海龟的壳和鳍状肢。",
+        "screen_content": {
+          "title": "看看海龟",
+          "points": [
+            "背上有壳",
+            "两侧有鳍状肢"
+          ],
+          "instruction": "指一指海龟的壳。"
+        },
+        "interaction": {
+          "type": "observe",
+          "instruction": "指一指海龟的壳。"
+        },
+        "teacher_note": "用3分钟出示完整海龟图片，先让幼儿自由观察，再请幼儿指出壳与鳍状肢的位置，鼓励用自己的话描述。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "完整海龟侧面",
+            "description": "一只完整海龟的侧面图，壳与四个鳍状肢清晰可见，主体不裁切，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 3,
+        "slide_type": "image-observation",
+        "teaching_goal": "观察海豚的背鳍和尾鳍。",
+        "screen_content": {
+          "title": "看看海豚",
+          "points": [
+            "背上有鳍",
+            "尾巴有尾鳍"
+          ],
+          "instruction": "指一指背鳍和尾鳍。"
+        },
+        "interaction": {
+          "type": "observe",
+          "instruction": "指一指背鳍和尾鳍。"
+        },
+        "teacher_note": "用3分钟出示图片，引导幼儿观察海豚背部与尾部，再用手势指出两处特征。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "完整海豚侧面",
+            "description": "近景展示一颗豆子种子在泥土里发芽，绿色幼苗和根须清楚可见，画面没有任何动物，也不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 4,
+        "slide_type": "image-observation",
+        "teaching_goal": "观察章鱼的腕。",
+        "screen_content": {
+          "title": "看看章鱼",
+          "points": [
+            "有八条腕"
+          ],
+          "instruction": "沿着腕指一指。"
+        },
+        "interaction": {
+          "type": "observe",
+          "instruction": "沿着腕指一指。"
+        },
+        "teacher_note": "用3分钟展示完整章鱼图，教师逐条指认八条腕，幼儿跟随指认；不把独立数到八作为本次活动的要求。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "完整章鱼及八条腕",
+            "description": "一只完整章鱼，八条腕清楚分开且可辨认，不拟人化，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true,
+            "audience_text": "有八条腕"
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 5,
+        "slide_type": "knowledge-single",
+        "teaching_goal": "学习种子生长需要泥土和水。",
+        "screen_content": {
+          "title": "种子发芽了",
+          "points": [
+            "把种子放进泥土",
+            "给种子浇水"
+          ],
+          "instruction": "一起练习给种子浇水。"
+        },
+        "interaction": {
+          "type": "observe",
+          "instruction": "一起练习给种子浇水。"
+        },
+        "teacher_note": "用3分钟拿出花盆和豆子，教师示范把种子放入泥土，再让幼儿轮流拿小水壶浇水，观察土壤变湿。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "花盆里的豆苗",
+            "description": "小花盆中一株豆苗和一个小水壶，幼苗、泥土清楚可见，没有动物，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 6,
+        "slide_type": "compare",
+        "teaching_goal": "比较三种海洋动物的身体特征。",
+        "screen_content": {
+          "title": "它们有什么不同",
+          "points": [
+            "海龟有壳",
+            "海豚有鳍",
+            "章鱼有腕"
+          ],
+          "instruction": "写出它们所属的纲。"
+        },
+        "interaction": {
+          "type": "discuss",
+          "instruction": "写出它们所属的纲。"
+        },
+        "teacher_note": "用3分钟要求每位幼儿在练习纸写出“爬行纲、哺乳纲、头足纲”，全部写对后才能进入下一环节，不安排指认或口头比较。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "海龟、海豚、章鱼的对照图",
+            "description": "三个相同大小的区域分别放完整海龟、海豚和章鱼，清楚显示壳、鳍和腕，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 7,
+        "slide_type": "recap",
+        "teaching_goal": "用自己的话说出两种动物的一处不同。",
+        "screen_content": {
+          "title": "说说你的发现",
+          "points": [
+            "看看壳、鳍和腕"
+          ],
+          "instruction": "选两只动物，说说哪里不同。"
+        },
+        "interaction": {
+          "type": "recall",
+          "instruction": "选两只动物，说说哪里不同。"
+        },
+        "teacher_note": "用3分钟请幼儿指向任意两张动物图，说出一处明显差异。教师依据幼儿的指认补充表达，不要求背诵完整句子。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "三种动物及其可见特征",
+            "description": "完整海龟、海豚和章鱼并列展示，动物之间留足空隙，壳、鳍、腕清楚可见，无文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      },
+      {
+        "slide_no": 8,
+        "slide_type": "ending-scene",
+        "teaching_goal": "回顾观察与比较的方法。",
+        "screen_content": {
+          "title": "下次继续观察",
+          "points": [
+            "仔细看",
+            "说不同"
+          ],
+          "instruction": "用一句话告诉大家你的发现。"
+        },
+        "interaction": {
+          "type": "discuss",
+          "instruction": "用一句话告诉大家你的发现。"
+        },
+        "teacher_note": "用1分钟邀请幼儿分享今天最喜欢观察的一种动物，教师回应其发现，并结束活动。",
+        "assets": [
+          {
+            "slot": "main-image",
+            "semantic_label": "三种海洋动物的告别场景",
+            "description": "海龟、海豚、章鱼各一只完整出现在清晰海水背景中，不拟人化，不含文字。",
+            "required": true,
+            "expected_count": 1,
+            "role": "framed-image",
+            "qa_required": true
+          }
+        ],
+        "layout_capabilities": [
+          "image-text"
+        ]
+      }
+    ]
+  },
+  "max_revision_rounds": 2,
+  "timeout_seconds": 360,
+  "max_model_calls": 5
+}

@@ -39,6 +39,10 @@ from models.kindergarten_lesson_plan import (
     KindergartenDomain,
     KindergartenLessonPlan,
 )
+from models.kindergarten_content_review import (
+    KindergartenContentReviewRequest,
+    KindergartenContentReviewResponse,
+)
 from models.presentation_outline_model import PresentationOutlineModel
 from models.sse_response import (
     SSECompleteResponse,
@@ -1625,3 +1629,22 @@ async def validate_kindergarten_plan(
     content_mode: Literal["classroom", "training"] = "classroom",
 ):
     return validate_kindergarten_lesson_plan(plan, content_mode=content_mode)
+
+
+@KINDERGARTEN_ROUTER.post(
+    "/lesson-plan/review",
+    response_model=KindergartenContentReviewResponse,
+)
+async def review_kindergarten_plan(
+    payload: KindergartenContentReviewRequest,
+    request: Request,
+):
+    """Explicit text-only experiment; never changes a saved deck or default generation."""
+    from services.kindergarten_content_review_provider import OpenAICompatibleReviewCaller
+    from services.kindergarten_content_review_service import review_kindergarten_content
+
+    return await review_kindergarten_content(
+        payload,
+        caller=OpenAICompatibleReviewCaller(),
+        disconnect_checker=request.is_disconnected,
+    )
